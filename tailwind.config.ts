@@ -13,11 +13,14 @@ export default {
       },
     },
     fontFamily: {
-      heading: ['DM Serif Display', 'serif'],
-      body: ['DM Sans', 'sans-serif'],
+      sans: ['Poppins', 'Noto Sans Devanagari', 'sans-serif'],
     },
     extend: {
       colors: {
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -52,6 +55,7 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         sidebar: {
+
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
           primary: "hsl(var(--sidebar-primary))",
