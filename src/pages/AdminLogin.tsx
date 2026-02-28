@@ -17,7 +17,13 @@ export default function AdminLogin() {
     setLoading(true);
     const { error } = await signIn(email, password);
     if (error) {
-      setError('Invalid email or password');
+      if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.toLowerCase().includes('failed')) {
+        setError('Network error — please check your internet connection and try again.');
+      } else if (error.message?.includes('Invalid login credentials')) {
+        setError('Invalid email or password. Make sure you created the account in the backend.');
+      } else {
+        setError(error.message || 'Login failed. Please try again.');
+      }
     } else {
       navigate('/admin');
     }
