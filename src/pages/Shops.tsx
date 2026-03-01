@@ -3,6 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Phone, MessageCircle, ArrowLeft, Clock } from 'lucide-react';
 
+function formatTime(time: string) {
+  const [h, m] = time.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
+}
+
 export default function Shops() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -101,7 +108,7 @@ function ShopCard({ shop, onClick }: { shop: any; onClick: () => void }) {
           {(shop.opening_time || shop.closing_time) && (
             <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
               <Clock className="w-3 h-3" />
-              {shop.opening_time && shop.opening_time.slice(0, 5)} – {shop.closing_time && shop.closing_time.slice(0, 5)}
+              {shop.opening_time && formatTime(shop.opening_time)} – {shop.closing_time && formatTime(shop.closing_time)}
             </p>
           )}
         </div>
