@@ -332,6 +332,8 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
     is_open: shop.is_open ?? true,
     is_active: shop.is_active ?? true,
     image_url: shop.image_url || '',
+    latitude: shop.latitude?.toString() || '',
+    longitude: shop.longitude?.toString() || '',
   });
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -387,6 +389,8 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
       opening_time: form.opening_time || null,
       closing_time: form.closing_time || null,
       category_id: form.category_id || null,
+      latitude: form.latitude ? parseFloat(form.latitude) : null,
+      longitude: form.longitude ? parseFloat(form.longitude) : null,
     };
     let error;
     if (isEdit) {
@@ -436,6 +440,44 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
           <Field label="Area / Locality">
             <input value={form.area} onChange={(e) => set('area', e.target.value)} className={inputCls} placeholder="e.g. Main Road, Ward 5" />
           </Field>
+
+          {/* Google Maps Location */}
+          <div>
+            <label className="block text-sm font-semibold text-foreground mb-1.5">
+              📍 Location (Google Maps Pin)
+            </label>
+            <div className="grid grid-cols-2 gap-3 mb-2">
+              <div>
+                <input
+                  type="number"
+                  step="any"
+                  value={form.latitude}
+                  onChange={(e) => set('latitude', e.target.value)}
+                  className={inputCls}
+                  placeholder="Latitude e.g. 21.0325"
+                />
+              </div>
+              <div>
+                <input
+                  type="number"
+                  step="any"
+                  value={form.longitude}
+                  onChange={(e) => set('longitude', e.target.value)}
+                  className={inputCls}
+                  placeholder="Longitude e.g. 75.6920"
+                />
+              </div>
+            </div>
+            <a
+              href={`https://www.google.com/maps/search/${encodeURIComponent((form.name || '') + ' ' + (form.area || '') + ' Muktainagar')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+            >
+              🗺️ Search on Google Maps to find coordinates → right-click the pin → copy lat/lng
+            </a>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <Field label="Opening Time">
               <input type="time" value={form.opening_time} onChange={(e) => set('opening_time', e.target.value)} className={inputCls} />

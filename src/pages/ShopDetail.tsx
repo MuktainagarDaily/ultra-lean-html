@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Phone, MessageCircle, ArrowLeft, MapPin, Clock, Tag } from 'lucide-react';
+import { Phone, MessageCircle, ArrowLeft, MapPin, Clock, Tag, Navigation } from 'lucide-react';
 
 function formatTime(time: string) {
   const [h, m] = time.split(':').map(Number);
@@ -59,6 +59,12 @@ export default function ShopDetail() {
   }
 
   const isOpen = shop.is_open;
+  const hasCoords = shop.latitude && shop.longitude;
+  const mapsUrl = hasCoords
+    ? `https://www.google.com/maps?q=${shop.latitude},${shop.longitude}`
+    : shop.address
+    ? `https://www.google.com/maps/search/${encodeURIComponent(shop.address + ' ' + (shop.area || '') + ' Muktainagar')}`
+    : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -127,6 +133,13 @@ export default function ShopDetail() {
           {shop.categories && (
             <DetailRow icon={<Tag className="w-5 h-5 text-primary" />} label="Category" value={shop.categories.name} />
           )}
+          {hasCoords && (
+            <DetailRow
+              icon={<Navigation className="w-5 h-5 text-primary" />}
+              label="Coordinates"
+              value={`${Number(shop.latitude).toFixed(5)}, ${Number(shop.longitude).toFixed(5)}`}
+            />
+          )}
         </div>
 
         {/* Action Buttons */}
@@ -149,6 +162,17 @@ export default function ShopDetail() {
             >
               <MessageCircle className="w-5 h-5" />
               Chat on WhatsApp
+            </a>
+          )}
+          {mapsUrl && (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-3 w-full bg-blue-500 text-white py-4 rounded-xl font-bold text-base hover:bg-blue-600 active:scale-95 transition-all"
+            >
+              <MapPin className="w-5 h-5" />
+              Open in Google Maps
             </a>
           )}
         </div>
