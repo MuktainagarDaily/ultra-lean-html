@@ -46,6 +46,8 @@ export type Database = {
           image_url: string | null
           is_active: boolean
           is_open: boolean
+          latitude: number | null
+          longitude: number | null
           name: string
           opening_time: string | null
           phone: string | null
@@ -61,6 +63,8 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean
           is_open?: boolean
+          latitude?: number | null
+          longitude?: number | null
           name: string
           opening_time?: string | null
           phone?: string | null
@@ -76,6 +80,8 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean
           is_open?: boolean
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           opening_time?: string | null
           phone?: string | null

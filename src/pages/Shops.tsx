@@ -1,7 +1,8 @@
+import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Phone, MessageCircle, ArrowLeft, Clock } from 'lucide-react';
+import { Phone, MessageCircle, ArrowLeft, Clock, Search, MapPin, X } from 'lucide-react';
 
 function formatTime(time: string) {
   const [h, m] = time.split(':').map(Number);
@@ -11,12 +12,20 @@ function formatTime(time: string) {
 }
 
 export default function Shops() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const searchQuery = searchParams.get('search') || '';
+  const initialSearch = searchParams.get('search') || '';
+  const [localSearch, setLocalSearch] = useState(initialSearch);
+
+  // Debounce search query for API calls
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(localSearch), 300);
+    return () => clearTimeout(t);
+  }, [localSearch]);
 
   const { data: shops = [], isLoading } = useQuery({
-    queryKey: ['shops', 'all', searchQuery],
+    queryKey: ['shops', 'all', debouncedSearch],
     queryFn: async () => {
       let query = supabase
         .from('shops')
@@ -24,8 +33,8 @@ export default function Shops() {
         .eq('is_active', true)
         .order('name');
 
-      if (searchQuery) {
-        query = query.ilike('name', `%${searchQuery}%`);
+      if (debouncedSearch) {
+        query = query.or(`name.ilike.%${debouncedSearch}%,area.ilike.%${debouncedSearch}%`);
       }
 
       const { data, error } = await query;
@@ -34,19 +43,40 @@ export default function Shops() {
     },
   });
 
-  const title = searchQuery ? `Results for "${searchQuery}"` : 'All Shops';
+  const title = debouncedSearch ? `Results for "${debouncedSearch}"` : 'All Shops';
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-10">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-1">
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-          <div>
-            <h1 className="font-bold text-lg leading-tight">{title}</h1>
-            <p className="text-primary-foreground/70 text-xs">{shops.length} shops found</p>
+      <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-10 shadow-md">
+        <div className="max-w-lg mx-auto">
+          <div className="flex items-center gap-3 mb-3">
+            <button onClick={() => navigate(-1)} className="p-1 shrink-0">
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <div>
+              <h1 className="font-bold text-lg leading-tight">{title}</h1>
+              <p className="text-primary-foreground/70 text-xs">{shops.length} shops found</p>
+            </div>
+          </div>
+          {/* Inline search bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
+              placeholder="Search by name or area..."
+              className="w-full pl-9 pr-9 py-2.5 rounded-xl text-foreground bg-card text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
+            />
+            {localSearch && (
+              <button
+                onClick={() => setLocalSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -87,6 +117,12 @@ export default function Shops() {
 
 function ShopCard({ shop, onClick }: { shop: any; onClick: () => void }) {
   const isOpen = shop.is_open;
+  const hasCoords = shop.latitude && shop.longitude;
+  const mapsUrl = hasCoords
+    ? `https://www.google.com/maps?q=${shop.latitude},${shop.longitude}`
+    : shop.address
+    ? `https://www.google.com/maps/search/${encodeURIComponent(shop.address + ' ' + (shop.area || '') + ' Muktainagar')}`
+    : null;
 
   return (
     <div
@@ -142,6 +178,16 @@ function ShopCard({ shop, onClick }: { shop: any; onClick: () => void }) {
           >
             <MessageCircle className="w-4 h-4" />
             WhatsApp
+          </a>
+        )}
+        {mapsUrl && (
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 bg-blue-500 text-white px-3 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-600 active:scale-95 transition-all"
+          >
+            <MapPin className="w-4 h-4" />
           </a>
         )}
       </div>
