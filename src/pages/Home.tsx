@@ -114,7 +114,7 @@ export default function Home() {
 
       {/* Floating WhatsApp Button */}
       <a
-        href="https://wa.me/919876543210?text=Hello%2C%20I%20want%20my%20shop%20listed%20on%20Muktainagar%20Daily!"
+        href="https://wa.me/919373065746?text=Hello%2C%20I%20want%20my%20shop%20listed%20on%20Muktainagar%20Daily!"
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-4 flex items-center gap-2 bg-[#25D366] text-white px-4 py-3 rounded-full shadow-lg hover:bg-[#22c55e] active:scale-95 transition-all z-50 font-semibold text-sm"
