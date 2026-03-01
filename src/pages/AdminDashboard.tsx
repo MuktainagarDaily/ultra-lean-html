@@ -345,13 +345,30 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
     },
   });
 
+  const compressImage = (file: File, maxWidth = 800, quality = 0.75): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => resolve(blob!), 'image/webp', quality);
+      };
+      img.src = url;
+    });
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    const ext = file.name.split('.').pop();
-    const path = `shop-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from('shop-images').upload(path, file, { upsert: true });
+    const compressed = await compressImage(file);
+    const path = `shop-${Date.now()}.webp`;
+    const { error } = await supabase.storage.from('shop-images').upload(path, compressed, { upsert: true, contentType: 'image/webp' });
     if (error) {
       toast.error('Image upload failed');
     } else {
