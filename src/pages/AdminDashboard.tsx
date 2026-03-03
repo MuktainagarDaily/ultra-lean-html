@@ -10,6 +10,14 @@ import { toast } from 'sonner';
 
 type Tab = 'shops' | 'categories';
 
+function formatAdminTime(time: string) {
+  if (!time) return '';
+  const [h, m] = time.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
+}
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>('shops');
   const [shopForm, setShopForm] = useState<any>(null);
@@ -26,18 +34,24 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-muted">
       {/* Top Bar */}
-      <header className="bg-primary text-primary-foreground px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <MapPin className="w-5 h-5" />
-          <span className="font-bold text-lg">Muktainagar Daily — Admin</span>
+      <header className="bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <MapPin className="w-5 h-5 shrink-0" />
+          <span className="font-bold text-base sm:text-lg truncate">Muktainagar Daily — Admin</span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-primary-foreground/70 hidden sm:block">{user?.email}</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-1.5 bg-primary-foreground/10 hover:bg-primary-foreground/20 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors"
+          >
+            🏠 <span className="hidden sm:inline">Client Site</span>
+          </button>
+          <span className="text-xs text-primary-foreground/70 hidden md:block truncate max-w-[140px]">{user?.email}</span>
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-1.5 bg-primary-foreground/10 hover:bg-primary-foreground/20 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-1.5 bg-primary-foreground/10 hover:bg-primary-foreground/20 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors"
           >
-            <LogOut className="w-4 h-4" /> Sign Out
+            <LogOut className="w-4 h-4" /> <span className="hidden sm:inline">Sign Out</span>
           </button>
         </div>
       </header>
@@ -481,9 +495,11 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
           <div className="grid grid-cols-2 gap-4">
             <Field label="Opening Time">
               <input type="time" value={form.opening_time} onChange={(e) => set('opening_time', e.target.value)} className={inputCls} />
+              {form.opening_time && <p className="text-xs text-muted-foreground mt-1">{formatAdminTime(form.opening_time)}</p>}
             </Field>
             <Field label="Closing Time">
               <input type="time" value={form.closing_time} onChange={(e) => set('closing_time', e.target.value)} className={inputCls} />
+              {form.closing_time && <p className="text-xs text-muted-foreground mt-1">{formatAdminTime(form.closing_time)}</p>}
             </Field>
           </div>
           <div className="flex gap-6">
