@@ -2,13 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Phone, MessageCircle, ArrowLeft, MapPin, Clock, Tag, Navigation } from 'lucide-react';
-
-function formatTime(time: string) {
-  const [h, m] = time.split(':').map(Number);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const hour = h % 12 || 12;
-  return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
-}
+import { formatTime, isShopOpen } from '@/lib/shopUtils';
 
 export default function ShopDetail() {
   const { id } = useParams<{ id: string }>();
@@ -19,7 +13,7 @@ export default function ShopDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shops')
-        .select('*, categories(name, icon)')
+        .select('*, shop_categories(categories(name, icon))')
         .eq('id', id!)
         .single();
       if (error) throw error;
@@ -33,11 +27,9 @@ export default function ShopDetail() {
       <div className="min-h-screen bg-background">
         <div className="bg-primary h-16 animate-pulse" />
         <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
-          <div className="bg-card rounded-xl p-4 border border-border animate-pulse">
-            <div className="h-6 bg-muted rounded w-3/4 mb-3" />
-            <div className="h-4 bg-muted rounded w-1/2 mb-2" />
-            <div className="h-4 bg-muted rounded w-2/3" />
-          </div>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-card rounded-xl p-4 border border-border animate-pulse h-20" />
+          ))}
         </div>
       </div>
     );
@@ -58,20 +50,29 @@ export default function ShopDetail() {
     );
   }
 
-  const isOpen = shop.is_open;
+  const open = isShopOpen(shop);
+
+  const allCats: { name: string; icon: string }[] = (shop as any).shop_categories
+    ?.map((sc: any) => sc.categories)
+    .filter(Boolean) || [];
+
   const hasCoords = shop.latitude && shop.longitude;
   const mapsUrl = hasCoords
     ? `https://www.google.com/maps?q=${shop.latitude},${shop.longitude}`
     : shop.address
-    ? `https://www.google.com/maps/search/${encodeURIComponent(shop.address + ' ' + (shop.area || '') + ' Muktainagar')}`
+    ? `https://www.google.com/maps/search/${encodeURIComponent(
+        shop.address + ' ' + (shop.area || '') + ' Muktainagar'
+      )}`
     : null;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-10">
+      <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-10 shadow-md">
         <div className="max-w-lg mx-auto flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-1">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-1 hover:bg-primary-foreground/10 rounded-lg transition-colors shrink-0"
+          >
             <ArrowLeft className="w-6 h-6" />
           </button>
           <h1 className="font-bold text-lg leading-tight truncate">{shop.name}</h1>
@@ -94,23 +95,29 @@ export default function ShopDetail() {
         {/* Name + Status */}
         <div className="bg-card rounded-xl border border-border p-4">
           <div className="flex items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <h2 className="text-xl font-bold text-foreground">{shop.name}</h2>
-              {shop.categories && (
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-lg">{shop.categories.icon}</span>
-                  <span className="text-sm text-muted-foreground">{shop.categories.name}</span>
+              {allCats.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {allCats.map((c, i) => (
+                    <span
+                      key={i}
+                      className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium"
+                    >
+                      <span>{c.icon}</span> {c.name}
+                    </span>
+                  ))}
                 </div>
               )}
             </div>
             <span
               className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-bold ${
-                isOpen
+                open
                   ? 'bg-success/10 text-success border border-success/30'
                   : 'bg-destructive/10 text-destructive border border-destructive/20'
               }`}
             >
-              {isOpen ? '● OPEN' : '● CLOSED'}
+              {open ? '● OPEN' : '● CLOSED'}
             </span>
           </div>
         </div>
@@ -127,11 +134,15 @@ export default function ShopDetail() {
             <DetailRow
               icon={<Clock className="w-5 h-5 text-primary" />}
               label="Hours"
-              value={`${shop.opening_time ? formatTime(shop.opening_time) : '--'} to ${shop.closing_time ? formatTime(shop.closing_time) : '--'}`}
+              value={`${formatTime(shop.opening_time) || '--'} – ${formatTime(shop.closing_time) || '--'}`}
             />
           )}
-          {shop.categories && (
-            <DetailRow icon={<Tag className="w-5 h-5 text-primary" />} label="Category" value={shop.categories.name} />
+          {allCats.length > 0 && (
+            <DetailRow
+              icon={<Tag className="w-5 h-5 text-primary" />}
+              label="Categories"
+              value={allCats.map((c) => `${c.icon} ${c.name}`).join('  •  ')}
+            />
           )}
           {hasCoords && (
             <DetailRow
@@ -143,7 +154,7 @@ export default function ShopDetail() {
         </div>
 
         {/* Action Buttons */}
-        <div className="space-y-3">
+        <div className="space-y-3 pb-6">
           {shop.phone && (
             <a
               href={`tel:${shop.phone}`}
@@ -185,9 +196,9 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
   return (
     <div className="flex items-start gap-3 px-4 py-3">
       <div className="mt-0.5 shrink-0">{icon}</div>
-      <div>
+      <div className="min-w-0">
         <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{label}</p>
-        <p className="text-foreground font-medium mt-0.5">{value}</p>
+        <p className="text-foreground font-medium mt-0.5 break-words">{value}</p>
       </div>
     </div>
   );

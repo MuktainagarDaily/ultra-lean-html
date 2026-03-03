@@ -8,14 +8,12 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { formatTime } from '@/lib/shopUtils';
+
 type Tab = 'shops' | 'categories';
 
 function formatAdminTime(time: string) {
-  if (!time) return '';
-  const [h, m] = time.split(':').map(Number);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const hour = h % 12 || 12;
-  return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
+  return formatTime(time);
 }
 
 export default function AdminDashboard() {
@@ -336,7 +334,6 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
   const isEdit = !!shop.id;
   const [form, setForm] = useState({
     name: shop.name || '',
-    category_id: shop.category_id || '',
     phone: shop.phone || '',
     whatsapp: shop.whatsapp || '',
     address: shop.address || '',
@@ -349,6 +346,7 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
     latitude: shop.latitude?.toString() || '',
     longitude: shop.longitude?.toString() || '',
   });
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -359,6 +357,21 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
       if (error) throw error;
       return data;
     },
+  });
+
+  // Load existing category assignments for edit mode
+  useQuery({
+    queryKey: ['shop-categories', shop.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('shop_categories')
+        .select('category_id')
+        .eq('shop_id', shop.id);
+      if (error) throw error;
+      setSelectedCategoryIds(data.map((r: any) => r.category_id));
+      return data;
+    },
+    enabled: !!shop.id,
   });
 
   const compressImage = (file: File, maxWidth = 800, quality = 0.75): Promise<Blob> => {
@@ -402,30 +415,48 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
       ...form,
       opening_time: form.opening_time || null,
       closing_time: form.closing_time || null,
-      category_id: form.category_id || null,
       latitude: form.latitude ? parseFloat(form.latitude) : null,
       longitude: form.longitude ? parseFloat(form.longitude) : null,
     };
+    let shopId = shop.id;
     let error;
     if (isEdit) {
       ({ error } = await supabase.from('shops').update(payload).eq('id', shop.id));
     } else {
-      ({ error } = await supabase.from('shops').insert(payload));
+      const { data: inserted, error: insertError } = await supabase.from('shops').insert(payload).select('id').single();
+      error = insertError;
+      if (inserted) shopId = inserted.id;
     }
     if (error) {
       toast.error('Failed to save shop');
-    } else {
-      toast.success(isEdit ? 'Shop updated!' : 'Shop added!');
-      onSaved();
+      setSaving(false);
+      return;
     }
+    // Sync categories in junction table
+    if (shopId) {
+      await supabase.from('shop_categories').delete().eq('shop_id', shopId);
+      if (selectedCategoryIds.length > 0) {
+        await supabase.from('shop_categories').insert(
+          selectedCategoryIds.map((catId) => ({ shop_id: shopId, category_id: catId }))
+        );
+      }
+    }
+    toast.success(isEdit ? 'Shop updated!' : 'Shop added!');
+    onSaved();
     setSaving(false);
+  };
+
+  const toggleCategory = (catId: string) => {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(catId) ? prev.filter((id) => id !== catId) : [...prev, catId]
+    );
   };
 
   const set = (key: string, val: any) => setForm((f) => ({ ...f, [key]: val }));
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
-      <div className="bg-card rounded-2xl border border-border w-full max-w-xl shadow-2xl">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4">
+      <div className="bg-card rounded-2xl border border-border w-full max-w-xl shadow-2xl my-4">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-bold text-lg text-foreground">{isEdit ? 'Edit Shop' : 'Add New Shop'}</h2>
           <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg"><X className="w-5 h-5" /></button>
@@ -434,12 +465,34 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
           <Field label="Shop Name *">
             <input required value={form.name} onChange={(e) => set('name', e.target.value)} className={inputCls} placeholder="e.g. Sharma General Store" />
           </Field>
-          <Field label="Category">
-            <select value={form.category_id} onChange={(e) => set('category_id', e.target.value)} className={inputCls}>
-              <option value="">— Select category —</option>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-            </select>
-          </Field>
+          {/* Multi-category checkboxes */}
+          <div>
+            <label className="block text-sm font-semibold text-foreground mb-2">
+              Categories <span className="text-muted-foreground font-normal">(select one or more)</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {categories.map((c) => {
+                const selected = selectedCategoryIds.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => toggleCategory(c.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                      selected
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-foreground border-border hover:border-primary'
+                    }`}
+                  >
+                    <span>{c.icon}</span> {c.name}
+                  </button>
+                );
+              })}
+            </div>
+            {selectedCategoryIds.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1">No category selected</p>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Phone">
               <input value={form.phone} onChange={(e) => set('phone', e.target.value)} className={inputCls} placeholder="+91 9876543210" />
