@@ -35,6 +35,39 @@ export type Database = {
         }
         Relationships: []
       }
+      shop_categories: {
+        Row: {
+          category_id: string
+          id: string
+          shop_id: string
+        }
+        Insert: {
+          category_id: string
+          id?: string
+          shop_id: string
+        }
+        Update: {
+          category_id?: string
+          id?: string
+          shop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_categories_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shops: {
         Row: {
           address: string | null
