@@ -1,20 +1,15 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  Plus, Pencil, Trash2, LogOut, Store, Tag, Eye, EyeOff, MapPin, X, Check
+  Plus, Pencil, Trash2, LogOut, Store, Tag, Eye, EyeOff, MapPin, X, Check, Search, Home
 } from 'lucide-react';
 import { toast } from 'sonner';
-
 import { formatTime } from '@/lib/shopUtils';
 
 type Tab = 'shops' | 'categories';
-
-function formatAdminTime(time: string) {
-  return formatTime(time);
-}
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>('shops');
@@ -29,63 +24,99 @@ export default function AdminDashboard() {
     navigate('/admin/login');
   };
 
+  // Stats query
+  const { data: stats } = useQuery({
+    queryKey: ['admin-stats'],
+    queryFn: async () => {
+      const [{ count: total }, { count: active }, { count: cats }] = await Promise.all([
+        supabase.from('shops').select('id', { count: 'exact', head: true }),
+        supabase.from('shops').select('id', { count: 'exact', head: true }).eq('is_active', true),
+        supabase.from('categories').select('id', { count: 'exact', head: true }).eq('is_active', true),
+      ]);
+      return { total: total || 0, active: active || 0, cats: cats || 0 };
+    },
+  });
+
   return (
     <div className="min-h-screen bg-muted">
       {/* Top Bar */}
-      <header className="bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between gap-2">
+      <header className="bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between gap-2 shadow-md">
         <div className="flex items-center gap-2 min-w-0">
           <MapPin className="w-5 h-5 shrink-0" />
-          <span className="font-bold text-base sm:text-lg truncate">Muktainagar Daily — Admin</span>
+          <span className="font-bold text-base sm:text-lg truncate">Muktainagar Admin</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => navigate('/')}
             className="flex items-center gap-1.5 bg-primary-foreground/10 hover:bg-primary-foreground/20 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors"
           >
-            🏠 <span className="hidden sm:inline">Client Site</span>
+            <Home className="w-4 h-4" />
+            <span className="hidden sm:inline">Client Site</span>
           </button>
           <span className="text-xs text-primary-foreground/70 hidden md:block truncate max-w-[140px]">{user?.email}</span>
           <button
             onClick={handleSignOut}
             className="flex items-center gap-1.5 bg-primary-foreground/10 hover:bg-primary-foreground/20 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors"
           >
-            <LogOut className="w-4 h-4" /> <span className="hidden sm:inline">Sign Out</span>
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Sign Out</span>
           </button>
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-4 py-6">
+      <div className="max-w-5xl mx-auto px-4 py-4">
+        {/* Stats Bar */}
+        {stats && (
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            <StatCard label="Total Shops" value={stats.total} icon="🏪" />
+            <StatCard label="Active" value={stats.active} icon="✅" />
+            <StatCard label="Categories" value={stats.cats} icon="🏷️" />
+          </div>
+        )}
+
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-5">
           <TabButton active={tab === 'shops'} onClick={() => setTab('shops')} icon={<Store className="w-4 h-4" />} label="Shops" />
           <TabButton active={tab === 'categories'} onClick={() => setTab('categories')} icon={<Tag className="w-4 h-4" />} label="Categories" />
         </div>
 
-        {tab === 'shops' && (
-          <ShopsTab onEdit={(shop) => setShopForm(shop)} />
-        )}
-        {tab === 'categories' && (
-          <CategoriesTab onEdit={(cat) => setCategoryForm(cat)} />
-        )}
+        {tab === 'shops' && <ShopsTab onEdit={(shop) => setShopForm(shop)} />}
+        {tab === 'categories' && <CategoriesTab onEdit={(cat) => setCategoryForm(cat)} />}
       </div>
 
-      {/* Shop Modal */}
       {shopForm !== null && (
         <ShopModal
           shop={shopForm}
           onClose={() => setShopForm(null)}
-          onSaved={() => { setShopForm(null); qc.invalidateQueries({ queryKey: ['admin-shops'] }); }}
+          onSaved={() => {
+            setShopForm(null);
+            qc.invalidateQueries({ queryKey: ['admin-shops'] });
+            qc.invalidateQueries({ queryKey: ['admin-stats'] });
+          }}
         />
       )}
 
-      {/* Category Modal */}
       {categoryForm !== null && (
         <CategoryModal
           category={categoryForm}
           onClose={() => setCategoryForm(null)}
-          onSaved={() => { setCategoryForm(null); qc.invalidateQueries({ queryKey: ['admin-categories'] }); }}
+          onSaved={() => {
+            setCategoryForm(null);
+            qc.invalidateQueries({ queryKey: ['admin-categories'] });
+            qc.invalidateQueries({ queryKey: ['admin-stats'] });
+          }}
         />
       )}
+    </div>
+  );
+}
+
+function StatCard({ label, value, icon }: { label: string; value: number; icon: string }) {
+  return (
+    <div className="bg-card rounded-xl border border-border px-3 py-3 text-center">
+      <div className="text-xl mb-0.5">{icon}</div>
+      <div className="text-xl font-bold text-foreground">{value}</div>
+      <div className="text-xs text-muted-foreground">{label}</div>
     </div>
   );
 }
@@ -95,7 +126,7 @@ function TabButton({ active, onClick, icon, label }: any) {
     <button
       onClick={onClick}
       className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
-        active ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:text-foreground border border-border'
+        active ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-card text-muted-foreground hover:text-foreground border border-border'
       }`}
     >
       {icon} {label}
@@ -106,18 +137,30 @@ function TabButton({ active, onClick, icon, label }: any) {
 /* ─── SHOPS TAB ─────────────────────────────────────────────── */
 function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
   const qc = useQueryClient();
+  const [searchText, setSearchText] = useState('');
 
   const { data: shops = [], isLoading } = useQuery({
     queryKey: ['admin-shops'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shops')
-        .select('*, categories(name)')
+        .select('*, shop_categories(categories(name, icon))')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
   });
+
+  const filtered = useMemo(() => {
+    if (!searchText.trim()) return shops;
+    const q = searchText.toLowerCase();
+    return shops.filter(
+      (s: any) =>
+        s.name?.toLowerCase().includes(q) ||
+        s.area?.toLowerCase().includes(q) ||
+        s.phone?.includes(q)
+    );
+  }, [shops, searchText]);
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
@@ -135,23 +178,39 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
     onSuccess: () => {
       toast.success('Shop deleted');
       qc.invalidateQueries({ queryKey: ['admin-shops'] });
+      qc.invalidateQueries({ queryKey: ['admin-stats'] });
     },
   });
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-foreground">Shops ({shops.length})</h2>
-        <button
-          onClick={() => onEdit({})}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-primary/90"
-        >
-          <Plus className="w-4 h-4" /> Add Shop
-        </button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <h2 className="text-xl font-bold text-foreground">Shops ({filtered.length}/{shops.length})</h2>
+        <div className="flex gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Search shops..."
+              className="pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring w-44"
+            />
+          </div>
+          <button
+            onClick={() => onEdit({})}
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-primary/90 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Shop</span>
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8 text-muted-foreground">Loading...</div>
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => <div key={i} className="bg-card rounded-xl p-4 border border-border skeleton-shimmer h-16" />)}
+        </div>
       ) : (
         <div className="bg-card rounded-xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
@@ -159,59 +218,71 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
               <thead>
                 <tr className="bg-muted/60 border-b border-border">
                   <th className="text-left px-4 py-3 font-semibold text-foreground">Shop</th>
-                  <th className="text-left px-4 py-3 font-semibold text-foreground hidden sm:table-cell">Category</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground hidden sm:table-cell">Categories</th>
                   <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Area</th>
                   <th className="text-left px-4 py-3 font-semibold text-foreground">Status</th>
                   <th className="text-right px-4 py-3 font-semibold text-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {shops.map((shop) => (
-                  <tr key={shop.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-foreground">{shop.name}</div>
-                      {shop.phone && <div className="text-xs text-muted-foreground">{shop.phone}</div>}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
-                      {shop.categories?.name || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
-                      {shop.area || '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => toggleActive.mutate({ id: shop.id, is_active: !shop.is_active })}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          shop.is_active
-                            ? 'bg-success/10 text-success border border-success/30'
-                            : 'bg-muted text-muted-foreground border border-border'
-                        }`}
-                      >
-                        {shop.is_active ? <><Eye className="w-3 h-3" /> Active</> : <><EyeOff className="w-3 h-3" /> Hidden</>}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
+                {filtered.map((shop: any) => {
+                  const cats = shop.shop_categories
+                    ?.map((sc: any) => sc.categories)
+                    .filter(Boolean) || [];
+                  return (
+                    <tr key={shop.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-foreground">{shop.name}</div>
+                        {shop.phone && <div className="text-xs text-muted-foreground">{shop.phone}</div>}
+                      </td>
+                      <td className="px-4 py-3 hidden sm:table-cell">
+                        <div className="flex flex-wrap gap-1">
+                          {cats.length > 0 ? cats.map((c: any, i: number) => (
+                            <span key={i} className="text-xs px-2 py-0.5 rounded-full font-medium"
+                              style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}>
+                              {c.icon} {c.name}
+                            </span>
+                          )) : <span className="text-muted-foreground text-xs">—</span>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell text-sm">
+                        {shop.area || '—'}
+                      </td>
+                      <td className="px-4 py-3">
                         <button
-                          onClick={() => onEdit(shop)}
-                          className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                          onClick={() => toggleActive.mutate({ id: shop.id, is_active: !shop.is_active })}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+                            shop.is_active
+                              ? 'bg-success/10 text-success border border-success/30'
+                              : 'bg-muted text-muted-foreground border border-border'
+                          }`}
                         >
-                          <Pencil className="w-4 h-4" />
+                          {shop.is_active ? <><Eye className="w-3 h-3" /> Active</> : <><EyeOff className="w-3 h-3" /> Hidden</>}
                         </button>
-                        <button
-                          onClick={() => { if (confirm('Delete this shop?')) deleteShop.mutate(shop.id); }}
-                          className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {shops.length === 0 && (
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => onEdit(shop)}
+                            className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => { if (confirm(`Delete "${shop.name}"?`)) deleteShop.mutate(shop.id); }}
+                            className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="text-center py-8 text-muted-foreground">
-                      No shops yet. Add your first shop!
+                    <td colSpan={5} className="text-center py-10 text-muted-foreground">
+                      {searchText ? `No shops matching "${searchText}"` : 'No shops yet. Add your first shop!'}
                     </td>
                   </tr>
                 )}
@@ -253,6 +324,7 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
     onSuccess: () => {
       toast.success('Category deleted');
       qc.invalidateQueries({ queryKey: ['admin-categories'] });
+      qc.invalidateQueries({ queryKey: ['admin-stats'] });
     },
   });
 
@@ -269,7 +341,9 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8 text-muted-foreground">Loading...</div>
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => <div key={i} className="bg-card rounded-xl p-4 border border-border skeleton-shimmer h-16" />)}
+        </div>
       ) : (
         <div className="bg-card rounded-xl border border-border overflow-hidden">
           <table className="w-full text-sm">
@@ -289,7 +363,7 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
                   <td className="px-4 py-3">
                     <button
                       onClick={() => toggleActive.mutate({ id: cat.id, is_active: !cat.is_active })}
-                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
                         cat.is_active
                           ? 'bg-success/10 text-success border border-success/30'
                           : 'bg-muted text-muted-foreground border border-border'
@@ -299,7 +373,7 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
                     </button>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => onEdit(cat)}
                         className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors"
@@ -318,7 +392,7 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
               ))}
               {categories.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="text-center py-8 text-muted-foreground">No categories yet.</td>
+                  <td colSpan={4} className="text-center py-10 text-muted-foreground">No categories yet.</td>
                 </tr>
               )}
             </tbody>
@@ -359,7 +433,6 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
     },
   });
 
-  // Load existing category assignments for edit mode
   useQuery({
     queryKey: ['shop-categories', shop.id],
     queryFn: async () => {
@@ -432,7 +505,6 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
       setSaving(false);
       return;
     }
-    // Sync categories in junction table
     if (shopId) {
       await supabase.from('shop_categories').delete().eq('shop_id', shopId);
       if (selectedCategoryIds.length > 0) {
@@ -465,7 +537,8 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
           <Field label="Shop Name *">
             <input required value={form.name} onChange={(e) => set('name', e.target.value)} className={inputCls} placeholder="e.g. Sharma General Store" />
           </Field>
-          {/* Multi-category checkboxes */}
+
+          {/* Multi-category */}
           <div>
             <label className="block text-sm font-semibold text-foreground mb-2">
               Categories <span className="text-muted-foreground font-normal">(select one or more)</span>
@@ -493,6 +566,7 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
               <p className="text-xs text-muted-foreground mt-1">No category selected</p>
             )}
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <Field label="Phone">
               <input value={form.phone} onChange={(e) => set('phone', e.target.value)} className={inputCls} placeholder="+91 9876543210" />
@@ -508,32 +582,14 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
             <input value={form.area} onChange={(e) => set('area', e.target.value)} className={inputCls} placeholder="e.g. Main Road, Ward 5" />
           </Field>
 
-          {/* Google Maps Location */}
+          {/* GPS Coordinates */}
           <div>
             <label className="block text-sm font-semibold text-foreground mb-1.5">
-              📍 Location (Google Maps Pin)
+              📍 Location (GPS Coordinates)
             </label>
             <div className="grid grid-cols-2 gap-3 mb-2">
-              <div>
-                <input
-                  type="number"
-                  step="any"
-                  value={form.latitude}
-                  onChange={(e) => set('latitude', e.target.value)}
-                  className={inputCls}
-                  placeholder="Latitude e.g. 21.0325"
-                />
-              </div>
-              <div>
-                <input
-                  type="number"
-                  step="any"
-                  value={form.longitude}
-                  onChange={(e) => set('longitude', e.target.value)}
-                  className={inputCls}
-                  placeholder="Longitude e.g. 75.6920"
-                />
-              </div>
+              <input type="number" step="any" value={form.latitude} onChange={(e) => set('latitude', e.target.value)} className={inputCls} placeholder="Latitude e.g. 21.0325" />
+              <input type="number" step="any" value={form.longitude} onChange={(e) => set('longitude', e.target.value)} className={inputCls} placeholder="Longitude e.g. 75.6920" />
             </div>
             <a
               href={`https://www.google.com/maps/search/${encodeURIComponent((form.name || '') + ' ' + (form.area || '') + ' Muktainagar')}`}
@@ -541,20 +597,21 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
             >
-              🗺️ Search on Google Maps to find coordinates → right-click the pin → copy lat/lng
+              🗺️ Find on Google Maps → right-click pin → copy lat/lng
             </a>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="Opening Time">
               <input type="time" value={form.opening_time} onChange={(e) => set('opening_time', e.target.value)} className={inputCls} />
-              {form.opening_time && <p className="text-xs text-muted-foreground mt-1">{formatAdminTime(form.opening_time)}</p>}
+              {form.opening_time && <p className="text-xs text-muted-foreground mt-1">{formatTime(form.opening_time)}</p>}
             </Field>
             <Field label="Closing Time">
               <input type="time" value={form.closing_time} onChange={(e) => set('closing_time', e.target.value)} className={inputCls} />
-              {form.closing_time && <p className="text-xs text-muted-foreground mt-1">{formatAdminTime(form.closing_time)}</p>}
+              {form.closing_time && <p className="text-xs text-muted-foreground mt-1">{formatTime(form.closing_time)}</p>}
             </Field>
           </div>
+
           <div className="flex gap-6">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={form.is_open} onChange={(e) => set('is_open', e.target.checked)} className="w-4 h-4 accent-primary" />
@@ -565,6 +622,7 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
               <span className="text-sm font-medium text-foreground">Active (Visible)</span>
             </label>
           </div>
+
           <Field label="Shop Image">
             {form.image_url && (
               <img src={form.image_url} alt="Preview" className="w-full h-32 object-cover rounded-lg mb-2 border border-border" />
