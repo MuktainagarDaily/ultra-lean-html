@@ -43,82 +43,111 @@ export function ShopCard({ shop }: { shop: Shop }) {
 
   return (
     <div
-      className="bg-card rounded-xl border border-border p-4 hover:shadow-md transition-shadow cursor-pointer active:scale-[0.99]"
+      className="bg-card rounded-xl border border-border hover:shadow-md transition-all cursor-pointer active:scale-[0.99] overflow-hidden"
       onClick={() => navigate(`/shop/${shop.id}`)}
     >
-      {/* Top row */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-            {allCats.slice(0, 1).map((c, i) => (
-              <span key={i} className="text-lg leading-none">{c.icon}</span>
-            ))}
-            <h3 className="font-bold text-foreground text-base truncate">{shop.name}</h3>
-          </div>
-          {shop.area && (
-            <p className="text-sm text-muted-foreground truncate">📍 {shop.area}</p>
-          )}
-          {/* Category chips */}
-          {allCats.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {allCats.map((c, i) => (
-                <span
-                  key={i}
-                  className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium"
-                >
-                  {c.name}
-                </span>
+      {/* Shop image */}
+      {shop.image_url && (
+        <div className="h-32 overflow-hidden">
+          <img
+            src={shop.image_url}
+            alt={shop.name}
+            loading="lazy"
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+
+      <div className="p-4">
+        {/* Top row */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+              {allCats.slice(0, 1).map((c, i) => (
+                <span key={i} className="text-base leading-none">{c.icon}</span>
               ))}
+              <h3 className="font-bold text-foreground text-base truncate">{shop.name}</h3>
             </div>
+
+            {shop.area && (
+              <p className="text-sm text-muted-foreground truncate flex items-center gap-1">
+                <MapPin className="w-3 h-3 shrink-0" /> {shop.area}
+              </p>
+            )}
+
+            {/* Category chips */}
+            {allCats.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {allCats.map((c, i) => (
+                  <span
+                    key={i}
+                    className="text-xs px-2 py-0.5 rounded-full font-medium"
+                    style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
+                  >
+                    {c.icon} {c.name}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {(shop.opening_time || shop.closing_time) && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1.5">
+                <Clock className="w-3 h-3 shrink-0" />
+                {formatTime(shop.opening_time)} – {formatTime(shop.closing_time)}
+              </p>
+            )}
+          </div>
+
+          {/* Open/closed badge */}
+          <div className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-bold border ${
+            open
+              ? 'border-success/30 text-success'
+              : 'border-destructive/20 text-destructive'
+          }`}
+            style={{
+              background: open ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--destructive) / 0.08)',
+            }}>
+            <span className={`w-2 h-2 rounded-full shrink-0 ${open ? 'animate-pulse-open' : ''}`}
+              style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--destructive))' }}
+            />
+            {open ? 'OPEN' : 'CLOSED'}
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+          {shop.phone && (
+            <a
+              href={`tel:${shop.phone}`}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-semibold active:scale-95 transition-all"
+              style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}
+            >
+              <Phone className="w-4 h-4" /> Call
+            </a>
           )}
-          {(shop.opening_time || shop.closing_time) && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-              <Clock className="w-3 h-3 shrink-0" />
-              {formatTime(shop.opening_time)} – {formatTime(shop.closing_time)}
-            </p>
+          {shop.whatsapp && (
+            <a
+              href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 flex items-center justify-center gap-1.5 text-white py-2.5 rounded-lg text-sm font-semibold active:scale-95 transition-all"
+              style={{ background: '#25D366' }}
+            >
+              <MessageCircle className="w-4 h-4" /> WhatsApp
+            </a>
+          )}
+          {mapsUrl && (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1 text-white px-3 py-2.5 rounded-lg text-sm font-semibold active:scale-95 transition-all"
+              style={{ background: 'hsl(211 100% 50%)' }}
+            >
+              <MapPin className="w-4 h-4" />
+            </a>
           )}
         </div>
-        <span
-          className={`shrink-0 px-2 py-1 rounded-full text-xs font-bold ${
-            open
-              ? 'bg-success/10 text-success border border-success/30'
-              : 'bg-destructive/10 text-destructive border border-destructive/20'
-          }`}
-        >
-          {open ? '● OPEN' : '● CLOSED'}
-        </span>
-      </div>
-
-      {/* Action buttons */}
-      <div className="flex gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
-        {shop.phone && (
-          <a
-            href={`tel:${shop.phone}`}
-            className="flex-1 flex items-center justify-center gap-1.5 bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-semibold hover:bg-primary/90 active:scale-95 transition-all"
-          >
-            <Phone className="w-4 h-4" /> Call
-          </a>
-        )}
-        {shop.whatsapp && (
-          <a
-            href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-1.5 bg-[#25D366] text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-[#22c55e] active:scale-95 transition-all"
-          >
-            <MessageCircle className="w-4 h-4" /> WhatsApp
-          </a>
-        )}
-        {mapsUrl && (
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 bg-blue-500 text-white px-3 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-600 active:scale-95 transition-all"
-          >
-            <MapPin className="w-4 h-4" />
-          </a>
-        )}
       </div>
     </div>
   );

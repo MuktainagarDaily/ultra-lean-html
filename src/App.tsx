@@ -12,11 +12,24 @@ import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,       // 30s — don't re-fetch if data is fresh
+      gcTime: 300_000,         // 5min — keep in cache after unmount
+      retry: 1,                // only one retry on failure (helps on slow networks)
+      refetchOnWindowFocus: false, // prevent jarring re-fetches when switching tabs
+    },
+  },
+});
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading...</div>;
+  if (loading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">
+      Loading...
+    </div>
+  );
   if (!user) return <Navigate to="/admin/login" replace />;
   return <>{children}</>;
 }

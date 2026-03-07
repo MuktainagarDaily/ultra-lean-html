@@ -25,11 +25,11 @@ export default function ShopDetail() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="bg-primary h-16 animate-pulse" />
+        <div className="h-16 skeleton-shimmer" />
         <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-card rounded-xl p-4 border border-border animate-pulse h-20" />
-          ))}
+          <div className="rounded-xl skeleton-shimmer h-40 border border-border" />
+          <div className="rounded-xl skeleton-shimmer h-28 border border-border" />
+          <div className="rounded-xl skeleton-shimmer h-40 border border-border" />
         </div>
       </div>
     );
@@ -79,14 +79,14 @@ export default function ShopDetail() {
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-5 space-y-4">
+      <main className="max-w-lg mx-auto px-4 py-5 space-y-4 pb-28">
         {/* Shop Image */}
         {shop.image_url && (
-          <div className="rounded-xl overflow-hidden border border-border">
+          <div className="rounded-xl overflow-hidden border border-border shadow-sm">
             <img
               src={shop.image_url}
               alt={shop.name}
-              className="w-full h-48 object-cover"
+              className="w-full h-52 object-cover"
               loading="lazy"
             />
           </div>
@@ -102,7 +102,8 @@ export default function ShopDetail() {
                   {allCats.map((c, i) => (
                     <span
                       key={i}
-                      className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium"
+                      className="flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium"
+                      style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
                     >
                       <span>{c.icon}</span> {c.name}
                     </span>
@@ -110,15 +111,20 @@ export default function ShopDetail() {
                 </div>
               )}
             </div>
-            <span
-              className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-bold ${
-                open
-                  ? 'bg-success/10 text-success border border-success/30'
-                  : 'bg-destructive/10 text-destructive border border-destructive/20'
-              }`}
-            >
-              {open ? '● OPEN' : '● CLOSED'}
-            </span>
+            <div className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold border ${
+              open
+                ? 'border-success/30 text-success'
+                : 'border-destructive/20 text-destructive'
+            }`}
+              style={{
+                background: open ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--destructive) / 0.08)',
+              }}>
+              <span
+                className={`w-2.5 h-2.5 rounded-full shrink-0 ${open ? 'animate-pulse-open' : ''}`}
+                style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--destructive))' }}
+              />
+              {open ? 'OPEN' : 'CLOSED'}
+            </div>
           </div>
         </div>
 
@@ -154,11 +160,12 @@ export default function ShopDetail() {
         </div>
 
         {/* Action Buttons */}
-        <div className="space-y-3 pb-6">
+        <div className="space-y-3">
           {shop.phone && (
             <a
               href={`tel:${shop.phone}`}
-              className="flex items-center justify-center gap-3 w-full bg-primary text-primary-foreground py-4 rounded-xl font-bold text-base hover:bg-primary/90 active:scale-95 transition-all"
+              className="flex items-center justify-center gap-3 w-full py-4 rounded-xl font-bold text-base active:scale-95 transition-all shadow-sm"
+              style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}
             >
               <Phone className="w-5 h-5" />
               Call {shop.phone}
@@ -169,7 +176,8 @@ export default function ShopDetail() {
               href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-3 w-full bg-[#25D366] text-white py-4 rounded-xl font-bold text-base hover:bg-[#22c55e] active:scale-95 transition-all"
+              className="flex items-center justify-center gap-3 w-full text-white py-4 rounded-xl font-bold text-base active:scale-95 transition-all shadow-sm"
+              style={{ background: '#25D366' }}
             >
               <MessageCircle className="w-5 h-5" />
               Chat on WhatsApp
@@ -180,7 +188,8 @@ export default function ShopDetail() {
               href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-3 w-full bg-blue-500 text-white py-4 rounded-xl font-bold text-base hover:bg-blue-600 active:scale-95 transition-all"
+              className="flex items-center justify-center gap-3 w-full text-white py-4 rounded-xl font-bold text-base active:scale-95 transition-all shadow-sm"
+              style={{ background: 'hsl(211 100% 45%)' }}
             >
               <MapPin className="w-5 h-5" />
               Open in Google Maps
