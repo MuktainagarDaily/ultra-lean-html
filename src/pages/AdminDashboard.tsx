@@ -1999,8 +1999,8 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4">
-        <div className="bg-card rounded-2xl border border-border w-full max-w-xl shadow-2xl my-4">
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-4">
+        <div className="bg-card rounded-2xl border border-border w-full max-w-xl shadow-2xl my-4 max-h-[calc(100dvh-2rem)] flex flex-col">
           <div className="flex items-center justify-between px-6 py-4 border-b border-border">
             <h2 className="font-bold text-lg text-foreground">{isEdit ? 'Edit Shop' : 'Add New Shop'}</h2>
             <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg"><X className="w-5 h-5" /></button>
