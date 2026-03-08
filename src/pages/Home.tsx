@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, TrendingUp, Store, ShieldCheck, Phone, Star, Plus } from 'lucide-react';
+import { Search, MapPin, TrendingUp, Store, Star, Phone, Plus, ShieldCheck } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { isShopOpen } from '@/lib/shopUtils';
@@ -191,7 +191,7 @@ export default function Home() {
       <header
         className="text-primary-foreground px-4 pt-7 pb-6 relative overflow-hidden"
         style={{
-          background: 'linear-gradient(135deg, #0F3D6E 0%, #1E4FA3 100%)',
+          background: 'linear-gradient(145deg, hsl(var(--primary)) 0%, hsl(214 85% 28%) 60%, hsl(215 90% 22%) 100%)',
         }}
       >
         {/* Decorative blobs */}
@@ -213,23 +213,28 @@ export default function Home() {
         />
 
         <div className="max-w-lg mx-auto relative z-10">
-          {/* Brand Logo — blended into hero gradient */}
-          <div className="relative flex justify-center items-center mb-1">
-            {/* Soft radial glow behind logo */}
-            <div
-              className="absolute inset-0 pointer-events-none rounded-full"
-              style={{
-                background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.06) 0%, transparent 70%)',
-              }}
-            />
-            <img
-              src={logoIcon}
-              alt="Muktainagar Daily — Local Business & Services Hub"
-              className="w-full max-w-[360px] sm:max-w-[420px] object-contain relative z-10"
-              style={{
-                filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.35))',
-              }}
-            />
+          {/* Brand Row */}
+          <div className="flex items-center justify-center gap-3 mb-1">
+            {/* MD Logo mark */}
+            <div className="shrink-0 drop-shadow-md">
+              <img
+                src={logoIcon}
+                alt="Muktainagar Daily Logo"
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-primary-foreground/20 shadow-lg"
+              />
+            </div>
+            {/* Wordmark */}
+            <div className="flex flex-col">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight leading-tight text-primary-foreground">
+                Muktainagar Daily
+              </h1>
+              <span
+                className="text-[10px] sm:text-[11px] font-semibold tracking-widest uppercase leading-none mt-0.5"
+                style={{ color: 'hsl(var(--secondary))' }}
+              >
+                Local Business Directory
+              </span>
+            </div>
           </div>
 
           {/* Trust tagline */}
