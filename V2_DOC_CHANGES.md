@@ -96,12 +96,101 @@
 
 ---
 
-## Phase 3 — Intentionally Not Added Yet
+## V2 Phase 3 — CSV Bulk Import
 
+> Scope: Safe bulk shop import for admin — parse, validate, preview, then commit
+
+### 1. CSV Import Workflow
+
+- "Import CSV" button added to Shops tab header (next to "Add Shop")
+- `CsvImportModal` component added at bottom of `AdminDashboard.tsx` (same pattern as `ShopModal`)
+- Three-step flow: **Upload → Preview → Result**
+- No auto-import on file selection — always requires explicit confirmation
+
+### 2. CSV Parsing
+
+- Native `parseCsvLine` + `parseCsv` functions handle quoted fields with embedded commas correctly
+- Columns read (case-insensitive, trimmed): `name, phone, whatsapp, address, area, category, opening_time, closing_time, latitude, longitude, is_active, is_verified`
+- Unknown columns ignored gracefully; missing optional columns default safely
+
+### 3. Validation Rules
+
+Per-row validation mirrors existing `ShopModal.validate()`:
+
+- `name` empty → ❌ blocking error
+- `phone` missing or < 10 digits → ❌ blocking error
+- `area` AND `address` both empty → ❌ blocking error (refinement from original plan)
+- `latitude` provided but out of range → ❌ blocking error (refinement from original plan)
+- `longitude` provided but out of range → ❌ blocking error (refinement from original plan)
+- `whatsapp` present but invalid → 🟡 warning (non-blocking)
+- `category` text unmatched → 🟡 warning (imported without category)
+
+### 4. Duplicate Detection
+
+Two-pass duplicate detection:
+1. **Against database**: fetches all existing `shops.phone`, normalises via `normalizePhone()`, flags any match as 🔁 Duplicate
+2. **Within CSV**: tracks normalised phones seen during the same parse pass; second occurrence flagged as 🔁 Duplicate
+
+Duplicate rows are skipped by default. No override option in this phase (safe default).
+
+### 5. Category Mapping
+
+- Fetches all categories at modal open
+- Builds `Map<lowerCaseName, id>` for O(1) lookup
+- Case-insensitive exact match; unmatched shows warning, shop imported without category
+- One category field per row (multi-category support deferred to next phase for safety)
+
+### 6. Import Execution
+
+- Reuses `normalizeWhatsApp()` and `normalizeArea()` patterns from `ShopModal`
+- Inserts shop via `supabase.from('shops').insert(...)`, then `shop_categories` row if category resolved
+- Collects per-row success/fail counts
+
+### 7. Result Summary
+
+Final step shows five distinct counters:
+- Imported successfully
+- Imported with warnings
+- Skipped — duplicate phone
+- Skipped — validation errors
+- Failed (database error)
+
+### 8. Template Download
+
+- "Download Template CSV" button generates a Blob with header row + one example row
+- Filename: `muktainagar_shops_template.csv`
+
+---
+
+## Kept Unchanged (Phase 1 + 2 + 3)
+
+| Feature | Status |
+|---|---|
+| Phone normalization + WhatsApp wa.me links | ✅ unchanged |
+| Duplicate phone detection dialog (ShopModal) | ✅ unchanged |
+| Inactive shop 🔒 guard in ShopDetail | ✅ unchanged |
+| Filter bottom sheet (area, availability, category) | ✅ unchanged |
+| Auto-refresh every 60s | ✅ unchanged |
+| Category delete safety dialog with linked shop names | ✅ unchanged |
+| Admin search: name, area, phone, address | ✅ unchanged |
+| Analytics date range filter + top shops + top categories | ✅ unchanged |
+
+---
+
+## Phase 4 — Intentionally Not Added Yet
+
+- XLSX/Excel import
+- Image import via CSV
+- Per-row "force import anyway" override for duplicates
+- Multi-category assignment in CSV import
 - CSV export of engagement data
-- Custom calendar date picker (ISO cutoff chips are sufficient)
-- Per-shop engagement detail page / drill-down
-- Trend lines / time-series charts
+- Per-shop engagement drill-down / trend lines
 - Notification system
 - Public shop submission flow
 - Multi-city support
+
+
+---
+
+## Kept Unchanged (Verified Phase 1 + 2 + 3)
+
