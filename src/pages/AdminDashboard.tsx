@@ -1610,31 +1610,9 @@ function CsvImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
     },
   });
 
-  // ── Core processing logic (separated for testability) ─────────────────────
-  const processText = async (text: string) => {
-    // Parse CSV
-    const rawRows = parseCsv(text);
-    if (rawRows.length === 0) {
-      toast.error('CSV has no data rows or is malformed');
-      setParsing(false);
-      return;
-    }
-    if (!file.name.endsWith('.csv') && file.type !== 'text/csv') {
-      toast.error('Please upload a .csv file');
-      return;
-    }
-    setParsing(true);
-
-    // Read file
-    const text = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => resolve(ev.target?.result as string);
-      reader.onerror = reject;
-      reader.readAsText(file, 'utf-8');
-    });
-
-    // Parse CSV
-    const rawRows = parseCsv(text);
+  // ── Core processing logic ──────────────────────────────────────────────────
+  const processText = async (csvText: string) => {
+    const rawRows = parseCsv(csvText);
     if (rawRows.length === 0) {
       toast.error('CSV has no data rows or is malformed');
       setParsing(false);
@@ -1748,8 +1726,39 @@ function CsvImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
     setRows(processed);
     setParsing(false);
     setStep('preview');
-    // Reset file input so the same file can be re-selected if needed
     if (fileRef.current) fileRef.current.value = '';
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith('.csv') && file.type !== 'text/csv') {
+      toast.error('Please upload a .csv file');
+      return;
+    }
+    setParsing(true);
+    const csvText = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => resolve(ev.target?.result as string);
+      reader.onerror = reject;
+      reader.readAsText(file, 'utf-8');
+    });
+    await processText(csvText);
+  };
+
+  // ── Dev: load test CSV directly (no file picker needed for testing) ─────────
+  const loadTestData = async () => {
+    setParsing(true);
+    const testCsv = [
+      'name,phone,whatsapp,address,area,category,opening_time,closing_time,latitude,longitude,is_active,is_verified',
+      '"Sharma, General Store",9876543210,,,"Near Bus Stand, Main Road",Grocery,09:00,21:00,,,true,false',
+      'Another Shop,9876543210,,,Station Road,,,,,,,',
+      'Tea Stall,9123456789,,,Chowk Area,NonExistentCat,,,,,true,false',
+      ',8800000001,,,,,,,,,true,false',
+      'Valid Shop,7700000001,,,Market Area,,,,999,999,true,false',
+      'Good Shop,6600000001,123,,Peth Area,Grocery,10:00,20:00,,,true,false',
+    ].join('\n');
+    await processText(testCsv);
   };
 
   const importableRows = rows.filter((r) => r.status === 'ready' || r.status === 'warning');
