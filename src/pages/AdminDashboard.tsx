@@ -255,7 +255,7 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
               type="text"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              placeholder="Search name, area, phone..."
+              placeholder="Search name, area, phone, address..."
               className="pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring w-44"
             />
           </div>
