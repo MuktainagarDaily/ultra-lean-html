@@ -323,7 +323,7 @@ export default function Shops() {
             <div className="flex justify-center gap-2 mt-4 flex-wrap">
               {activeFilterCount > 0 && (
                 <button
-                  onClick={() => { setAvailability('all'); setSelectedAreas([]); setSelectedCategories([]); }}
+                  onClick={() => { setAvailability('all'); setSelectedAreas([]); setSelectedCategories([]); setVerifiedOnly(false); }}
                   className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold"
                 >
                   Clear filters
