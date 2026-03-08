@@ -1459,6 +1459,9 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
           Duplicates are flagged by matching normalized phone number, or very similar name + same area. No shops are automatically changed — use Edit to resolve manually.
         </p>
       </section>
+
+      {/* ── Section 3: Storage Audit ── */}
+      <StorageAuditSection />
     </div>
   );
 }
