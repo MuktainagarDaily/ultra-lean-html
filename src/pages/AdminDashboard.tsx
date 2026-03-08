@@ -88,11 +88,12 @@ export default function AdminDashboard() {
       <div className="max-w-5xl mx-auto px-4 py-4">
         {/* Stats Bar */}
         {stats && (
-          <div className="grid grid-cols-4 gap-3 mb-5">
+          <div className="grid grid-cols-5 gap-3 mb-5">
             <StatCard label="Total Shops" value={stats.total} icon="🏪" />
             <StatCard label="Active" value={stats.active} icon="✅" />
             <StatCard label="Verified" value={stats.verified} icon="🛡️" />
             <StatCard label="Categories" value={stats.cats} icon="🏷️" />
+            <StatCard label="Pending" value={stats.pending} icon="📬" highlight={stats.pending > 0} />
           </div>
         )}
 
@@ -101,6 +102,13 @@ export default function AdminDashboard() {
           <TabButton active={tab === 'shops'} onClick={() => setTab('shops')} icon={<Store className="w-4 h-4" />} label="Shops" />
           <TabButton active={tab === 'categories'} onClick={() => setTab('categories')} icon={<Tag className="w-4 h-4" />} label="Categories" />
           <TabButton active={tab === 'analytics'} onClick={() => setTab('analytics')} icon={<BarChart2 className="w-4 h-4" />} label="Analytics" />
+          <TabButton
+            active={tab === 'requests'}
+            onClick={() => setTab('requests')}
+            icon={<Inbox className="w-4 h-4" />}
+            label="Requests"
+            badge={stats?.pending || 0}
+          />
         </div>
 
         {tab === 'shops' && (
@@ -111,7 +119,9 @@ export default function AdminDashboard() {
         )}
         {tab === 'categories' && <CategoriesTab onEdit={(cat) => setCategoryForm(cat)} />}
         {tab === 'analytics' && <AnalyticsTab />}
+        {tab === 'requests' && <RequestsTab onShopCreated={() => { qc.invalidateQueries({ queryKey: ['admin-shops'] }); qc.invalidateQueries({ queryKey: ['admin-stats'] }); }} />}
       </div>
+
 
       {shopForm !== null && (
         <ShopModal
