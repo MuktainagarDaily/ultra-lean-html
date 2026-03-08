@@ -162,5 +162,35 @@ Final step shows five distinct counters:
 
 ---
 
+## Kept Unchanged (Phase 1 + 2 + 3)
+
+| Feature | Status |
+|---|---|
+| Phone normalization + WhatsApp wa.me links | ✅ unchanged |
+| Duplicate phone detection dialog (ShopModal) | ✅ unchanged |
+| Inactive shop 🔒 guard in ShopDetail | ✅ unchanged |
+| Filter bottom sheet (area, availability, category) | ✅ unchanged |
+| Auto-refresh every 60s | ✅ unchanged |
+| Category delete safety dialog with linked shop names | ✅ unchanged |
+| Admin search: name, area, phone, address | ✅ unchanged |
+| Analytics date range filter + top shops + top categories | ✅ unchanged |
+
+---
+
+## Phase 4 — Intentionally Not Added Yet
+
+- XLSX/Excel import
+- Image import via CSV
+- Per-row "force import anyway" override for duplicates
+- Multi-category assignment in CSV import
+- CSV export of engagement data
+- Per-shop engagement drill-down / trend lines
+- Notification system
+- Public shop submission flow
+- Multi-city support
+
+
+---
+
 ## Kept Unchanged (Verified Phase 1 + 2 + 3)
 
