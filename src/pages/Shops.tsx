@@ -81,7 +81,7 @@ export default function Shops() {
     queryFn: async () => {
       let query = supabase
         .from('shops')
-        .select('*, shop_categories(categories(name, icon))')
+        .select('*, shop_categories(categories(name, icon, is_active))')
         .eq('is_active', true)
         .order('name');
 
