@@ -1610,25 +1610,9 @@ function CsvImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
     },
   });
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.name.endsWith('.csv') && file.type !== 'text/csv') {
-      toast.error('Please upload a .csv file');
-      return;
-    }
-    setParsing(true);
-
-    // Read file
-    const text = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => resolve(ev.target?.result as string);
-      reader.onerror = reject;
-      reader.readAsText(file, 'utf-8');
-    });
-
-    // Parse CSV
-    const rawRows = parseCsv(text);
+  // ── Core processing logic ──────────────────────────────────────────────────
+  const processText = async (csvText: string) => {
+    const rawRows = parseCsv(csvText);
     if (rawRows.length === 0) {
       toast.error('CSV has no data rows or is malformed');
       setParsing(false);
@@ -1742,9 +1726,26 @@ function CsvImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
     setRows(processed);
     setParsing(false);
     setStep('preview');
-    // Reset file input so the same file can be re-selected if needed
     if (fileRef.current) fileRef.current.value = '';
   };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith('.csv') && file.type !== 'text/csv') {
+      toast.error('Please upload a .csv file');
+      return;
+    }
+    setParsing(true);
+    const csvText = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => resolve(ev.target?.result as string);
+      reader.onerror = reject;
+      reader.readAsText(file, 'utf-8');
+    });
+    await processText(csvText);
+  };
+
 
   const importableRows = rows.filter((r) => r.status === 'ready' || r.status === 'warning');
   const dupeRows = rows.filter((r) => r.status === 'duplicate');
