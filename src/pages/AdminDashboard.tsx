@@ -33,6 +33,7 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>('shops');
   const [shopForm, setShopForm] = useState<any>(null);
   const [categoryForm, setCategoryForm] = useState<any>(null);
+  const [showImport, setShowImport] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -101,7 +102,12 @@ export default function AdminDashboard() {
           <TabButton active={tab === 'analytics'} onClick={() => setTab('analytics')} icon={<BarChart2 className="w-4 h-4" />} label="Analytics" />
         </div>
 
-        {tab === 'shops' && <ShopsTab onEdit={(shop) => setShopForm(shop)} />}
+        {tab === 'shops' && (
+          <ShopsTab
+            onEdit={(shop) => setShopForm(shop)}
+            onImport={() => setShowImport(true)}
+          />
+        )}
         {tab === 'categories' && <CategoriesTab onEdit={(cat) => setCategoryForm(cat)} />}
         {tab === 'analytics' && <AnalyticsTab />}
       </div>
@@ -125,6 +131,17 @@ export default function AdminDashboard() {
           onSaved={() => {
             setCategoryForm(null);
             qc.invalidateQueries({ queryKey: ['admin-categories'] });
+            qc.invalidateQueries({ queryKey: ['admin-stats'] });
+          }}
+        />
+      )}
+
+      {showImport && (
+        <CsvImportModal
+          onClose={() => setShowImport(false)}
+          onDone={() => {
+            setShowImport(false);
+            qc.invalidateQueries({ queryKey: ['admin-shops'] });
             qc.invalidateQueries({ queryKey: ['admin-stats'] });
           }}
         />
