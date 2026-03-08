@@ -4,10 +4,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  Plus, Pencil, Trash2, LogOut, Store, Tag, Eye, EyeOff, MapPin, X, Check, Search, Home, ShieldCheck, ShieldOff, Filter
+  Plus, Pencil, Trash2, LogOut, Store, Tag, Eye, EyeOff, MapPin, X, Check, Search, Home, ShieldCheck, ShieldOff, Filter, Loader2, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatTime } from '@/lib/shopUtils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 type Tab = 'shops' | 'categories';
 
@@ -141,6 +159,8 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
   const qc = useQueryClient();
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const { data: shops = [], isLoading } = useQuery({
     queryKey: ['admin-shops'],
@@ -210,8 +230,12 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
     },
     onSuccess: () => {
       toast.success('Shop deleted');
+      setDeleteTarget(null);
       qc.invalidateQueries({ queryKey: ['admin-shops'] });
       qc.invalidateQueries({ queryKey: ['admin-stats'] });
+    },
+    onError: () => {
+      toast.error('Failed to delete shop');
     },
   });
 
@@ -342,7 +366,7 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
                             <Pencil className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => { if (confirm(`Delete "${shop.name}"?`)) deleteShop.mutate(shop.id); }}
+                            onClick={() => setDeleteTarget({ id: shop.id, name: shop.name })}
                             className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -364,6 +388,32 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
           </div>
         </div>
       )}
+
+      {/* Shop Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this shop and all its data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteShop.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTarget && deleteShop.mutate(deleteTarget.id)}
+              disabled={deleteShop.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteShop.isPending ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Deleting...</>
+              ) : (
+                'Delete Shop'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -371,6 +421,11 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
 /* ─── CATEGORIES TAB ─────────────────────────────────────────── */
 function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
   const qc = useQueryClient();
+  // Delete confirmation state
+  const [deleteCatTarget, setDeleteCatTarget] = useState<{ id: string; name: string; icon: string } | null>(null);
+  const [deleteCatLinkedShops, setDeleteCatLinkedShops] = useState<string[]>([]);
+  const [fetchingLinks, setFetchingLinks] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ['admin-categories'],
@@ -389,28 +444,37 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-categories'] }),
   });
 
-  const handleDeleteCategory = async (cat: { id: string; name: string }) => {
-    // Count linked shops before deleting
-    const { count } = await supabase
+  const handleDeleteClick = async (cat: { id: string; name: string; icon: string }) => {
+    setFetchingLinks(true);
+    // Fetch the names of all shops linked to this category
+    const { data } = await supabase
       .from('shop_categories')
-      .select('id', { count: 'exact', head: true })
+      .select('shops(name)')
       .eq('category_id', cat.id);
 
-    const linkedCount = count || 0;
-    const msg = linkedCount > 0
-      ? `Delete "${cat.name}"? This will unlink it from ${linkedCount} shop${linkedCount > 1 ? 's' : ''}. The shops themselves will not be deleted.`
-      : `Delete "${cat.name}"?`;
+    const shopNames = (data || [])
+      .map((row: any) => row.shops?.name)
+      .filter(Boolean) as string[];
 
-    if (confirm(msg)) {
-      const { error } = await supabase.from('categories').delete().eq('id', cat.id);
-      if (error) {
-        toast.error('Failed to delete category');
-      } else {
-        toast.success('Category deleted');
-        qc.invalidateQueries({ queryKey: ['admin-categories'] });
-        qc.invalidateQueries({ queryKey: ['admin-stats'] });
-      }
+    setDeleteCatLinkedShops(shopNames);
+    setDeleteCatTarget(cat);
+    setFetchingLinks(false);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteCatTarget) return;
+    setDeleting(true);
+    const { error } = await supabase.from('categories').delete().eq('id', deleteCatTarget.id);
+    if (error) {
+      toast.error('Failed to delete category');
+    } else {
+      toast.success('Category deleted');
+      qc.invalidateQueries({ queryKey: ['admin-categories'] });
+      qc.invalidateQueries({ queryKey: ['admin-stats'] });
+      setDeleteCatTarget(null);
+      setDeleteCatLinkedShops([]);
     }
+    setDeleting(false);
   };
 
   return (
@@ -466,10 +530,11 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDeleteCategory(cat)}
-                        className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                        onClick={() => handleDeleteClick(cat)}
+                        disabled={fetchingLinks}
+                        className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors disabled:opacity-50"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        {fetchingLinks ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                       </button>
                     </div>
                   </td>
@@ -484,16 +549,79 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
           </table>
         </div>
       )}
+
+      {/* Category Delete Confirmation */}
+      <AlertDialog open={!!deleteCatTarget} onOpenChange={(open) => !open && setDeleteCatTarget(null)}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
+              Delete "{deleteCatTarget?.icon} {deleteCatTarget?.name}"?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                {deleteCatLinkedShops.length > 0 ? (
+                  <>
+                    <p>
+                      This category is linked to <strong className="text-foreground">{deleteCatLinkedShops.length} shop{deleteCatLinkedShops.length !== 1 ? 's' : ''}</strong>.
+                      The category will be deleted and all links removed — the shops themselves will not be affected.
+                    </p>
+                    <div className="rounded-lg border border-border bg-muted/40 p-3">
+                      <p className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wide">Affected shops</p>
+                      <ul className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                        {deleteCatLinkedShops.map((name, i) => (
+                          <li key={i} className="text-sm text-foreground flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+                            {name}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </>
+                ) : (
+                  <p>No shops are linked to this category. It is safe to delete.</p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Deleting...</>
+              ) : (
+                'Delete Category'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
 /* ─── SHOP MODAL ─────────────────────────────────────────────── */
 
-/** Normalize phone for duplicate detection: strip spaces, dashes, parens; keep + and digits */
+/** Normalize phone for duplicate detection: strip spaces, dashes, parens, dots;
+ *  strip leading +91 or 91 prefix so formatting differences don't bypass check */
 function normalizePhone(phone: string): string {
-  return phone.replace(/[\s\-().]/g, '');
+  let n = phone.replace(/[\s\-().+]/g, '');
+  // Strip leading country code: 91XXXXXXXXXX → XXXXXXXXXX (10 digits)
+  if (n.startsWith('91') && n.length === 12) n = n.slice(2);
+  return n;
 }
+
+type DupeShopInfo = {
+  id: string;
+  name: string;
+  phone: string;
+  area: string | null;
+  categories: { name: string; icon: string }[];
+};
 
 function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void; onSaved: () => void }) {
   const isEdit = !!shop.id;
@@ -516,6 +644,10 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Duplicate phone dialog state
+  const [dupePhoneShop, setDupePhoneShop] = useState<DupeShopInfo | null>(null);
+  // Pending save payload for after dupe confirmation
+  const [pendingSave, setPendingSave] = useState<(() => Promise<void>) | null>(null);
 
   const { data: categories = [] } = useQuery({
     queryKey: ['admin-categories'],
@@ -545,8 +677,14 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
     if (!form.name.trim()) errs.name = 'Shop name is required';
     if (!form.phone.trim()) errs.phone = 'Phone number is required';
     if (!form.area.trim() && !form.address.trim()) errs.area = 'Area or address is required';
-    if (form.latitude && isNaN(parseFloat(form.latitude))) errs.latitude = 'Invalid latitude';
-    if (form.longitude && isNaN(parseFloat(form.longitude))) errs.longitude = 'Invalid longitude';
+    if (form.latitude) {
+      const lat = parseFloat(form.latitude);
+      if (isNaN(lat) || lat < -90 || lat > 90) errs.latitude = 'Latitude must be between -90 and 90';
+    }
+    if (form.longitude) {
+      const lon = parseFloat(form.longitude);
+      if (isNaN(lon) || lon < -180 || lon > 180) errs.longitude = 'Longitude must be between -180 and 180';
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -589,30 +727,9 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
     setUploading(false);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-
+  /** The actual save logic — extracted so it can be deferred after dupe confirmation */
+  const executeSave = async () => {
     setSaving(true);
-
-    // Duplicate phone detection (new shops only, or edit if phone changed)
-    const normalizedPhone = normalizePhone(form.phone);
-    if (normalizedPhone) {
-      let query = supabase
-        .from('shops')
-        .select('id, name')
-        .limit(5);
-
-      // Check all stored phones for normalization match
-      const { data: allPhones } = await supabase.from('shops').select('id, name, phone');
-      const duplicate = allPhones?.find(
-        (s) => s.id !== shop.id && s.phone && normalizePhone(s.phone) === normalizedPhone
-      );
-      if (duplicate) {
-        toast.warning(`⚠️ Phone already used by "${duplicate.name}" — saving anyway`);
-      }
-      void query; // silence unused warning
-    }
 
     const payload: any = {
       name: form.name.trim(),
@@ -657,6 +774,47 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
     setSaving(false);
   };
 
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
+
+    setSaving(true);
+
+    // Duplicate phone detection — normalize before comparing
+    const normalizedPhone = normalizePhone(form.phone);
+    if (normalizedPhone) {
+      const { data: allPhones } = await supabase.from('shops').select('id, name, phone, area, shop_categories(categories(name, icon))');
+      const dupeRaw = allPhones?.find(
+        (s: any) => s.id !== shop.id && s.phone && normalizePhone(s.phone) === normalizedPhone
+      );
+      if (dupeRaw) {
+        const cats = ((dupeRaw as any).shop_categories || [])
+          .map((sc: any) => sc.categories)
+          .filter(Boolean) as { name: string; icon: string }[];
+        setDupePhoneShop({
+          id: dupeRaw.id,
+          name: dupeRaw.name,
+          phone: dupeRaw.phone,
+          area: dupeRaw.area,
+          categories: cats,
+        });
+        setPendingSave(() => executeSave);
+        setSaving(false);
+        return; // STOP — do not save yet
+      }
+    }
+
+    // No duplicate — proceed immediately
+    setSaving(false);
+    await executeSave();
+  };
+
+  const handleSaveAnyway = async () => {
+    setDupePhoneShop(null);
+    setPendingSave(null);
+    await executeSave();
+  };
+
   const toggleCategory = (catId: string) => {
     setSelectedCategoryIds((prev) =>
       prev.includes(catId) ? prev.filter((id) => id !== catId) : [...prev, catId]
@@ -666,154 +824,221 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
   const set = (key: string, val: any) => setForm((f) => ({ ...f, [key]: val }));
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4">
-      <div className="bg-card rounded-2xl border border-border w-full max-w-xl shadow-2xl my-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h2 className="font-bold text-lg text-foreground">{isEdit ? 'Edit Shop' : 'Add New Shop'}</h2>
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg"><X className="w-5 h-5" /></button>
-        </div>
-        <form onSubmit={handleSave} className="p-6 space-y-4">
-          <Field label="Shop Name *">
-            <input
-              value={form.name}
-              onChange={(e) => { set('name', e.target.value); setErrors((err) => ({ ...err, name: '' })); }}
-              className={inputCls + (errors.name ? ' border-destructive' : '')}
-              placeholder="e.g. Sharma General Store"
-              maxLength={120}
-            />
-            {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
-          </Field>
-
-          {/* Multi-category */}
-          <div>
-            <label className="block text-sm font-semibold text-foreground mb-2">
-              Categories <span className="text-muted-foreground font-normal">(select one or more)</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((c) => {
-                const selected = selectedCategoryIds.includes(c.id);
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => toggleCategory(c.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
-                      selected
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background text-foreground border-border hover:border-primary'
-                    }`}
-                  >
-                    <span>{c.icon}</span> {c.name}
-                  </button>
-                );
-              })}
-            </div>
-            {selectedCategoryIds.length === 0 && (
-              <p className="text-xs text-muted-foreground mt-1">No category selected</p>
-            )}
+    <>
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4">
+        <div className="bg-card rounded-2xl border border-border w-full max-w-xl shadow-2xl my-4">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <h2 className="font-bold text-lg text-foreground">{isEdit ? 'Edit Shop' : 'Add New Shop'}</h2>
+            <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg"><X className="w-5 h-5" /></button>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Phone *">
+          <form onSubmit={handleSave} className="p-6 space-y-4">
+            <Field label="Shop Name *">
               <input
-                value={form.phone}
-                onChange={(e) => { set('phone', e.target.value); setErrors((err) => ({ ...err, phone: '' })); }}
-                className={inputCls + (errors.phone ? ' border-destructive' : '')}
-                placeholder="+91 9876543210"
-                maxLength={20}
+                value={form.name}
+                onChange={(e) => { set('name', e.target.value); setErrors((err) => ({ ...err, name: '' })); }}
+                className={inputCls + (errors.name ? ' border-destructive' : '')}
+                placeholder="e.g. Sharma General Store"
+                maxLength={120}
               />
-              {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
+              {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
             </Field>
-            <Field label="WhatsApp">
-              <input value={form.whatsapp} onChange={(e) => set('whatsapp', e.target.value)} className={inputCls} placeholder="+91 9876543210" maxLength={20} />
-            </Field>
-          </div>
 
-          <Field label="Address">
-            <input value={form.address} onChange={(e) => { set('address', e.target.value); setErrors((err) => ({ ...err, area: '' })); }} className={inputCls} placeholder="Full address" maxLength={250} />
-          </Field>
-          <Field label="Area / Locality *">
-            <input
-              value={form.area}
-              onChange={(e) => { set('area', e.target.value); setErrors((err) => ({ ...err, area: '' })); }}
-              className={inputCls + (errors.area ? ' border-destructive' : '')}
-              placeholder="e.g. Main Road, Ward 5"
-              maxLength={100}
-            />
-            {errors.area && <p className="text-xs text-destructive mt-1">{errors.area}</p>}
-          </Field>
-
-          {/* GPS Coordinates */}
-          <div>
-            <label className="block text-sm font-semibold text-foreground mb-1.5">
-              📍 Location (GPS Coordinates)
-            </label>
-            <div className="grid grid-cols-2 gap-3 mb-2">
-              <div>
-                <input type="number" step="any" value={form.latitude} onChange={(e) => { set('latitude', e.target.value); setErrors((err) => ({ ...err, latitude: '' })); }} className={inputCls + (errors.latitude ? ' border-destructive' : '')} placeholder="Latitude e.g. 21.0325" />
-                {errors.latitude && <p className="text-xs text-destructive mt-1">{errors.latitude}</p>}
+            {/* Multi-category */}
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-2">
+                Categories <span className="text-muted-foreground font-normal">(select one or more)</span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {categories.map((c) => {
+                  const selected = selectedCategoryIds.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => toggleCategory(c.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                        selected
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background text-foreground border-border hover:border-primary'
+                      }`}
+                    >
+                      <span>{c.icon}</span> {c.name}
+                    </button>
+                  );
+                })}
               </div>
-              <div>
-                <input type="number" step="any" value={form.longitude} onChange={(e) => { set('longitude', e.target.value); setErrors((err) => ({ ...err, longitude: '' })); }} className={inputCls + (errors.longitude ? ' border-destructive' : '')} placeholder="Longitude e.g. 75.6920" />
-                {errors.longitude && <p className="text-xs text-destructive mt-1">{errors.longitude}</p>}
-              </div>
+              {selectedCategoryIds.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">No category selected</p>
+              )}
             </div>
-            <a
-              href={`https://www.google.com/maps/search/${encodeURIComponent((form.name || '') + ' ' + (form.area || '') + ' Muktainagar')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Phone *">
+                <input
+                  value={form.phone}
+                  onChange={(e) => { set('phone', e.target.value); setErrors((err) => ({ ...err, phone: '' })); }}
+                  className={inputCls + (errors.phone ? ' border-destructive' : '')}
+                  placeholder="+91 9876543210"
+                  maxLength={20}
+                />
+                {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
+              </Field>
+              <Field label="WhatsApp">
+                <input value={form.whatsapp} onChange={(e) => set('whatsapp', e.target.value)} className={inputCls} placeholder="+91 9876543210" maxLength={20} />
+              </Field>
+            </div>
+
+            <Field label="Address">
+              <input value={form.address} onChange={(e) => { set('address', e.target.value); setErrors((err) => ({ ...err, area: '' })); }} className={inputCls} placeholder="Full address" maxLength={250} />
+            </Field>
+            <Field label="Area / Locality *">
+              <input
+                value={form.area}
+                onChange={(e) => { set('area', e.target.value); setErrors((err) => ({ ...err, area: '' })); }}
+                className={inputCls + (errors.area ? ' border-destructive' : '')}
+                placeholder="e.g. Main Road, Ward 5"
+                maxLength={100}
+              />
+              {errors.area && <p className="text-xs text-destructive mt-1">{errors.area}</p>}
+            </Field>
+
+            {/* GPS Coordinates */}
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">
+                📍 Location (GPS Coordinates)
+              </label>
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <div>
+                  <input type="number" step="any" value={form.latitude} onChange={(e) => { set('latitude', e.target.value); setErrors((err) => ({ ...err, latitude: '' })); }} className={inputCls + (errors.latitude ? ' border-destructive' : '')} placeholder="Latitude e.g. 21.0325" />
+                  {errors.latitude && <p className="text-xs text-destructive mt-1">{errors.latitude}</p>}
+                </div>
+                <div>
+                  <input type="number" step="any" value={form.longitude} onChange={(e) => { set('longitude', e.target.value); setErrors((err) => ({ ...err, longitude: '' })); }} className={inputCls + (errors.longitude ? ' border-destructive' : '')} placeholder="Longitude e.g. 75.6920" />
+                  {errors.longitude && <p className="text-xs text-destructive mt-1">{errors.longitude}</p>}
+                </div>
+              </div>
+              <a
+                href={`https://www.google.com/maps/search/${encodeURIComponent((form.name || '') + ' ' + (form.area || '') + ' Muktainagar')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+              >
+                🗺️ Find on Google Maps → right-click pin → copy lat/lng
+              </a>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Opening Time">
+                <input type="time" value={form.opening_time} onChange={(e) => set('opening_time', e.target.value)} className={inputCls} />
+                {form.opening_time && <p className="text-xs text-muted-foreground mt-1">{formatTime(form.opening_time)}</p>}
+              </Field>
+              <Field label="Closing Time">
+                <input type="time" value={form.closing_time} onChange={(e) => set('closing_time', e.target.value)} className={inputCls} />
+                {form.closing_time && <p className="text-xs text-muted-foreground mt-1">{formatTime(form.closing_time)}</p>}
+              </Field>
+            </div>
+
+            <div className="flex flex-wrap gap-5">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={form.is_open} onChange={(e) => set('is_open', e.target.checked)} className="w-4 h-4 accent-primary" />
+                <span className="text-sm font-medium text-foreground">Manual Open Override</span>
+                <span className="text-xs text-muted-foreground">(fallback when no times set)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={form.is_active} onChange={(e) => set('is_active', e.target.checked)} className="w-4 h-4 accent-primary" />
+                <span className="text-sm font-medium text-foreground">Active (Visible)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={form.is_verified} onChange={(e) => set('is_verified', e.target.checked)} className="w-4 h-4 accent-primary" />
+                <span className="text-sm font-medium text-foreground">Verified</span>
+              </label>
+            </div>
+
+            <Field label="Shop Image">
+              {form.image_url && (
+                <img src={form.image_url} alt="Preview" className="w-full h-32 object-cover rounded-lg mb-2 border border-border" />
+              )}
+              <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} className="text-sm text-muted-foreground" />
+              {uploading && <p className="text-xs text-primary mt-1">Uploading...</p>}
+            </Field>
+
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={onClose} className="flex-1 py-3 border border-border rounded-xl font-semibold text-foreground hover:bg-muted transition-colors">
+                Cancel
+              </button>
+              <button type="submit" disabled={saving || uploading} className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : isEdit ? 'Update Shop' : 'Add Shop'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {/* Duplicate Phone Confirmation Dialog */}
+      <Dialog open={!!dupePhoneShop} onOpenChange={(open) => { if (!open) { setDupePhoneShop(null); setPendingSave(null); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+              Phone number already in use
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p className="text-muted-foreground">This phone number is already registered to another shop. Please review before saving.</p>
+                {dupePhoneShop && (
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1.5">
+                    <div>
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Shop Name</span>
+                      <p className="font-semibold text-foreground">{dupePhoneShop.name}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Phone</span>
+                      <p className="text-foreground">{dupePhoneShop.phone}</p>
+                    </div>
+                    {dupePhoneShop.area && (
+                      <div>
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Area</span>
+                        <p className="text-foreground">{dupePhoneShop.area}</p>
+                      </div>
+                    )}
+                    {dupePhoneShop.categories.length > 0 && (
+                      <div>
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Categories</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {dupePhoneShop.categories.map((c, i) => (
+                            <span key={i} className="text-xs px-2 py-0.5 rounded-full font-medium"
+                              style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}>
+                              {c.icon} {c.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <p className="text-muted-foreground text-xs">Are you sure you want to add a second shop with the same phone number?</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <button
+              onClick={() => { setDupePhoneShop(null); setPendingSave(null); }}
+              className="flex-1 py-2.5 border border-border rounded-lg font-semibold text-foreground hover:bg-muted transition-colors text-sm"
             >
-              🗺️ Find on Google Maps → right-click pin → copy lat/lng
-            </a>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Opening Time">
-              <input type="time" value={form.opening_time} onChange={(e) => set('opening_time', e.target.value)} className={inputCls} />
-              {form.opening_time && <p className="text-xs text-muted-foreground mt-1">{formatTime(form.opening_time)}</p>}
-            </Field>
-            <Field label="Closing Time">
-              <input type="time" value={form.closing_time} onChange={(e) => set('closing_time', e.target.value)} className={inputCls} />
-              {form.closing_time && <p className="text-xs text-muted-foreground mt-1">{formatTime(form.closing_time)}</p>}
-            </Field>
-          </div>
-
-          <div className="flex flex-wrap gap-5">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={form.is_open} onChange={(e) => set('is_open', e.target.checked)} className="w-4 h-4 accent-primary" />
-              <span className="text-sm font-medium text-foreground">Manual Open Override</span>
-              <span className="text-xs text-muted-foreground">(fallback when no times set)</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={form.is_active} onChange={(e) => set('is_active', e.target.checked)} className="w-4 h-4 accent-primary" />
-              <span className="text-sm font-medium text-foreground">Active (Visible)</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={form.is_verified} onChange={(e) => set('is_verified', e.target.checked)} className="w-4 h-4 accent-primary" />
-              <span className="text-sm font-medium text-foreground">Verified</span>
-            </label>
-          </div>
-
-          <Field label="Shop Image">
-            {form.image_url && (
-              <img src={form.image_url} alt="Preview" className="w-full h-32 object-cover rounded-lg mb-2 border border-border" />
-            )}
-            <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} className="text-sm text-muted-foreground" />
-            {uploading && <p className="text-xs text-primary mt-1">Uploading...</p>}
-          </Field>
-
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-3 border border-border rounded-xl font-semibold text-foreground hover:bg-muted transition-colors">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-60">
-              {saving ? 'Saving...' : isEdit ? 'Update Shop' : 'Add Shop'}
+            <button
+              onClick={handleSaveAnyway}
+              disabled={saving}
+              className="flex-1 py-2.5 rounded-lg font-bold text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              style={{ background: 'hsl(38 92% 50%)', color: 'hsl(0 0% 10%)' }}
+            >
+              {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : 'Save Anyway'}
             </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -871,8 +1096,8 @@ function CategoryModal({ category, onClose, onSaved }: { category: any; onClose:
             <button type="button" onClick={onClose} className="flex-1 py-3 border border-border rounded-xl font-semibold text-foreground hover:bg-muted transition-colors">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 disabled:opacity-60">
-              {saving ? 'Saving...' : isEdit ? 'Update' : 'Add'}
+            <button type="submit" disabled={saving} className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
+              {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : isEdit ? 'Update' : 'Add'}
             </button>
           </div>
         </form>
