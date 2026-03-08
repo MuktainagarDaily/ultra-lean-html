@@ -1,8 +1,9 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Phone, MessageCircle, ArrowLeft, MapPin, Clock, Tag, Navigation } from 'lucide-react';
+import { Phone, MessageCircle, ArrowLeft, MapPin, Clock, Tag, Navigation, Share2, ShieldCheck } from 'lucide-react';
 import { formatTime, isShopOpen } from '@/lib/shopUtils';
+import { toast } from 'sonner';
 
 export default function ShopDetail() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +22,29 @@ export default function ShopDetail() {
     },
     enabled: !!id,
   });
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    const shareData = {
+      title: shop?.name ?? 'Shop on Muktainagar Daily',
+      text: `Check out ${shop?.name} on Muktainagar Daily`,
+      url,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch {
+        // User cancelled share — no-op
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success('Link copied to clipboard!');
+      } catch {
+        toast.error('Could not copy link');
+      }
+    }
+  };
 
   if (isLoading) {
     return (
@@ -65,6 +89,8 @@ export default function ShopDetail() {
       )}`
     : null;
 
+  const isVerified = (shop as any).is_verified;
+
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-10 shadow-md">
@@ -75,7 +101,14 @@ export default function ShopDetail() {
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <h1 className="font-bold text-lg leading-tight truncate">{shop.name}</h1>
+          <h1 className="font-bold text-lg leading-tight truncate flex-1">{shop.name}</h1>
+          <button
+            onClick={handleShare}
+            className="p-1.5 hover:bg-primary-foreground/10 rounded-lg transition-colors shrink-0"
+            title="Share this shop"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
         </div>
       </header>
 
@@ -96,7 +129,18 @@ export default function ShopDetail() {
         <div className="bg-card rounded-xl border border-border p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="text-xl font-bold text-foreground">{shop.name}</h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-bold text-foreground">{shop.name}</h2>
+                {isVerified && (
+                  <span
+                    className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold"
+                    style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
+                    title="Verified by Muktainagar Daily"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" /> Verified
+                  </span>
+                )}
+              </div>
               {allCats.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {allCats.map((c, i) => (
@@ -195,6 +239,14 @@ export default function ShopDetail() {
               Open in Google Maps
             </a>
           )}
+          {/* Share button for non-native share environments */}
+          <button
+            onClick={handleShare}
+            className="flex items-center justify-center gap-3 w-full py-4 rounded-xl font-bold text-base active:scale-95 transition-all border border-border text-foreground hover:bg-muted"
+          >
+            <Share2 className="w-5 h-5" />
+            Share this shop
+          </button>
         </div>
       </main>
     </div>

@@ -62,6 +62,16 @@ export default function Home() {
     return counts;
   }, [shops]);
 
+  // Sort categories by shop count descending (most-used first), alphabetical as tiebreaker
+  const sortedCategories = useMemo(
+    () =>
+      [...categories].sort((a, b) => {
+        const diff = (catShopCounts[b.id] || 0) - (catShopCounts[a.id] || 0);
+        return diff !== 0 ? diff : a.name.localeCompare(b.name);
+      }),
+    [categories, catShopCounts]
+  );
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (search.trim()) {
@@ -139,7 +149,7 @@ export default function Home() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6 pb-28">
-        {/* Categories */}
+        {/* Categories — sorted by shop count (most popular first) */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-foreground">Browse by Category</h2>
@@ -153,11 +163,11 @@ export default function Home() {
 
           {catsLoading ? (
             <CategorySkeleton />
-          ) : categories.length === 0 ? (
+          ) : sortedCategories.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">No categories yet.</div>
           ) : (
             <div className="grid grid-cols-3 gap-3">
-              {categories.map((cat) => {
+              {sortedCategories.map((cat) => {
                 const count = catShopCounts[cat.id] || 0;
                 return (
                   <button
