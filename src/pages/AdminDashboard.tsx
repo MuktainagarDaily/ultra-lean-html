@@ -1512,6 +1512,8 @@ type DupeShopInfo = {
 
 function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void; onSaved: () => void }) {
   const isEdit = !!shop.id;
+  // Track the image URL at mount time so we can clean it up if a new one is uploaded
+  const oldImageUrl = useRef<string>(shop.image_url || '');
   const [form, setForm] = useState({
     name: shop.name || '',
     phone: shop.phone || '',
