@@ -1466,6 +1466,265 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
   );
 }
 
+/* ─── STORAGE AUDIT SECTION ─────────────────────────────────── */
+function StorageAuditSection() {
+  const [scanned, setScanned] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [orphans, setOrphans] = useState<{ name: string; size: number; created_at: string }[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const runScan = async () => {
+    setScanning(true);
+    setScanned(false);
+    setOrphans([]);
+    setSelected(new Set());
+    try {
+      // 1. List all files in the bucket (paginate up to 1000)
+      const { data: files, error: listErr } = await supabase.storage
+        .from('shop-images')
+        .list('', { limit: 1000, offset: 0 });
+      if (listErr) throw listErr;
+
+      const allFiles = (files || []).filter((f) => f.name && f.id); // exclude folders
+
+      if (allFiles.length === 0) {
+        setOrphans([]);
+        setScanned(true);
+        setScanning(false);
+        return;
+      }
+
+      // 2. Collect all referenced image URLs from shops + shop_requests
+      const [{ data: shopImgs }, { data: reqImgs }] = await Promise.all([
+        supabase.from('shops').select('image_url').not('image_url', 'is', null),
+        supabase.from('shop_requests').select('image_url').not('image_url', 'is', null),
+      ]);
+
+      const referencedPaths = new Set<string>();
+      [...(shopImgs || []), ...(reqImgs || [])].forEach((row: any) => {
+        if (row.image_url) {
+          const marker = '/object/public/shop-images/';
+          const idx = (row.image_url as string).indexOf(marker);
+          if (idx !== -1) {
+            const path = decodeURIComponent((row.image_url as string).slice(idx + marker.length).split('?')[0]);
+            referencedPaths.add(path);
+          }
+        }
+      });
+
+      // 3. Find orphans — files not in any referenced URL
+      const found = allFiles
+        .filter((f) => !referencedPaths.has(f.name))
+        .map((f) => ({
+          name: f.name,
+          size: f.metadata?.size ?? 0,
+          created_at: f.created_at ?? '',
+        }));
+
+      setOrphans(found);
+      setScanned(true);
+    } catch (err: any) {
+      toast.error('Scan failed: ' + (err?.message || 'Unknown error'));
+    }
+    setScanning(false);
+  };
+
+  const toggleSelect = (name: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === orphans.length) setSelected(new Set());
+    else setSelected(new Set(orphans.map((o) => o.name)));
+  };
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    setDeleting(true);
+    const paths = Array.from(selected);
+    const { error } = await supabase.storage.from('shop-images').remove(paths);
+    if (error) {
+      toast.error('Delete failed: ' + error.message);
+    } else {
+      toast.success(`Deleted ${paths.length} orphaned file${paths.length !== 1 ? 's' : ''}`);
+      setOrphans((prev) => prev.filter((o) => !selected.has(o.name)));
+      setSelected(new Set());
+    }
+    setDeleteConfirmOpen(false);
+    setDeleting(false);
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (!bytes) return '—';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const totalOrphanSize = orphans.reduce((acc, o) => acc + (o.size || 0), 0);
+
+  return (
+    <section>
+      <div className="flex items-center gap-2 mb-3">
+        <HardDrive className="w-4 h-4 text-primary" />
+        <h3 className="font-bold text-foreground">Storage Audit</h3>
+        {scanned && (
+          <span className={`ml-1 inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full text-[11px] font-bold ${
+            orphans.length > 0
+              ? 'bg-destructive/15 text-destructive border border-destructive/30'
+              : 'bg-primary/10 text-primary border border-primary/20'
+          }`}>
+            {orphans.length}
+          </span>
+        )}
+        <button
+          onClick={runScan}
+          disabled={scanning}
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
+        >
+          {scanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+          {scanned ? 'Re-scan' : 'Scan Now'}
+        </button>
+      </div>
+
+      {!scanned && !scanning && (
+        <div className="bg-card rounded-xl border border-border p-6 text-center">
+          <HardDrive className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+          <p className="font-semibold text-sm text-foreground">Not scanned yet</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+            Click <strong>Scan Now</strong> to list all files in the shop-images bucket and find any that are no longer referenced by a shop or request.
+          </p>
+        </div>
+      )}
+
+      {scanning && (
+        <div className="bg-card rounded-xl border border-border p-6 flex items-center justify-center gap-3">
+          <Loader2 className="w-5 h-5 animate-spin text-primary" />
+          <span className="text-sm text-muted-foreground">Scanning storage bucket…</span>
+        </div>
+      )}
+
+      {scanned && !scanning && orphans.length === 0 && (
+        <div className="bg-card rounded-xl border border-border p-6 text-center">
+          <p className="text-2xl mb-2">✅</p>
+          <p className="font-semibold text-sm text-foreground">No orphaned files</p>
+          <p className="text-xs text-muted-foreground mt-1">All files in the bucket are referenced by an active shop or request.</p>
+        </div>
+      )}
+
+      {scanned && !scanning && orphans.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-semibold text-destructive">{orphans.length} orphaned file{orphans.length !== 1 ? 's' : ''}</span>
+              {' '}· {formatBytes(totalOrphanSize)} total · not referenced by any shop or request
+            </p>
+            {selected.size > 0 && (
+              <button
+                onClick={() => setDeleteConfirmOpen(true)}
+                disabled={deleting}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors disabled:opacity-60"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete {selected.size} selected
+              </button>
+            )}
+          </div>
+
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 border-b border-border">
+                  <th className="px-3 py-2.5 w-10">
+                    <input
+                      type="checkbox"
+                      checked={selected.size === orphans.length && orphans.length > 0}
+                      onChange={toggleSelectAll}
+                      className="h-3.5 w-3.5 rounded border-input cursor-pointer accent-primary"
+                    />
+                  </th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-foreground">Filename</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-foreground w-24 hidden sm:table-cell">Size</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-foreground w-36 hidden md:table-cell">Uploaded</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orphans.map((file) => (
+                  <tr
+                    key={file.name}
+                    className={`border-b border-border last:border-0 transition-colors cursor-pointer ${
+                      selected.has(file.name) ? 'bg-destructive/5' : 'hover:bg-muted/30'
+                    }`}
+                    onClick={() => toggleSelect(file.name)}
+                  >
+                    <td className="px-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(file.name)}
+                        onChange={() => toggleSelect(file.name)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-3.5 w-3.5 rounded border-input cursor-pointer accent-primary"
+                      />
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <PackageX className="w-3.5 h-3.5 text-destructive shrink-0" />
+                        <span className="font-mono text-xs text-foreground truncate max-w-[200px] sm:max-w-none">{file.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-muted-foreground text-xs hidden sm:table-cell">{formatBytes(file.size)}</td>
+                    <td className="px-3 py-2.5 text-muted-foreground text-xs hidden md:table-cell">
+                      {file.created_at ? new Date(file.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground mt-2">
+        Orphaned files are images uploaded to storage but no longer linked to any shop or request record. Safe to delete — this won't affect any live data.
+      </p>
+
+      {/* Confirm delete dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              Delete {selected.size} orphaned file{selected.size !== 1 ? 's' : ''}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {selected.size} file{selected.size !== 1 ? 's' : ''} ({formatBytes(Array.from(selected).reduce((acc, n) => acc + (orphans.find(o => o.name === n)?.size ?? 0), 0))}) from the storage bucket.
+              <br /><br />
+              <strong>This cannot be undone.</strong> Only do this if you are sure these files are not needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Deleting…</> : `Delete ${selected.size} file${selected.size !== 1 ? 's' : ''}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
+  );
+}
+
 /* ─── SHOP MODAL ─────────────────────────────────────────────── */
 
 /** Extract the storage file path from a Supabase public URL.
