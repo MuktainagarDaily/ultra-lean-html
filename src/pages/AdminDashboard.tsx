@@ -606,6 +606,128 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
   );
 }
 
+/* ─── ANALYTICS TAB ──────────────────────────────────────────── */
+function AnalyticsTab() {
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ['admin-engagement'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('shop_engagement')
+        .select('shop_id, event_type, shops(name, area)')
+        .order('shop_id');
+      if (error) throw error;
+      return data as { shop_id: string; event_type: string; shops: { name: string; area: string | null } | null }[];
+    },
+  });
+
+  // Aggregate by shop
+  const aggregated = useMemo(() => {
+    const map = new Map<string, { name: string; area: string | null; call: number; whatsapp: number; total: number }>();
+    rows.forEach((r) => {
+      const key = r.shop_id;
+      if (!map.has(key)) {
+        map.set(key, { name: r.shops?.name ?? r.shop_id, area: r.shops?.area ?? null, call: 0, whatsapp: 0, total: 0 });
+      }
+      const entry = map.get(key)!;
+      if (r.event_type === 'call') entry.call += 1;
+      if (r.event_type === 'whatsapp') entry.whatsapp += 1;
+      entry.total += 1;
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [rows]);
+
+  const totalCalls = rows.filter((r) => r.event_type === 'call').length;
+  const totalWhatsApp = rows.filter((r) => r.event_type === 'whatsapp').length;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-foreground">Engagement Analytics</h2>
+        <p className="text-xs text-muted-foreground">All-time tap counts</p>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="bg-card rounded-xl border border-border px-3 py-3 text-center">
+          <TrendingUp className="w-5 h-5 mx-auto mb-1 text-primary" />
+          <div className="text-xl font-bold text-foreground">{rows.length}</div>
+          <div className="text-xs text-muted-foreground">Total Taps</div>
+        </div>
+        <div className="bg-card rounded-xl border border-border px-3 py-3 text-center">
+          <Phone className="w-5 h-5 mx-auto mb-1 text-primary" />
+          <div className="text-xl font-bold text-foreground">{totalCalls}</div>
+          <div className="text-xs text-muted-foreground">Calls</div>
+        </div>
+        <div className="bg-card rounded-xl border border-border px-3 py-3 text-center">
+          <MessageCircle className="w-5 h-5 mx-auto mb-1" style={{ color: '#25D366' }} />
+          <div className="text-xl font-bold text-foreground">{totalWhatsApp}</div>
+          <div className="text-xs text-muted-foreground">WhatsApp</div>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => <div key={i} className="bg-card rounded-xl p-4 border border-border skeleton-shimmer h-14" />)}
+        </div>
+      ) : aggregated.length === 0 ? (
+        <div className="bg-card rounded-xl border border-border p-10 text-center text-muted-foreground">
+          <p className="text-3xl mb-2">📊</p>
+          <p className="font-semibold">No engagement data yet</p>
+          <p className="text-xs mt-1">Call and WhatsApp taps will appear here once users start engaging.</p>
+        </div>
+      ) : (
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 border-b border-border">
+                  <th className="text-left px-4 py-3 font-semibold text-foreground">#</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground">Shop</th>
+                  <th className="text-right px-4 py-3 font-semibold text-foreground">
+                    <span className="flex items-center justify-end gap-1"><Phone className="w-3.5 h-3.5" /> Calls</span>
+                  </th>
+                  <th className="text-right px-4 py-3 font-semibold text-foreground">
+                    <span className="flex items-center justify-end gap-1"><MessageCircle className="w-3.5 h-3.5" /> WA</span>
+                  </th>
+                  <th className="text-right px-4 py-3 font-semibold text-foreground">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aggregated.map((row, idx) => (
+                  <tr key={idx} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3 text-muted-foreground font-medium">{idx + 1}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-foreground">{row.name}</div>
+                      {row.area && <div className="text-xs text-muted-foreground">{row.area}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {row.call > 0 ? (
+                        <span className="font-semibold text-foreground">{row.call}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {row.whatsapp > 0 ? (
+                        <span className="font-semibold text-foreground">{row.whatsapp}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="font-bold text-primary">{row.total}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── SHOP MODAL ─────────────────────────────────────────────── */
 
 /** Normalize phone for duplicate detection: strip spaces, dashes, parens, dots;
