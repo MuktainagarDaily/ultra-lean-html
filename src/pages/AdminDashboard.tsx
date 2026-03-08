@@ -526,6 +526,15 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
                 <tr key={cat.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3 text-2xl">{cat.icon}</td>
                   <td className="px-4 py-3 font-semibold text-foreground">{cat.name}</td>
+                  <td className="px-4 py-3 hidden sm:table-cell">
+                    <span className={`inline-flex items-center justify-center min-w-[1.75rem] px-2 py-0.5 rounded-full text-xs font-bold ${
+                      (cat as any).shopCount > 0
+                        ? 'bg-primary/10 text-primary'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {(cat as any).shopCount}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => toggleActive.mutate({ id: cat.id, is_active: !cat.is_active })}
