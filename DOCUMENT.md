@@ -278,7 +278,7 @@ All tables have Row-Level Security enabled.
 - **Hero section** — deep gradient (145deg, primary → darker blue), subtle grid texture overlay, decorative blobs
 - **Brand & tagline** — "Muktainagar Daily" with Marathi subtitle + location line (`MUKTAINAGAR · JALGAON DISTRICT · MAHARASHTRA`)
 - **Trust strip** — thin bar below hero showing "Direct phone calls · Verified listings · Local businesses" with icons
-- **Search bar** — prominent, full-width; placeholder in Marathi (`दुकान, सेवा किंवा भाग शोधा…`); focus ring on tap
+- **Search bar** — prominent, full-width; placeholder in Marathi (`दुकान, सेवा किंवा भाग शोधा…`); focus ring animates on tap (standard browser focus; no programmatic auto-focus implemented)
 - **Stats pills** — total shops, open-now count (success-tinted pill), category count
 - **Category grid** — sorted by shop count descending (most popular first); count badge per tile
 - **WhatsApp FAB** — floating "दुकान नोंदवा / List your shop" button
