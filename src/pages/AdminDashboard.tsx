@@ -1012,7 +1012,7 @@ function AnalyticsTab() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <div className="bg-card rounded-xl border border-border px-3 py-3 text-center">
           <TrendingUp className="w-5 h-5 mx-auto mb-1 text-primary" />
           <div className="text-xl font-bold text-foreground">{rows.length}</div>
