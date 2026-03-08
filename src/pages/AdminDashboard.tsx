@@ -469,29 +469,25 @@ function ShopsTab({ onEdit, onImport }: { onEdit: (shop: any) => void; onImport:
 /* ─── CATEGORIES TAB ─────────────────────────────────────────── */
 function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
   const qc = useQueryClient();
-  // Delete confirmation state
   const [deleteCatTarget, setDeleteCatTarget] = useState<{ id: string; name: string; icon: string } | null>(null);
   const [deleteCatLinkedShops, setDeleteCatLinkedShops] = useState<string[]>([]);
   const [fetchingLinks, setFetchingLinks] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [mergeCatTarget, setMergeCatTarget] = useState<{ id: string; name: string; icon: string; shopCount: number } | null>(null);
 
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ['admin-categories'],
     queryFn: async () => {
-      // Fetch categories + shop count per category in one go
       const [{ data: cats, error: catErr }, { data: links, error: linkErr }] = await Promise.all([
         supabase.from('categories').select('*').order('name'),
         supabase.from('shop_categories').select('category_id'),
       ]);
       if (catErr) throw catErr;
       if (linkErr) throw linkErr;
-
-      // Count how many shops are linked to each category
       const countMap = new Map<string, number>();
       (links || []).forEach((row: any) => {
         countMap.set(row.category_id, (countMap.get(row.category_id) || 0) + 1);
       });
-
       return (cats || []).map((c) => ({ ...c, shopCount: countMap.get(c.id) || 0 }));
     },
   });
@@ -506,16 +502,11 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
 
   const handleDeleteClick = async (cat: { id: string; name: string; icon: string }) => {
     setFetchingLinks(true);
-    // Fetch the names of all shops linked to this category
     const { data } = await supabase
       .from('shop_categories')
       .select('shops(name)')
       .eq('category_id', cat.id);
-
-    const shopNames = (data || [])
-      .map((row: any) => row.shops?.name)
-      .filter(Boolean) as string[];
-
+    const shopNames = (data || []).map((row: any) => row.shops?.name).filter(Boolean) as string[];
     setDeleteCatLinkedShops(shopNames);
     setDeleteCatTarget(cat);
     setFetchingLinks(false);
@@ -593,6 +584,15 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
+                      {(cat as any).shopCount > 0 && (
+                        <button
+                          onClick={() => setMergeCatTarget(cat as any)}
+                          title="Merge into another category"
+                          className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                        >
+                          <GitMerge className="w-4 h-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => onEdit(cat)}
                         className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors"
@@ -670,7 +670,196 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Category Merge Modal */}
+      {mergeCatTarget && (
+        <CategoryMergeModal
+          source={mergeCatTarget}
+          allCategories={categories as any[]}
+          onClose={() => setMergeCatTarget(null)}
+          onMerged={() => {
+            setMergeCatTarget(null);
+            qc.invalidateQueries({ queryKey: ['admin-categories'] });
+            qc.invalidateQueries({ queryKey: ['admin-shops'] });
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/* ─── CATEGORY MERGE MODAL ───────────────────────────────────── */
+function CategoryMergeModal({
+  source,
+  allCategories,
+  onClose,
+  onMerged,
+}: {
+  source: { id: string; name: string; icon: string; shopCount: number };
+  allCategories: { id: string; name: string; icon: string; shopCount: number }[];
+  onClose: () => void;
+  onMerged: () => void;
+}) {
+  const [targetId, setTargetId] = useState('');
+  const [disableSource, setDisableSource] = useState(true);
+  const [merging, setMerging] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const targets = allCategories.filter((c) => c.id !== source.id);
+  const targetCat = targets.find((c) => c.id === targetId);
+
+  const handleMerge = async () => {
+    if (!targetId) return;
+    setMerging(true);
+    try {
+      // Fetch all shop_categories rows for the source category
+      const { data: sourceLinks, error: fetchErr } = await supabase
+        .from('shop_categories')
+        .select('id, shop_id')
+        .eq('category_id', source.id);
+      if (fetchErr) throw fetchErr;
+
+      // Fetch existing links for target to avoid duplicates
+      const { data: targetLinks, error: fetchErr2 } = await supabase
+        .from('shop_categories')
+        .select('shop_id')
+        .eq('category_id', targetId);
+      if (fetchErr2) throw fetchErr2;
+
+      const alreadyHasTarget = new Set((targetLinks || []).map((r: any) => r.shop_id));
+
+      // Separate: shops that need reassignment vs shops already in target (delete those)
+      const toReassign = (sourceLinks || []).filter((r: any) => !alreadyHasTarget.has(r.shop_id));
+      const toDelete = (sourceLinks || []).filter((r: any) => alreadyHasTarget.has(r.shop_id));
+
+      // Delete duplicate source links (shop already has target category)
+      if (toDelete.length > 0) {
+        const deleteIds = toDelete.map((r: any) => r.id);
+        const { error: delErr } = await supabase
+          .from('shop_categories')
+          .delete()
+          .in('id', deleteIds);
+        if (delErr) throw delErr;
+      }
+
+      // Reassign remaining source links to target
+      if (toReassign.length > 0) {
+        const reassignIds = toReassign.map((r: any) => r.id);
+        const { error: updateErr } = await supabase
+          .from('shop_categories')
+          .update({ category_id: targetId })
+          .in('id', reassignIds);
+        if (updateErr) throw updateErr;
+      }
+
+      // Optionally disable source category
+      if (disableSource) {
+        await supabase.from('categories').update({ is_active: false }).eq('id', source.id);
+      }
+
+      toast.success(`Merged ${source.icon} ${source.name} → ${targetCat?.icon} ${targetCat?.name}. ${source.shopCount} shop${source.shopCount !== 1 ? 's' : ''} reassigned.`);
+      onMerged();
+    } catch (e: any) {
+      toast.error('Merge failed: ' + (e.message || 'Unknown error'));
+    }
+    setMerging(false);
+  };
+
+  return (
+    <>
+      <Dialog open onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GitMerge className="w-5 h-5 text-primary shrink-0" />
+              Merge {source.icon} {source.name}
+            </DialogTitle>
+            <DialogDescription>
+              Reassign all {source.shopCount} shop{source.shopCount !== 1 ? 's' : ''} from this category into another category.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-semibold text-foreground block mb-1.5">Merge into</label>
+              <select
+                value={targetId}
+                onChange={(e) => setTargetId(e.target.value)}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Select target category…</option>
+                {targets.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.icon} {c.name} ({c.shopCount} shops)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {targetCat && (
+              <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                <strong className="text-foreground">{source.shopCount} shop{source.shopCount !== 1 ? 's' : ''}</strong> will be moved from{' '}
+                <span className="font-semibold text-foreground">{source.icon} {source.name}</span> to{' '}
+                <span className="font-semibold text-foreground">{targetCat.icon} {targetCat.name}</span>.
+              </div>
+            )}
+
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={disableSource}
+                onChange={(e) => setDisableSource(e.target.checked)}
+                className="w-4 h-4 rounded border-input accent-primary"
+              />
+              <span className="text-sm text-foreground">Disable source category after merge</span>
+            </label>
+          </div>
+
+          <DialogFooter>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg border border-border text-sm font-semibold hover:bg-muted transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => setConfirmOpen(true)}
+              disabled={!targetId || merging}
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              Review & Confirm
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <TriangleAlert className="w-5 h-5 text-secondary shrink-0" />
+              Confirm merge?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {source.shopCount} shop{source.shopCount !== 1 ? 's' : ''} will be reassigned from{' '}
+              <strong>{source.icon} {source.name}</strong> to <strong>{targetCat?.icon} {targetCat?.name}</strong>.
+              {disableSource && ' The source category will be disabled.'}
+              {' '}This cannot be undone automatically.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={merging}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setConfirmOpen(false); handleMerge(); }}
+              disabled={merging}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {merging ? <><Loader2 className="w-4 h-4 animate-spin" /> Merging…</> : 'Merge Category'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
