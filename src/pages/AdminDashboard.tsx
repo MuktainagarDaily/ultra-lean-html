@@ -1746,20 +1746,6 @@ function CsvImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
     await processText(csvText);
   };
 
-  // ── Dev: load test CSV directly (no file picker needed for testing) ─────────
-  const loadTestData = async () => {
-    setParsing(true);
-    const testCsv = [
-      'name,phone,whatsapp,address,area,category,opening_time,closing_time,latitude,longitude,is_active,is_verified',
-      '"Sharma, General Store",9876543210,,,"Near Bus Stand, Main Road",Grocery,09:00,21:00,,,true,false',
-      'Another Shop,9876543210,,,Station Road,,,,,,,',
-      'Tea Stall,9123456789,,,Chowk Area,NonExistentCat,,,,,true,false',
-      ',8800000001,,,,,,,,,true,false',
-      'Valid Shop,7700000001,,,Market Area,,,,999,999,true,false',
-      'Good Shop,6600000001,123,,Peth Area,Grocery,10:00,20:00,,,true,false',
-    ].join('\n');
-    await processText(testCsv);
-  };
 
   const importableRows = rows.filter((r) => r.status === 'ready' || r.status === 'warning');
   const dupeRows = rows.filter((r) => r.status === 'duplicate');
