@@ -293,6 +293,13 @@ function ShopsTab({ onEdit, onImport }: { onEdit: (shop: any) => void; onImport:
             </div>
           )}
           <button
+            onClick={() => onImport()}
+            className="flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:inline">Import CSV</span>
+          </button>
+          <button
             onClick={() => onEdit({})}
             className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-primary/90 shrink-0"
           >
