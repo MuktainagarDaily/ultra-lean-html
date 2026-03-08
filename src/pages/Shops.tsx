@@ -260,6 +260,14 @@ export default function Shops() {
                 </button>
               </span>
             )}
+            {verifiedOnly && (
+              <span className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary">
+                ✅ Verified Only
+                <button onClick={() => removeFilter('verified')} className="ml-0.5 hover:opacity-70">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
             {selectedAreas.map((area) => (
               <span key={area} className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary whitespace-nowrap">
                 📍 {area}
@@ -278,7 +286,7 @@ export default function Shops() {
             ))}
             {activeFilterCount > 1 && (
               <button
-                onClick={() => { setAvailability('all'); setSelectedAreas([]); setSelectedCategories([]); }}
+                onClick={() => { setAvailability('all'); setSelectedAreas([]); setSelectedCategories([]); setVerifiedOnly(false); }}
                 className="shrink-0 text-xs text-primary-foreground/60 hover:text-primary-foreground underline whitespace-nowrap"
               >
                 Clear all
