@@ -1465,6 +1465,19 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
 
 /* ─── SHOP MODAL ─────────────────────────────────────────────── */
 
+/** Extract the storage file path from a Supabase public URL.
+ *  Returns null if the URL is not a recognized shop-images bucket URL. */
+function extractStoragePath(publicUrl: string): string | null {
+  try {
+    const marker = '/object/public/shop-images/';
+    const idx = publicUrl.indexOf(marker);
+    if (idx === -1) return null;
+    return decodeURIComponent(publicUrl.slice(idx + marker.length).split('?')[0]);
+  } catch {
+    return null;
+  }
+}
+
 /** Normalize phone for duplicate detection and wa.me links:
  *  strips spaces, dashes, parens, dots, +;
  *  strips leading 91 country code (12-digit → 10-digit) */
