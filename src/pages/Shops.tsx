@@ -44,6 +44,7 @@ export default function Shops() {
   const [availability, setAvailability] = useState<AvailabilityFilter>('all');
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [filterOpen, setFilterOpen] = useState(false);
 
@@ -51,6 +52,7 @@ export default function Shops() {
   const [sheetAvailability, setSheetAvailability] = useState<AvailabilityFilter>('all');
   const [sheetAreas, setSheetAreas] = useState<string[]>([]);
   const [sheetCategories, setSheetCategories] = useState<string[]>([]);
+  const [sheetVerifiedOnly, setSheetVerifiedOnly] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(localSearch), 300);
@@ -63,6 +65,7 @@ export default function Shops() {
       setSheetAvailability(availability);
       setSheetAreas(selectedAreas);
       setSheetCategories(selectedCategories);
+      setSheetVerifiedOnly(verifiedOnly);
     }
   }, [filterOpen]);
 
@@ -120,7 +123,7 @@ export default function Shops() {
     return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [shops]);
 
-  const applyFilters = useCallback((s: any, avail: AvailabilityFilter, areas: string[], cats: string[]) => {
+  const applyFilters = useCallback((s: any, avail: AvailabilityFilter, areas: string[], cats: string[], verified: boolean) => {
     if (avail === 'open' && !isShopOpen(s)) return false;
     if (avail === 'closed' && isShopOpen(s)) return false;
     if (areas.length > 0 && !areas.includes(s.area?.trim() || '')) return false;
@@ -128,24 +131,25 @@ export default function Shops() {
       const shopCatNames = (s.shop_categories || []).map((sc: any) => sc.categories?.name).filter(Boolean);
       if (!cats.some((c) => shopCatNames.includes(c))) return false;
     }
+    if (verified && !s.is_verified) return false;
     return true;
   }, []);
 
   const filteredShops = useMemo(() =>
-    (shops as any[]).filter((s) => applyFilters(s, availability, selectedAreas, selectedCategories)),
-    [shops, availability, selectedAreas, selectedCategories, applyFilters]
+    (shops as any[]).filter((s) => applyFilters(s, availability, selectedAreas, selectedCategories, verifiedOnly)),
+    [shops, availability, selectedAreas, selectedCategories, verifiedOnly, applyFilters]
   );
 
   // Preview count while sheet is open
   const sheetPreviewCount = useMemo(() =>
-    (shops as any[]).filter((s) => applyFilters(s, sheetAvailability, sheetAreas, sheetCategories)).length,
-    [shops, sheetAvailability, sheetAreas, sheetCategories, applyFilters]
+    (shops as any[]).filter((s) => applyFilters(s, sheetAvailability, sheetAreas, sheetCategories, sheetVerifiedOnly)).length,
+    [shops, sheetAvailability, sheetAreas, sheetCategories, sheetVerifiedOnly, applyFilters]
   );
 
   const openCount = useMemo(() => shops.filter((s: any) => isShopOpen(s)).length, [shops]);
 
   const activeFilterCount =
-    (availability !== 'all' ? 1 : 0) + selectedAreas.length + selectedCategories.length;
+    (availability !== 'all' ? 1 : 0) + selectedAreas.length + selectedCategories.length + (verifiedOnly ? 1 : 0);
 
   const title = debouncedSearch ? `"${debouncedSearch}"` : 'All Shops';
 
@@ -153,6 +157,7 @@ export default function Shops() {
     setAvailability(sheetAvailability);
     setSelectedAreas(sheetAreas);
     setSelectedCategories(sheetCategories);
+    setVerifiedOnly(sheetVerifiedOnly);
     setFilterOpen(false);
   };
 
@@ -160,6 +165,7 @@ export default function Shops() {
     setSheetAvailability('all');
     setSheetAreas([]);
     setSheetCategories([]);
+    setSheetVerifiedOnly(false);
   };
 
   const toggleSheetArea = (area: string) =>
@@ -168,10 +174,11 @@ export default function Shops() {
   const toggleSheetCategory = (cat: string) =>
     setSheetCategories((prev) => prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]);
 
-  const removeFilter = (type: 'availability' | 'area' | 'category', value?: string) => {
+  const removeFilter = (type: 'availability' | 'area' | 'category' | 'verified', value?: string) => {
     if (type === 'availability') setAvailability('all');
     if (type === 'area' && value) setSelectedAreas((prev) => prev.filter((a) => a !== value));
     if (type === 'category' && value) setSelectedCategories((prev) => prev.filter((c) => c !== value));
+    if (type === 'verified') setVerifiedOnly(false);
   };
 
   const availabilityLabel: Record<AvailabilityFilter, string> = {
@@ -253,6 +260,14 @@ export default function Shops() {
                 </button>
               </span>
             )}
+            {verifiedOnly && (
+              <span className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary">
+                ✅ Verified Only
+                <button onClick={() => removeFilter('verified')} className="ml-0.5 hover:opacity-70">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
             {selectedAreas.map((area) => (
               <span key={area} className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary whitespace-nowrap">
                 📍 {area}
@@ -271,7 +286,7 @@ export default function Shops() {
             ))}
             {activeFilterCount > 1 && (
               <button
-                onClick={() => { setAvailability('all'); setSelectedAreas([]); setSelectedCategories([]); }}
+                onClick={() => { setAvailability('all'); setSelectedAreas([]); setSelectedCategories([]); setVerifiedOnly(false); }}
                 className="shrink-0 text-xs text-primary-foreground/60 hover:text-primary-foreground underline whitespace-nowrap"
               >
                 Clear all
@@ -308,7 +323,7 @@ export default function Shops() {
             <div className="flex justify-center gap-2 mt-4 flex-wrap">
               {activeFilterCount > 0 && (
                 <button
-                  onClick={() => { setAvailability('all'); setSelectedAreas([]); setSelectedCategories([]); }}
+                  onClick={() => { setAvailability('all'); setSelectedAreas([]); setSelectedCategories([]); setVerifiedOnly(false); }}
                   className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold"
                 >
                   Clear filters
@@ -352,7 +367,7 @@ export default function Shops() {
         <DrawerContent className="max-h-[85vh]">
           <DrawerHeader className="flex items-center justify-between px-5 pt-4 pb-2">
             <DrawerTitle className="text-base font-bold">Filters</DrawerTitle>
-            {(sheetAvailability !== 'all' || sheetAreas.length > 0 || sheetCategories.length > 0) && (
+            {(sheetAvailability !== 'all' || sheetAreas.length > 0 || sheetCategories.length > 0 || sheetVerifiedOnly) && (
               <button onClick={handleClearAll} className="text-sm text-primary font-semibold hover:opacity-70">
                 Clear all
               </button>
@@ -462,6 +477,29 @@ export default function Shops() {
                 </div>
               </div>
             )}
+
+            {/* Verified Only */}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2.5">Trust</p>
+              <button
+                onClick={() => setSheetVerifiedOnly((v) => !v)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
+                  sheetVerifiedOnly
+                    ? 'bg-primary/10 border-primary/40 text-primary'
+                    : 'bg-card border-border text-foreground hover:border-primary/30'
+                }`}
+              >
+                <span className="flex items-center gap-2.5 text-sm font-semibold">
+                  <span className="text-base">✅</span>
+                  Verified shops only
+                </span>
+                <span className={`w-11 h-6 rounded-full flex items-center transition-all duration-200 px-0.5 ${
+                  sheetVerifiedOnly ? 'bg-primary justify-end' : 'bg-muted justify-start'
+                }`}>
+                  <span className="w-5 h-5 rounded-full bg-background shadow-sm" />
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* Apply CTA */}
