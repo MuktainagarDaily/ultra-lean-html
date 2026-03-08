@@ -64,12 +64,12 @@ src/
 │   ├── shopUtils.ts           — isShopOpen(), formatTime() utilities
 │   └── utils.ts               — Tailwind cn() merge helper
 ├── pages/
-│   ├── Home.tsx               — Public homepage
+│   ├── Home.tsx               — Public homepage (hero, search, categories, trust strip)
 │   ├── Shops.tsx              — All shops listing + search + filter
 │   ├── CategoryPage.tsx       — Shops filtered by category
-│   ├── ShopDetail.tsx         — Individual shop detail page
+│   ├── ShopDetail.tsx         — Individual shop detail + engagement tracking
 │   ├── AdminLogin.tsx         — Admin login form
-│   ├── AdminDashboard.tsx     — Admin management UI
+│   ├── AdminDashboard.tsx     — Admin management UI (Shops, Categories, Analytics tabs)
 │   ├── Index.tsx              — (Redirect to Home if needed)
 │   └── NotFound.tsx           — 404 page
 ├── integrations/supabase/
@@ -86,12 +86,12 @@ DOCUMENT.md                    — This file
 
 | Path | Component | Description | Access |
 |---|---|---|---|
-| `/` | `Home` | Homepage: hero, search, categories, stats | Public |
+| `/` | `Home` | Homepage: hero, search, trust strip, categories, stats | Public |
 | `/shops` | `Shops` | All active shops, search + Open Now filter | Public |
 | `/category/:id` | `CategoryPage` | Shops filtered by a specific category | Public |
 | `/shop/:id` | `ShopDetail` | Full shop details — **blocked if `is_active = false`** | Public |
 | `/admin/login` | `AdminLogin` | Admin email + password login | Public |
-| `/admin` | `AdminDashboard` | Manage shops and categories | Auth-only |
+| `/admin` | `AdminDashboard` | Manage shops, categories, and analytics | Auth-only |
 | `*` | `NotFound` | 404 catch-all | Public |
 
 ### Route Protection
@@ -153,6 +153,18 @@ If a user navigates directly to `/shop/:id` for a shop where `is_active = false`
 > **Note:** `UNIQUE(shop_id, category_id)` constraint prevents duplicate links.  
 > A shop can belong to multiple categories via this table.
 
+### Table: `shop_engagement`
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | uuid | No | `gen_random_uuid()` | Primary key |
+| `shop_id` | uuid | No | — | FK → shops.id (CASCADE DELETE) |
+| `event_type` | text | No | — | `'call'` or `'whatsapp'` |
+| `created_at` | timestamptz | No | `now()` | Timestamp of the tap event |
+
+> **Purpose:** Every time a public user taps "Call" or "Chat on WhatsApp" on a shop detail page, a record is inserted here. Used by admin to rank shops by engagement in the Analytics tab.  
+> **Indexed on:** `shop_id`, `event_type`, `created_at` for fast aggregation.
+
 ### Database Functions & Triggers
 
 ```sql
@@ -166,13 +178,13 @@ BEGIN
 END;
 $$;
 
--- Trigger on shops (created via migration, idempotent)
+-- Trigger on shops (idempotent)
 DROP TRIGGER IF EXISTS shops_updated_at ON public.shops;
 CREATE TRIGGER shops_updated_at
   BEFORE UPDATE ON public.shops
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- Trigger on categories (created via migration, idempotent)
+-- Trigger on categories (idempotent)
 DROP TRIGGER IF EXISTS categories_updated_at ON public.categories;
 CREATE TRIGGER categories_updated_at
   BEFORE UPDATE ON public.categories
@@ -203,7 +215,7 @@ All tables have Row-Level Security enabled.
 | Authenticated users can update shops | UPDATE | `auth.role() = 'authenticated'` |
 | Authenticated users can delete shops | DELETE | `auth.role() = 'authenticated'` |
 
-> **Note:** The public `SELECT` policy returns all rows including `is_active = false`. Inactive shop filtering is enforced **at the application layer** (public listing pages filter `is_active = true` in the query; ShopDetail blocks rendering if `is_active = false`).
+> **Note:** The public `SELECT` policy returns all rows including `is_active = false`. Inactive shop filtering is enforced **at the application layer** — public listing pages add `.eq('is_active', true)` to their queries; `ShopDetail` blocks rendering if `is_active = false`.
 
 ### `shop_categories`
 
@@ -212,6 +224,15 @@ All tables have Row-Level Security enabled.
 | Shop categories are publicly readable | SELECT | `true` |
 | Authenticated users can insert shop_categories | INSERT | `auth.role() = 'authenticated'` |
 | Authenticated users can delete shop_categories | DELETE | `auth.role() = 'authenticated'` |
+
+### `shop_engagement`
+
+| Policy | Command | Rule |
+|---|---|---|
+| Public can insert engagement events | INSERT | `true` (anonymous tap tracking, no auth required) |
+| Authenticated users can read engagement | SELECT | `auth.role() = 'authenticated'` (admin only) |
+
+> **Design decision:** INSERT is intentionally open to anonymous users so tap tracking works without requiring login. SELECT is restricted to admin only so engagement data is not publicly readable.
 
 ---
 
@@ -252,43 +273,110 @@ All tables have Row-Level Security enabled.
 ## Key Features — V1
 
 ### Public Site
-- **Homepage** — hero with gradient, search bar, live stats (total shops, open now, categories)
-- **Category Grid** — sorted by shop count descending; shows shop count badge; navigates to CategoryPage
+
+#### Homepage (`Home.tsx`)
+- **Hero section** — deep gradient (145deg, primary → darker blue), subtle grid texture overlay, decorative blobs
+- **Brand & tagline** — "Muktainagar Daily" with Marathi subtitle + location line (`MUKTAINAGAR · JALGAON DISTRICT · MAHARASHTRA`)
+- **Trust strip** — thin bar below hero showing "Direct phone calls · Verified listings · Local businesses" with icons
+- **Search bar** — prominent, full-width; placeholder in Marathi (`दुकान, सेवा किंवा भाग शोधा…`); focus ring on tap
+- **Stats pills** — total shops, open-now count (success-tinted pill), category count
+- **Category grid** — sorted by shop count descending (most popular first); count badge per tile
+- **WhatsApp FAB** — floating "दुकान नोंदवा / List your shop" button
+
+#### Shop Listing & Detail
 - **All Shops** — search by name/area/phone; "Open Now" filter toggle; skeleton loading; error state with retry
 - **Category Page** — single-query join; "Open Now" filter; skeleton loading
-- **Shop Detail** — full info, Call/WhatsApp/Maps/Share buttons; "Verified" badge if `is_verified = true`
-- **Inactive Shop Guard** — direct URL `/shop/:id` for inactive shop shows unavailable screen, not shop data
+- **Shop Detail** — full info card; Call / WhatsApp / Google Maps / Share buttons; verified badge if `is_verified = true`
+- **Inactive Shop Guard** — `/shop/:id` for `is_active = false` shows unavailable screen (🔒), not shop data
 - **Share Button** — uses `navigator.share` on mobile; falls back to clipboard copy with toast
 - **Auto-refresh** — `useInterval` hook refreshes shop open/closed status every 60 seconds
-- **WhatsApp FAB** — floating "List your shop" button on homepage
 
-### Admin Panel
-- **Admin Login** — email + password auth
-- **Stats Bar** — Total Shops / Active / Verified / Categories
-- **Shop Management** — Add/Edit/Delete shops; activate/deactivate toggle; verified toggle
-- **Category Filter** — dropdown in admin shops tab (client-side, no extra query)
-- **Search** — filter by name, area, or phone in admin shops tab
-- **Duplicate Phone Detection** — before saving, normalizes and checks for duplicate phone numbers:
-  - strips spaces, dashes, parentheses, `+`
-  - strips leading `91` country code (12-digit → 10-digit normalization)
-  - if duplicate found: **blocks the save**, opens a confirmation `Dialog`
-  - shows: matching shop name, phone, area, and categories
-  - admin must explicitly click "Save Anyway" to proceed; Cancel is the safe default
-- **Shop Delete Confirmation** — uses `AlertDialog` (Radix UI); shows shop name; requires explicit confirm; loading state while deleting
-- **Category Delete Confirmation** — uses `AlertDialog` (Radix UI); fetches and shows names of all linked shops in a scrollable list; explains that shops are not deleted, only links are removed; loading state while deleting
-- **Category Management** — Add/Edit/Delete/Toggle categories
-- **Image Upload** — compress to WebP, preview, store in `shop-images` bucket
-- **Form Validation** — name required, phone required, area/address required; latitude validated (-90 to 90); longitude validated (-180 to 180)
-- **Multi-category** — pill selector in shop form; junction table `shop_categories`
-- **GPS Coordinates** — latitude/longitude fields with range validation and link to Google Maps for lookup
+#### Engagement Tracking
+- Tapping **"Call"** on a shop detail page fires a fire-and-forget insert to `shop_engagement` with `event_type = 'call'`
+- Tapping **"Chat on WhatsApp"** fires an insert with `event_type = 'whatsapp'`
+- Tracking is non-blocking — errors are silently ignored, never breaking the user action
+- No authentication required from the visitor — the `shop_engagement` INSERT policy is open to anonymous users
+
+### Admin Panel (`AdminDashboard.tsx`)
+
+#### Shops Tab
+- Add / Edit / Delete shops with full form
+- Activate/deactivate toggle (controls public visibility)
+- Verified toggle (controls `is_verified` badge)
+- Search by name, area, or phone
+- Category filter dropdown (client-side, no extra query)
+- **Safe delete** — `AlertDialog` (Radix UI) with shop name; loading state; requires explicit confirm
+
+#### Categories Tab
+- Add / Edit / Delete / Toggle categories
+- **Safe delete** — `AlertDialog` shows names of all linked shops in a scrollable list; explains links are removed but shops are not deleted; loading state
+
+#### Analytics Tab *(new in V1)*
+- Three summary cards: Total Taps, Calls, WhatsApp taps
+- Ranked table of shops by total engagement (highest first)
+- Shows shop name, area, call count, WhatsApp count, and total
+- Empty state when no data exists yet
+- Data source: `shop_engagement` table; aggregated client-side from all-time records
+
+#### Shop Form Validation
+- **Name** — required
+- **Phone** — required
+- **Area / Address** — at least one required
+- **Latitude** — optional; if provided must be a number in range -90 to 90
+- **Longitude** — optional; if provided must be a number in range -180 to 180
+- Inline error messages below each field; save is blocked until validation passes
+
+#### Duplicate Phone Detection
+Before saving a shop, the admin form:
+1. Normalizes the phone number: strips spaces, dashes, parentheses, `+`; strips leading `91` country code (12-digit → 10-digit)
+2. Compares against all existing shops (excluding self on edit)
+3. If a duplicate is found: **blocks the save**, opens a `Dialog` (Radix UI) showing:
+   - Existing shop name, phone, area, and category pills
+4. Admin must explicitly click **"Save Anyway"** to proceed; **"Cancel"** is the safe default
+5. If no duplicate: proceeds immediately
+
+#### Other Admin Features
+- **Stats bar** — Total Shops / Active / Verified / Categories (4 cards)
+- **Image upload** — compress to WebP via Canvas API; preview; stored in `shop-images` bucket
+- **Multi-category pills** — select one or more categories per shop; junction table `shop_categories`
+- **GPS coordinates** — latitude/longitude with range validation; link to Google Maps for pin lookup
 - **Manual Open Override** — `is_open` checkbox clearly labeled as fallback for shops without opening/closing times
 
-### Open/Closed Status Logic (`isShopOpen`)
+---
+
+## Business Logic
+
+### Open/Closed Status (`isShopOpen` in `src/lib/shopUtils.ts`)
+
 ```typescript
-// src/lib/shopUtils.ts
-// Priority: if opening_time and closing_time both set → calculate automatically
-// Supports overnight hours (e.g. 22:00 – 06:00)
-// Fallback: use shop.is_open (manual override)
+// Priority order:
+// 1. If both opening_time and closing_time are set → calculate from current time
+//    - Supports overnight hours (e.g. 22:00 – 06:00): if closing < opening, wrap around midnight
+// 2. Fallback: use shop.is_open (manual override checkbox in admin form)
+```
+
+### Phone Normalization (`normalizePhone` in `AdminDashboard.tsx`)
+
+```typescript
+function normalizePhone(phone: string): string {
+  let n = phone.replace(/[\s\-().+]/g, '');
+  // Strip leading country code: 91XXXXXXXXXX → XXXXXXXXXX (10 digits)
+  if (n.startsWith('91') && n.length === 12) n = n.slice(2);
+  return n;
+}
+// Used for duplicate detection only; display format is preserved
+```
+
+### Engagement Tracking (`logEngagement` in `ShopDetail.tsx`)
+
+```typescript
+// Fire-and-forget insert — never blocks the tap action
+async function logEngagement(shopId: string, eventType: 'call' | 'whatsapp') {
+  try {
+    await supabase.from('shop_engagement').insert({ shop_id: shopId, event_type: eventType });
+  } catch { /* silently ignore */ }
+}
+// Called from onClick on the Call <a> and WhatsApp <a> buttons
 ```
 
 ---
@@ -315,12 +403,12 @@ These were deliberately excluded from V1 to keep the product simple and maintain
 |---|---|
 | User signup / accounts | Not needed for read-only public directory |
 | Shop reviews & ratings | Requires moderation; V2 |
-| Analytics dashboard | Basic click tracking is V1.5; full dashboard is V2 |
+| Analytics date range filter | All-time only in V1; date filter is V1.5 |
+| Analytics chart / visualisation | Table view is sufficient for V1; bar chart is V1.5 |
 | Multi-city support | Muktainagar-only for V1 |
-| WhatsApp click tracking | Easy to add in V1.5; not blocking |
 | Area autocomplete | Small dataset; plain text is fine for V1 |
 | Pagination / infinite scroll | Shop count is small enough for single page in V1 |
-| Verified badge on shop cards | `is_verified` column exists; show on cards in V1.5 |
+| Verified badge on shop listing cards | `is_verified` shown on ShopDetail; listing cards is V1.5 |
 | Admin image delete (storage cleanup) | Old images accumulate; add cleanup in V1.5 |
 | Password reset flow | Admin can reset via auth settings for now |
 | RLS-level inactive filtering | Currently filtered at app layer; could add DB-level policy in V2 |
