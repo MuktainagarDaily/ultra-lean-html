@@ -242,16 +242,16 @@ export default function ShopDetail() {
         </div>
 
         {/* Action Buttons */}
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {shop.phone && (
             <a
               href={`tel:${shop.phone}`}
               onClick={() => logEngagement(shop.id, 'call')}
-              className="flex items-center justify-center gap-3 w-full py-4 rounded-xl font-bold text-base active:scale-95 transition-all shadow-sm"
+              className="flex items-center justify-center gap-2 sm:gap-3 w-full py-3.5 sm:py-4 rounded-xl font-bold text-sm sm:text-base active:scale-95 transition-all shadow-sm min-h-[52px]"
               style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}
             >
-              <Phone className="w-5 h-5" />
-              Call {shop.phone}
+              <Phone className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+              <span className="truncate">Call {shop.phone}</span>
             </a>
           )}
           {waNumber && (
@@ -260,10 +260,10 @@ export default function ShopDetail() {
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => logEngagement(shop.id, 'whatsapp')}
-              className="flex items-center justify-center gap-3 w-full text-white py-4 rounded-xl font-bold text-base active:scale-95 transition-all shadow-sm"
+              className="flex items-center justify-center gap-2 sm:gap-3 w-full text-white py-3.5 sm:py-4 rounded-xl font-bold text-sm sm:text-base active:scale-95 transition-all shadow-sm min-h-[52px]"
               style={{ background: '#25D366' }}
             >
-              <MessageCircle className="w-5 h-5" />
+              <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
               Chat on WhatsApp
             </a>
           )}
@@ -272,19 +272,18 @@ export default function ShopDetail() {
               href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-3 w-full text-white py-4 rounded-xl font-bold text-base active:scale-95 transition-all shadow-sm"
+              className="flex items-center justify-center gap-2 sm:gap-3 w-full text-white py-3.5 sm:py-4 rounded-xl font-bold text-sm sm:text-base active:scale-95 transition-all shadow-sm min-h-[52px]"
               style={{ background: 'hsl(211 100% 45%)' }}
             >
-              <MapPin className="w-5 h-5" />
+              <MapPin className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
               Open in Google Maps
             </a>
           )}
-          {/* Share button for non-native share environments */}
           <button
             onClick={handleShare}
-            className="flex items-center justify-center gap-3 w-full py-4 rounded-xl font-bold text-base active:scale-95 transition-all border border-border text-foreground hover:bg-muted"
+            className="flex items-center justify-center gap-2 sm:gap-3 w-full py-3.5 sm:py-4 rounded-xl font-bold text-sm sm:text-base active:scale-95 transition-all border border-border text-foreground hover:bg-muted min-h-[52px]"
           >
-            <Share2 className="w-5 h-5" />
+            <Share2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
             Share this shop
           </button>
         </div>
