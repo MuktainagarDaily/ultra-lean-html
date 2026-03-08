@@ -732,13 +732,28 @@ function AnalyticsTab() {
 
 /* ─── SHOP MODAL ─────────────────────────────────────────────── */
 
-/** Normalize phone for duplicate detection: strip spaces, dashes, parens, dots;
- *  strip leading +91 or 91 prefix so formatting differences don't bypass check */
+/** Normalize phone for duplicate detection and wa.me links:
+ *  strips spaces, dashes, parens, dots, +;
+ *  strips leading 91 country code (12-digit → 10-digit) */
 function normalizePhone(phone: string): string {
   let n = phone.replace(/[\s\-().+]/g, '');
-  // Strip leading country code: 91XXXXXXXXXX → XXXXXXXXXX (10 digits)
   if (n.startsWith('91') && n.length === 12) n = n.slice(2);
   return n;
+}
+
+/** Normalize a WhatsApp number for a wa.me link (digits-only, with 91 prefix) */
+function normalizeWhatsApp(wa: string): string {
+  let n = wa.replace(/\D/g, '');
+  // Ensure country code 91 is present for Indian numbers
+  if (n.length === 10) n = '91' + n;
+  // Strip extra leading 91 if already 12+ digits with 91 prefix
+  if (n.startsWith('91') && n.length === 12) return n;
+  return n;
+}
+
+/** Check if a phone number has at least 10 digits */
+function isValidPhone(phone: string): boolean {
+  return phone.replace(/\D/g, '').length >= 10;
 }
 
 type DupeShopInfo = {
