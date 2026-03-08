@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Search, X, Clock, RefreshCw, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Search, X, Clock, RefreshCw, AlertCircle, MapPin } from 'lucide-react';
 import { ShopCard } from '@/components/ShopCard';
 import { isShopOpen } from '@/lib/shopUtils';
 import { useInterval } from '@/hooks/useInterval';
