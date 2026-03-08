@@ -118,10 +118,12 @@ export default function ShopDetail() {
     : null;
 
   // Normalize WhatsApp number for wa.me (digits only, with 91 country code)
+  // Handles: 10-digit → add 91 prefix; 12-digit with 91 already → leave as-is; anything else → use as-is
   const waNumber = shop.whatsapp
     ? (() => {
         let n = shop.whatsapp.replace(/\D/g, '');
         if (n.length === 10) n = '91' + n;
+        else if (n.startsWith('91') && n.length === 12) { /* already correct */ }
         return n;
       })()
     : null;
