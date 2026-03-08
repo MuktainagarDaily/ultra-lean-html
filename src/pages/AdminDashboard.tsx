@@ -879,12 +879,16 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
   const executeSave = async () => {
     setSaving(true);
 
+    // Capitalize first letter of each word in area for consistency
+    const normalizeArea = (s: string) => s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+
     const payload: any = {
       name: form.name.trim(),
       phone: form.phone.trim() || null,
-      whatsapp: form.whatsapp.trim() || null,
+      // Normalize WhatsApp to digits-only with country code for wa.me links
+      whatsapp: form.whatsapp.trim() ? normalizeWhatsApp(form.whatsapp) : null,
       address: form.address.trim() || null,
-      area: form.area.trim() || null,
+      area: form.area.trim() ? normalizeArea(form.area) : null,
       opening_time: form.opening_time || null,
       closing_time: form.closing_time || null,
       is_open: form.is_open,
