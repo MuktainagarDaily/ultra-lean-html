@@ -103,7 +103,6 @@ export default function ShopDetail() {
   }
 
   const open = isShopOpen(shop);
-  const [imgError, setImgError] = useState(false);
 
   const allCats: { name: string; icon: string }[] = (shop as any).shop_categories
     ?.map((sc: any) => sc.categories)
