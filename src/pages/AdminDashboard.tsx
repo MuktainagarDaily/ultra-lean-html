@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  Plus, Pencil, Trash2, LogOut, Store, Tag, Eye, EyeOff, MapPin, X, Check, Search, Home, ShieldCheck, ShieldOff, Filter, Loader2, AlertTriangle, BarChart2, Phone, MessageCircle, TrendingUp
+  Plus, Pencil, Trash2, LogOut, Store, Tag, Eye, EyeOff, MapPin, X, Check, Search, Home, ShieldCheck, ShieldOff, Filter, Loader2, AlertTriangle, BarChart2, Phone, MessageCircle, TrendingUp, Upload, Download, CheckCircle2, AlertCircle, SkipForward
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatTime } from '@/lib/shopUtils';
