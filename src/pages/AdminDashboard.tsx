@@ -434,9 +434,21 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ['admin-categories'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('categories').select('*').order('name');
-      if (error) throw error;
-      return data;
+      // Fetch categories + shop count per category in one go
+      const [{ data: cats, error: catErr }, { data: links, error: linkErr }] = await Promise.all([
+        supabase.from('categories').select('*').order('name'),
+        supabase.from('shop_categories').select('category_id'),
+      ]);
+      if (catErr) throw catErr;
+      if (linkErr) throw linkErr;
+
+      // Count how many shops are linked to each category
+      const countMap = new Map<string, number>();
+      (links || []).forEach((row: any) => {
+        countMap.set(row.category_id, (countMap.get(row.category_id) || 0) + 1);
+      });
+
+      return (cats || []).map((c) => ({ ...c, shopCount: countMap.get(c.id) || 0 }));
     },
   });
 
