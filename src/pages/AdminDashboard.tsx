@@ -74,7 +74,7 @@ export default function AdminDashboard() {
             <Home className="w-4 h-4" />
             <span className="hidden sm:inline">Client Site</span>
           </button>
-          <span className="text-xs text-primary-foreground/70 hidden md:block truncate max-w-[140px]">{user?.email}</span>
+          <span className="text-xs text-primary-foreground/70 hidden xl:block truncate max-w-[160px]">{user?.email}</span>
           <button
             onClick={handleSignOut}
             className="flex items-center gap-1.5 bg-primary-foreground/10 hover:bg-primary-foreground/20 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors"
@@ -88,7 +88,7 @@ export default function AdminDashboard() {
       <div className="max-w-5xl mx-auto px-4 py-4">
         {/* Stats Bar */}
         {stats && (
-          <div className="grid grid-cols-5 gap-3 mb-5">
+          <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-5 gap-3 mb-5">
             <StatCard label="Total Shops" value={stats.total} icon="🏪" />
             <StatCard label="Active" value={stats.active} icon="✅" />
             <StatCard label="Verified" value={stats.verified} icon="🛡️" />
@@ -98,7 +98,7 @@ export default function AdminDashboard() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-5 overflow-x-auto pb-0.5">
+        <div className="flex gap-2 mb-5 overflow-x-auto pb-1 scrollbar-none">
           <TabButton active={tab === 'shops'} onClick={() => setTab('shops')} icon={<Store className="w-4 h-4" />} label="Shops" />
           <TabButton active={tab === 'categories'} onClick={() => setTab('categories')} icon={<Tag className="w-4 h-4" />} label="Categories" />
           <TabButton active={tab === 'analytics'} onClick={() => setTab('analytics')} icon={<BarChart2 className="w-4 h-4" />} label="Analytics" />
@@ -109,7 +109,7 @@ export default function AdminDashboard() {
             label="Requests"
             badge={stats?.pending || 0}
           />
-          <TabButton active={tab === 'quality'} onClick={() => setTab('quality')} icon={<Wrench className="w-4 h-4" />} label="Data Quality" />
+          <TabButton active={tab === 'quality'} onClick={() => setTab('quality')} icon={<Wrench className="w-4 h-4" />} label={<><span className="hidden sm:inline">Data Quality</span><span className="sm:hidden">Quality</span></>} />
         </div>
 
         {tab === 'shops' && (
@@ -167,17 +167,17 @@ function StatCard({ label, value, icon, highlight }: { label: string; value: num
   return (
     <div className={`bg-card rounded-xl border px-2 py-3 text-center ${highlight ? 'border-secondary/60' : 'border-border'}`}>
       <div className="text-xl mb-0.5">{icon}</div>
-      <div className={`text-xl font-bold ${highlight ? '' : 'text-foreground'}`} style={highlight ? { color: 'hsl(var(--secondary))' } : undefined}>{value}</div>
-      <div className="text-xs text-muted-foreground leading-tight">{label}</div>
+      <div className={`text-lg sm:text-xl font-bold leading-tight ${highlight ? '' : 'text-foreground'}`} style={highlight ? { color: 'hsl(var(--secondary))' } : undefined}>{value}</div>
+      <div className="text-[10px] sm:text-xs text-muted-foreground leading-tight mt-0.5 truncate">{label}</div>
     </div>
   );
 }
 
-function TabButton({ active, onClick, icon, label, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; badge?: number }) {
+function TabButton({ active, onClick, icon, label, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: React.ReactNode; badge?: number }) {
   return (
-    <button
+      <button
       onClick={onClick}
-      className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
+      className={`relative shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors whitespace-nowrap ${
         active ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-card text-muted-foreground hover:text-foreground border border-border'
       }`}
     >
@@ -1012,7 +1012,7 @@ function AnalyticsTab() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <div className="bg-card rounded-xl border border-border px-3 py-3 text-center">
           <TrendingUp className="w-5 h-5 mx-auto mb-1 text-primary" />
           <div className="text-xl font-bold text-foreground">{rows.length}</div>
@@ -1999,13 +1999,13 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4">
-        <div className="bg-card rounded-2xl border border-border w-full max-w-xl shadow-2xl my-4">
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-4">
+        <div className="bg-card rounded-2xl border border-border w-full max-w-xl shadow-2xl my-4 max-h-[calc(100dvh-2rem)] flex flex-col">
           <div className="flex items-center justify-between px-6 py-4 border-b border-border">
             <h2 className="font-bold text-lg text-foreground">{isEdit ? 'Edit Shop' : 'Add New Shop'}</h2>
             <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg"><X className="w-5 h-5" /></button>
           </div>
-          <form onSubmit={handleSave} className="p-6 space-y-4">
+          <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
             <Field label="Shop Name *">
               <input
                 value={form.name}
@@ -2046,7 +2046,7 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Phone *">
                 <input
                   value={form.phone}
@@ -2598,8 +2598,8 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
 
       {/* View Request Detail Dialog */}
       {viewRequest && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4">
-          <div className="bg-card rounded-2xl border border-border w-full max-w-md shadow-2xl my-4">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-4">
+          <div className="bg-card rounded-2xl border border-border w-full max-w-md shadow-2xl my-4 max-h-[calc(100dvh-2rem)] flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div>
                 <h3 className="font-bold text-lg text-foreground">{viewRequest.name}</h3>
@@ -3012,8 +3012,8 @@ function CsvImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4">
-      <div className="bg-card rounded-2xl border border-border w-full max-w-3xl shadow-2xl my-4">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-4">
+      <div className="bg-card rounded-2xl border border-border w-full max-w-3xl shadow-2xl my-4 max-h-[calc(100dvh-2rem)] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-2">
