@@ -88,7 +88,7 @@ export default function AdminDashboard() {
       <div className="max-w-5xl mx-auto px-4 py-4">
         {/* Stats Bar */}
         {stats && (
-          <div className="grid grid-cols-5 gap-3 mb-5">
+          <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-5 gap-3 mb-5">
             <StatCard label="Total Shops" value={stats.total} icon="🏪" />
             <StatCard label="Active" value={stats.active} icon="✅" />
             <StatCard label="Verified" value={stats.verified} icon="🛡️" />
