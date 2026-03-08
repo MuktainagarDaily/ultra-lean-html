@@ -161,28 +161,35 @@ export default function AdminDashboard() {
   );
 }
 
-function StatCard({ label, value, icon }: { label: string; value: number; icon: string }) {
+function StatCard({ label, value, icon, highlight }: { label: string; value: number; icon: string; highlight?: boolean }) {
   return (
-    <div className="bg-card rounded-xl border border-border px-2 py-3 text-center">
+    <div className={`bg-card rounded-xl border px-2 py-3 text-center ${highlight ? 'border-secondary/60' : 'border-border'}`}>
       <div className="text-xl mb-0.5">{icon}</div>
-      <div className="text-xl font-bold text-foreground">{value}</div>
+      <div className={`text-xl font-bold ${highlight ? '' : 'text-foreground'}`} style={highlight ? { color: 'hsl(var(--secondary))' } : undefined}>{value}</div>
       <div className="text-xs text-muted-foreground leading-tight">{label}</div>
     </div>
   );
 }
 
-function TabButton({ active, onClick, icon, label }: any) {
+function TabButton({ active, onClick, icon, label, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; badge?: number }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
+      className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
         active ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-card text-muted-foreground hover:text-foreground border border-border'
       }`}
     >
       {icon} {label}
+      {badge != null && badge > 0 && (
+        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center px-1 leading-none"
+          style={{ background: 'hsl(var(--secondary))', color: 'hsl(var(--secondary-foreground))' }}>
+          {badge}
+        </span>
+      )}
     </button>
   );
 }
+
 
 /* ─── SHOPS TAB ─────────────────────────────────────────────── */
 function ShopsTab({ onEdit, onImport }: { onEdit: (shop: any) => void; onImport: () => void }) {
