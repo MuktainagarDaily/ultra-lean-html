@@ -195,7 +195,9 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
         (s) =>
           s.name?.toLowerCase().includes(q) ||
           s.area?.toLowerCase().includes(q) ||
-          s.phone?.includes(q)
+          s.address?.toLowerCase().includes(q) ||
+          s.phone?.replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
+          s.whatsapp?.replace(/\D/g, '').includes(q.replace(/\D/g, ''))
       );
     }
     if (categoryFilter) {
