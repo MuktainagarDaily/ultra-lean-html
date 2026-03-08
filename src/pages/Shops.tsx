@@ -477,6 +477,29 @@ export default function Shops() {
                 </div>
               </div>
             )}
+
+            {/* Verified Only */}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2.5">Trust</p>
+              <button
+                onClick={() => setSheetVerifiedOnly((v) => !v)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
+                  sheetVerifiedOnly
+                    ? 'bg-primary/10 border-primary/40 text-primary'
+                    : 'bg-card border-border text-foreground hover:border-primary/30'
+                }`}
+              >
+                <span className="flex items-center gap-2.5 text-sm font-semibold">
+                  <span className="text-base">✅</span>
+                  Verified shops only
+                </span>
+                <span className={`w-11 h-6 rounded-full flex items-center transition-all duration-200 px-0.5 ${
+                  sheetVerifiedOnly ? 'bg-primary justify-end' : 'bg-muted justify-start'
+                }`}>
+                  <span className="w-5 h-5 rounded-full bg-background shadow-sm" />
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* Apply CTA */}
