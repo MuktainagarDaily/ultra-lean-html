@@ -189,7 +189,7 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       {/* Hero Header */}
       <header
-        className="text-primary-foreground px-4 pt-5 pb-5 relative overflow-hidden"
+        className="text-primary-foreground px-4 pt-7 pb-6 relative overflow-hidden"
         style={{
           background: 'linear-gradient(145deg, hsl(var(--primary)) 0%, hsl(214 85% 28%) 60%, hsl(215 90% 22%) 100%)',
         }}
@@ -213,16 +213,13 @@ export default function Home() {
         />
 
         <div className="max-w-lg mx-auto relative z-10">
-          {/* Hidden SEO title */}
-          <h1 className="sr-only">Muktainagar Daily — Local Business & Services Hub</h1>
-
-          {/* Brand Logo — transparent PNG blends into blue gradient */}
-          <div className="flex justify-center mb-2">
+          {/* Brand Logo — full blended image, no duplicate text */}
+          <div className="flex justify-center mb-1">
             <img
               src={logoIcon}
               alt="Muktainagar Daily — Local Business & Services Hub"
-              className="w-full max-w-[340px] sm:max-w-[400px] object-contain"
-              style={{ filter: 'drop-shadow(0 2px 16px rgba(0,0,0,0.3))' }}
+              className="w-full max-w-[360px] sm:max-w-[420px] object-contain drop-shadow-2xl"
+              style={{ filter: 'drop-shadow(0 4px 24px rgba(0,0,0,0.25))' }}
             />
           </div>
 
