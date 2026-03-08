@@ -1610,9 +1610,15 @@ function CsvImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
     },
   });
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // ── Core processing logic (separated for testability) ─────────────────────
+  const processText = async (text: string) => {
+    // Parse CSV
+    const rawRows = parseCsv(text);
+    if (rawRows.length === 0) {
+      toast.error('CSV has no data rows or is malformed');
+      setParsing(false);
+      return;
+    }
     if (!file.name.endsWith('.csv') && file.type !== 'text/csv') {
       toast.error('Please upload a .csv file');
       return;
