@@ -280,6 +280,34 @@ function ShopsTab({ onEdit, onImport }: { onEdit: (shop: any) => void; onImport:
     },
   });
 
+  const exportCsv = useCallback(() => {
+    const headers = ['Name', 'Phone', 'WhatsApp', 'Area', 'Address', 'Categories', 'Active', 'Verified'];
+    const rows = filtered.map((s: any) => {
+      const cats = (s.shop_categories || [])
+        .map((sc: any) => sc.categories?.name)
+        .filter(Boolean)
+        .join(' | ');
+      return [
+        s.name ?? '',
+        s.phone ?? '',
+        s.whatsapp ?? '',
+        s.area ?? '',
+        s.address ?? '',
+        cats,
+        s.is_active ? 'Yes' : 'No',
+        s.is_verified ? 'Yes' : 'No',
+      ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',');
+    });
+    const csv = [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `muktainagar-shops-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [filtered]);
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
