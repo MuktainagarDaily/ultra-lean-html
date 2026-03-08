@@ -191,7 +191,7 @@ export default function Home() {
       <header
         className="text-primary-foreground px-4 pt-7 pb-6 relative overflow-hidden"
         style={{
-          background: 'linear-gradient(145deg, hsl(var(--primary)) 0%, hsl(214 85% 28%) 60%, hsl(215 90% 22%) 100%)',
+          background: 'linear-gradient(135deg, #0F3D6E 0%, #1E4FA3 100%)',
         }}
       >
         {/* Decorative blobs */}
@@ -213,13 +213,23 @@ export default function Home() {
         />
 
         <div className="max-w-lg mx-auto relative z-10">
-          {/* Brand Logo — full blended image, no duplicate text */}
-          <div className="flex justify-center mb-1">
+          {/* Brand Logo — blended into hero gradient */}
+          <div className="relative flex justify-center items-center mb-1">
+            {/* Soft radial glow behind logo */}
+            <div
+              className="absolute inset-0 pointer-events-none rounded-full"
+              style={{
+                background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.06) 0%, transparent 70%)',
+              }}
+            />
             <img
               src={logoIcon}
               alt="Muktainagar Daily — Local Business & Services Hub"
-              className="w-full max-w-[360px] sm:max-w-[420px] object-contain drop-shadow-2xl"
-              style={{ filter: 'drop-shadow(0 4px 24px rgba(0,0,0,0.25))' }}
+              className="w-full max-w-[360px] sm:max-w-[420px] object-contain relative z-10"
+              style={{
+                mixBlendMode: 'screen',
+                filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.35))',
+              }}
             />
           </div>
 
