@@ -165,23 +165,13 @@ export default function Home() {
     [categories, catShopCounts]
   );
 
-  // Featured verified shops — most recent first, max 6, active only
-  const verifiedShops = useMemo(
-    () =>
-      (shops as any[])
-        .filter((s) => s.is_verified)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 6),
-    [shops]
-  );
-
-  // Recently added shops — sorted by created_at desc, active only, must have name + (phone or area), max 5
+  // Recently added — active shops with name + phone + area, most recent first, max 4
   const recentShops = useMemo(
     () =>
       [...(shops as any[])]
-        .filter((s) => s.name && (s.phone || s.area))
+        .filter((s) => s.name && s.phone && s.area)
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 5),
+        .slice(0, 4),
     [shops]
   );
 
