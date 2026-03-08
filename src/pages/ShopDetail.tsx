@@ -102,6 +102,7 @@ export default function ShopDetail() {
   }
 
   const open = isShopOpen(shop);
+  const [imgError, setImgError] = useState(false);
 
   const allCats: { name: string; icon: string }[] = (shop as any).shop_categories
     ?.map((sc: any) => sc.categories)
@@ -114,6 +115,15 @@ export default function ShopDetail() {
     ? `https://www.google.com/maps/search/${encodeURIComponent(
         shop.address + ' ' + (shop.area || '') + ' Muktainagar'
       )}`
+    : null;
+
+  // Normalize WhatsApp number for wa.me (digits only, with 91 country code)
+  const waNumber = shop.whatsapp
+    ? (() => {
+        let n = shop.whatsapp.replace(/\D/g, '');
+        if (n.length === 10) n = '91' + n;
+        return n;
+      })()
     : null;
 
   const isVerified = (shop as any).is_verified;
