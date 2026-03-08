@@ -175,9 +175,9 @@ function StatCard({ label, value, icon, highlight }: { label: string; value: num
 
 function TabButton({ active, onClick, icon, label, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: React.ReactNode; badge?: number }) {
   return (
-    <button
+      <button
       onClick={onClick}
-      className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
+      className={`relative shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors whitespace-nowrap ${
         active ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-card text-muted-foreground hover:text-foreground border border-border'
       }`}
     >
