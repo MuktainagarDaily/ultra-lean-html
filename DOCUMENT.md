@@ -303,7 +303,7 @@ All tables have Row-Level Security enabled.
 - Add / Edit / Delete shops with full form
 - Activate/deactivate toggle (controls public visibility)
 - Verified toggle (controls `is_verified` badge)
-- Search by name, area, or phone
+- Search by name, area, address, or phone (client-side filter)
 - Category filter dropdown (client-side, no extra query)
 - **Safe delete** — `AlertDialog` (Radix UI) with shop name; loading state; requires explicit confirm
 
@@ -320,11 +320,13 @@ All tables have Row-Level Security enabled.
 
 #### Shop Form Validation
 - **Name** — required
-- **Phone** — required
-- **Area / Address** — at least one required
+- **Phone** — required; must have at least 10 digits
+- **WhatsApp** — optional; if provided must have at least 10 digits; normalized to `91XXXXXXXXXX` on save
+- **Area / Address** — at least one required; area title-cased on save for consistency
 - **Latitude** — optional; if provided must be a number in range -90 to 90
 - **Longitude** — optional; if provided must be a number in range -180 to 180
 - Inline error messages below each field; save is blocked until validation passes
+- Common area suggestions provided via `<datalist>` (Main Road, Station Road, Bus Stand Area, etc.)
 
 #### Duplicate Phone Detection
 Before saving a shop, the admin form:
