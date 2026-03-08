@@ -173,7 +173,7 @@ function StatCard({ label, value, icon, highlight }: { label: string; value: num
   );
 }
 
-function TabButton({ active, onClick, icon, label, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; badge?: number }) {
+function TabButton({ active, onClick, icon, label, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: React.ReactNode; badge?: number }) {
   return (
     <button
       onClick={onClick}
