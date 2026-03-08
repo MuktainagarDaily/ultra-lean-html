@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  Plus, Pencil, Trash2, LogOut, Store, Tag, Eye, EyeOff, MapPin, X, Check, Search, Home
+  Plus, Pencil, Trash2, LogOut, Store, Tag, Eye, EyeOff, MapPin, X, Check, Search, Home, ShieldCheck, ShieldOff, Filter
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatTime } from '@/lib/shopUtils';
@@ -24,16 +24,17 @@ export default function AdminDashboard() {
     navigate('/admin/login');
   };
 
-  // Stats query
+  // Stats query — includes verified count
   const { data: stats } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: async () => {
-      const [{ count: total }, { count: active }, { count: cats }] = await Promise.all([
+      const [{ count: total }, { count: active }, { count: cats }, { count: verified }] = await Promise.all([
         supabase.from('shops').select('id', { count: 'exact', head: true }),
         supabase.from('shops').select('id', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('categories').select('id', { count: 'exact', head: true }).eq('is_active', true),
+        supabase.from('shops').select('id', { count: 'exact', head: true }).eq('is_verified', true),
       ]);
-      return { total: total || 0, active: active || 0, cats: cats || 0 };
+      return { total: total || 0, active: active || 0, cats: cats || 0, verified: verified || 0 };
     },
   });
 
@@ -67,9 +68,10 @@ export default function AdminDashboard() {
       <div className="max-w-5xl mx-auto px-4 py-4">
         {/* Stats Bar */}
         {stats && (
-          <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="grid grid-cols-4 gap-3 mb-5">
             <StatCard label="Total Shops" value={stats.total} icon="🏪" />
             <StatCard label="Active" value={stats.active} icon="✅" />
+            <StatCard label="Verified" value={stats.verified} icon="🛡️" />
             <StatCard label="Categories" value={stats.cats} icon="🏷️" />
           </div>
         )}
@@ -113,10 +115,10 @@ export default function AdminDashboard() {
 
 function StatCard({ label, value, icon }: { label: string; value: number; icon: string }) {
   return (
-    <div className="bg-card rounded-xl border border-border px-3 py-3 text-center">
+    <div className="bg-card rounded-xl border border-border px-2 py-3 text-center">
       <div className="text-xl mb-0.5">{icon}</div>
       <div className="text-xl font-bold text-foreground">{value}</div>
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-xs text-muted-foreground leading-tight">{label}</div>
     </div>
   );
 }
@@ -138,29 +140,49 @@ function TabButton({ active, onClick, icon, label }: any) {
 function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
   const qc = useQueryClient();
   const [searchText, setSearchText] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
 
   const { data: shops = [], isLoading } = useQuery({
     queryKey: ['admin-shops'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shops')
-        .select('*, shop_categories(categories(name, icon))')
+        .select('*, shop_categories(categories(id, name, icon))')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
   });
 
+  // Collect all unique categories from loaded shops for the filter dropdown
+  const allCategories = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; icon: string }>();
+    shops.forEach((s: any) => {
+      s.shop_categories?.forEach((sc: any) => {
+        if (sc.categories) map.set(sc.categories.id, sc.categories);
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [shops]);
+
   const filtered = useMemo(() => {
-    if (!searchText.trim()) return shops;
-    const q = searchText.toLowerCase();
-    return shops.filter(
-      (s: any) =>
-        s.name?.toLowerCase().includes(q) ||
-        s.area?.toLowerCase().includes(q) ||
-        s.phone?.includes(q)
-    );
-  }, [shops, searchText]);
+    let result = shops as any[];
+    if (searchText.trim()) {
+      const q = searchText.toLowerCase();
+      result = result.filter(
+        (s) =>
+          s.name?.toLowerCase().includes(q) ||
+          s.area?.toLowerCase().includes(q) ||
+          s.phone?.includes(q)
+      );
+    }
+    if (categoryFilter) {
+      result = result.filter((s) =>
+        s.shop_categories?.some((sc: any) => sc.categories?.id === categoryFilter)
+      );
+    }
+    return result;
+  }, [shops, searchText, categoryFilter]);
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
@@ -168,6 +190,17 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-shops'] }),
+  });
+
+  const toggleVerified = useMutation({
+    mutationFn: async ({ id, is_verified }: { id: string; is_verified: boolean }) => {
+      const { error } = await supabase.from('shops').update({ is_verified }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-shops'] });
+      qc.invalidateQueries({ queryKey: ['admin-stats'] });
+    },
   });
 
   const deleteShop = useMutation({
@@ -186,17 +219,34 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <h2 className="text-xl font-bold text-foreground">Shops ({filtered.length}/{shops.length})</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input
               type="text"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              placeholder="Search shops..."
+              placeholder="Search name, area, phone..."
               className="pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring w-44"
             />
           </div>
+          {/* Category Filter */}
+          {allCategories.length > 0 && (
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none w-40 cursor-pointer"
+              >
+                <option value="">All Categories</option>
+                {allCategories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <button
             onClick={() => onEdit({})}
             className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-primary/90 shrink-0"
@@ -221,6 +271,7 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
                   <th className="text-left px-4 py-3 font-semibold text-foreground hidden sm:table-cell">Categories</th>
                   <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Area</th>
                   <th className="text-left px-4 py-3 font-semibold text-foreground">Status</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">Verified</th>
                   <th className="text-right px-4 py-3 font-semibold text-foreground">Actions</th>
                 </tr>
               </thead>
@@ -232,7 +283,12 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
                   return (
                     <tr key={shop.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                       <td className="px-4 py-3">
-                        <div className="font-semibold text-foreground">{shop.name}</div>
+                        <div className="font-semibold text-foreground flex items-center gap-1.5">
+                          {shop.name}
+                          {shop.is_verified && (
+                            <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" title="Verified" />
+                          )}
+                        </div>
                         {shop.phone && <div className="text-xs text-muted-foreground">{shop.phone}</div>}
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell">
@@ -260,6 +316,21 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
                           {shop.is_active ? <><Eye className="w-3 h-3" /> Active</> : <><EyeOff className="w-3 h-3" /> Hidden</>}
                         </button>
                       </td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        <button
+                          onClick={() => toggleVerified.mutate({ id: shop.id, is_verified: !shop.is_verified })}
+                          title={shop.is_verified ? 'Click to unverify' : 'Click to verify'}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+                            shop.is_verified
+                              ? 'bg-primary/10 text-primary border border-primary/30'
+                              : 'bg-muted text-muted-foreground border border-border hover:border-primary/40'
+                          }`}
+                        >
+                          {shop.is_verified
+                            ? <><ShieldCheck className="w-3 h-3" /> Verified</>
+                            : <><ShieldOff className="w-3 h-3" /> Unverified</>}
+                        </button>
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
                           <button
@@ -281,8 +352,8 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="text-center py-10 text-muted-foreground">
-                      {searchText ? `No shops matching "${searchText}"` : 'No shops yet. Add your first shop!'}
+                    <td colSpan={6} className="text-center py-10 text-muted-foreground">
+                      {searchText || categoryFilter ? `No shops match current filters` : 'No shops yet. Add your first shop!'}
                     </td>
                   </tr>
                 )}
@@ -316,17 +387,29 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-categories'] }),
   });
 
-  const deleteCategory = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('categories').delete().eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success('Category deleted');
-      qc.invalidateQueries({ queryKey: ['admin-categories'] });
-      qc.invalidateQueries({ queryKey: ['admin-stats'] });
-    },
-  });
+  const handleDeleteCategory = async (cat: { id: string; name: string }) => {
+    // Count linked shops before deleting
+    const { count } = await supabase
+      .from('shop_categories')
+      .select('id', { count: 'exact', head: true })
+      .eq('category_id', cat.id);
+
+    const linkedCount = count || 0;
+    const msg = linkedCount > 0
+      ? `Delete "${cat.name}"? This will unlink it from ${linkedCount} shop${linkedCount > 1 ? 's' : ''}. The shops themselves will not be deleted.`
+      : `Delete "${cat.name}"?`;
+
+    if (confirm(msg)) {
+      const { error } = await supabase.from('categories').delete().eq('id', cat.id);
+      if (error) {
+        toast.error('Failed to delete category');
+      } else {
+        toast.success('Category deleted');
+        qc.invalidateQueries({ queryKey: ['admin-categories'] });
+        qc.invalidateQueries({ queryKey: ['admin-stats'] });
+      }
+    }
+  };
 
   return (
     <div>
@@ -381,7 +464,7 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => { if (confirm('Delete this category?')) deleteCategory.mutate(cat.id); }}
+                        onClick={() => handleDeleteCategory(cat)}
                         className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -404,6 +487,12 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
 }
 
 /* ─── SHOP MODAL ─────────────────────────────────────────────── */
+
+/** Normalize phone for duplicate detection: strip spaces, dashes, parens; keep + and digits */
+function normalizePhone(phone: string): string {
+  return phone.replace(/[\s\-().]/g, '');
+}
+
 function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void; onSaved: () => void }) {
   const isEdit = !!shop.id;
   const [form, setForm] = useState({
@@ -416,6 +505,7 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
     closing_time: shop.closing_time || '',
     is_open: shop.is_open ?? true,
     is_active: shop.is_active ?? true,
+    is_verified: shop.is_verified ?? false,
     image_url: shop.image_url || '',
     latitude: shop.latitude?.toString() || '',
     longitude: shop.longitude?.toString() || '',
@@ -423,6 +513,7 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { data: categories = [] } = useQuery({
     queryKey: ['admin-categories'],
@@ -447,6 +538,17 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
     enabled: !!shop.id,
   });
 
+  const validate = (): boolean => {
+    const errs: Record<string, string> = {};
+    if (!form.name.trim()) errs.name = 'Shop name is required';
+    if (!form.phone.trim()) errs.phone = 'Phone number is required';
+    if (!form.area.trim() && !form.address.trim()) errs.area = 'Area or address is required';
+    if (form.latitude && isNaN(parseFloat(form.latitude))) errs.latitude = 'Invalid latitude';
+    if (form.longitude && isNaN(parseFloat(form.longitude))) errs.longitude = 'Invalid longitude';
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
   const compressImage = (file: File, maxWidth = 800, quality = 0.75): Promise<Blob> => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -467,6 +569,10 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
     setUploading(true);
     const compressed = await compressImage(file);
     const path = `shop-${Date.now()}.webp`;
@@ -483,14 +589,45 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validate()) return;
+
     setSaving(true);
-    const payload = {
-      ...form,
+
+    // Duplicate phone detection (new shops only, or edit if phone changed)
+    const normalizedPhone = normalizePhone(form.phone);
+    if (normalizedPhone) {
+      let query = supabase
+        .from('shops')
+        .select('id, name')
+        .limit(5);
+
+      // Check all stored phones for normalization match
+      const { data: allPhones } = await supabase.from('shops').select('id, name, phone');
+      const duplicate = allPhones?.find(
+        (s) => s.id !== shop.id && s.phone && normalizePhone(s.phone) === normalizedPhone
+      );
+      if (duplicate) {
+        toast.warning(`⚠️ Phone already used by "${duplicate.name}" — saving anyway`);
+      }
+      void query; // silence unused warning
+    }
+
+    const payload: any = {
+      name: form.name.trim(),
+      phone: form.phone.trim() || null,
+      whatsapp: form.whatsapp.trim() || null,
+      address: form.address.trim() || null,
+      area: form.area.trim() || null,
       opening_time: form.opening_time || null,
       closing_time: form.closing_time || null,
+      is_open: form.is_open,
+      is_active: form.is_active,
+      is_verified: form.is_verified,
+      image_url: form.image_url || null,
       latitude: form.latitude ? parseFloat(form.latitude) : null,
       longitude: form.longitude ? parseFloat(form.longitude) : null,
     };
+
     let shopId = shop.id;
     let error;
     if (isEdit) {
@@ -535,7 +672,14 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
         </div>
         <form onSubmit={handleSave} className="p-6 space-y-4">
           <Field label="Shop Name *">
-            <input required value={form.name} onChange={(e) => set('name', e.target.value)} className={inputCls} placeholder="e.g. Sharma General Store" />
+            <input
+              value={form.name}
+              onChange={(e) => { set('name', e.target.value); setErrors((err) => ({ ...err, name: '' })); }}
+              className={inputCls + (errors.name ? ' border-destructive' : '')}
+              placeholder="e.g. Sharma General Store"
+              maxLength={120}
+            />
+            {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
           </Field>
 
           {/* Multi-category */}
@@ -568,18 +712,33 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Phone">
-              <input value={form.phone} onChange={(e) => set('phone', e.target.value)} className={inputCls} placeholder="+91 9876543210" />
+            <Field label="Phone *">
+              <input
+                value={form.phone}
+                onChange={(e) => { set('phone', e.target.value); setErrors((err) => ({ ...err, phone: '' })); }}
+                className={inputCls + (errors.phone ? ' border-destructive' : '')}
+                placeholder="+91 9876543210"
+                maxLength={20}
+              />
+              {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
             </Field>
             <Field label="WhatsApp">
-              <input value={form.whatsapp} onChange={(e) => set('whatsapp', e.target.value)} className={inputCls} placeholder="+91 9876543210" />
+              <input value={form.whatsapp} onChange={(e) => set('whatsapp', e.target.value)} className={inputCls} placeholder="+91 9876543210" maxLength={20} />
             </Field>
           </div>
+
           <Field label="Address">
-            <input value={form.address} onChange={(e) => set('address', e.target.value)} className={inputCls} placeholder="Full address" />
+            <input value={form.address} onChange={(e) => { set('address', e.target.value); setErrors((err) => ({ ...err, area: '' })); }} className={inputCls} placeholder="Full address" maxLength={250} />
           </Field>
-          <Field label="Area / Locality">
-            <input value={form.area} onChange={(e) => set('area', e.target.value)} className={inputCls} placeholder="e.g. Main Road, Ward 5" />
+          <Field label="Area / Locality *">
+            <input
+              value={form.area}
+              onChange={(e) => { set('area', e.target.value); setErrors((err) => ({ ...err, area: '' })); }}
+              className={inputCls + (errors.area ? ' border-destructive' : '')}
+              placeholder="e.g. Main Road, Ward 5"
+              maxLength={100}
+            />
+            {errors.area && <p className="text-xs text-destructive mt-1">{errors.area}</p>}
           </Field>
 
           {/* GPS Coordinates */}
@@ -588,8 +747,14 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
               📍 Location (GPS Coordinates)
             </label>
             <div className="grid grid-cols-2 gap-3 mb-2">
-              <input type="number" step="any" value={form.latitude} onChange={(e) => set('latitude', e.target.value)} className={inputCls} placeholder="Latitude e.g. 21.0325" />
-              <input type="number" step="any" value={form.longitude} onChange={(e) => set('longitude', e.target.value)} className={inputCls} placeholder="Longitude e.g. 75.6920" />
+              <div>
+                <input type="number" step="any" value={form.latitude} onChange={(e) => { set('latitude', e.target.value); setErrors((err) => ({ ...err, latitude: '' })); }} className={inputCls + (errors.latitude ? ' border-destructive' : '')} placeholder="Latitude e.g. 21.0325" />
+                {errors.latitude && <p className="text-xs text-destructive mt-1">{errors.latitude}</p>}
+              </div>
+              <div>
+                <input type="number" step="any" value={form.longitude} onChange={(e) => { set('longitude', e.target.value); setErrors((err) => ({ ...err, longitude: '' })); }} className={inputCls + (errors.longitude ? ' border-destructive' : '')} placeholder="Longitude e.g. 75.6920" />
+                {errors.longitude && <p className="text-xs text-destructive mt-1">{errors.longitude}</p>}
+              </div>
             </div>
             <a
               href={`https://www.google.com/maps/search/${encodeURIComponent((form.name || '') + ' ' + (form.area || '') + ' Muktainagar')}`}
@@ -612,14 +777,19 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
             </Field>
           </div>
 
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-5">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={form.is_open} onChange={(e) => set('is_open', e.target.checked)} className="w-4 h-4 accent-primary" />
-              <span className="text-sm font-medium text-foreground">Currently Open</span>
+              <span className="text-sm font-medium text-foreground">Manual Open Override</span>
+              <span className="text-xs text-muted-foreground">(fallback when no times set)</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={form.is_active} onChange={(e) => set('is_active', e.target.checked)} className="w-4 h-4 accent-primary" />
               <span className="text-sm font-medium text-foreground">Active (Visible)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={form.is_verified} onChange={(e) => set('is_verified', e.target.checked)} className="w-4 h-4 accent-primary" />
+              <span className="text-sm font-medium text-foreground">Verified</span>
             </label>
           </div>
 
@@ -653,12 +823,16 @@ function CategoryModal({ category, onClose, onSaved }: { category: any; onClose:
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.name.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
     setSaving(true);
     let error;
     if (isEdit) {
-      ({ error } = await supabase.from('categories').update(form).eq('id', category.id));
+      ({ error } = await supabase.from('categories').update({ ...form, name: form.name.trim() }).eq('id', category.id));
     } else {
-      ({ error } = await supabase.from('categories').insert(form));
+      ({ error } = await supabase.from('categories').insert({ ...form, name: form.name.trim() }));
     }
     if (error) {
       toast.error('Failed to save category');
@@ -683,7 +857,7 @@ function CategoryModal({ category, onClose, onSaved }: { category: any; onClose:
             </Field>
             <div className="col-span-2">
               <Field label="Category Name *">
-                <input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} placeholder="e.g. Grocery" />
+                <input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} placeholder="e.g. Grocery" maxLength={60} />
               </Field>
             </div>
           </div>
