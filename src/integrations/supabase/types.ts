@@ -71,6 +71,35 @@ export type Database = {
           },
         ]
       }
+      shop_engagement: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          shop_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          shop_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          shop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_engagement_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shops: {
         Row: {
           address: string | null
