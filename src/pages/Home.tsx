@@ -227,7 +227,6 @@ export default function Home() {
               alt="Muktainagar Daily — Local Business & Services Hub"
               className="w-full max-w-[360px] sm:max-w-[420px] object-contain relative z-10"
               style={{
-                mixBlendMode: 'screen',
                 filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.35))',
               }}
             />
