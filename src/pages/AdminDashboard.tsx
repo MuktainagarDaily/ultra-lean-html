@@ -1709,7 +1709,7 @@ function CsvImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
       }
 
       // ── Warnings (non-blocking) ───────────────────────────────
-      if (status === 'ready' || status === 'warning') {
+      if (status !== 'error' && status !== 'duplicate') {
         if (whatsapp && !isValidPhone(whatsapp)) {
           messages.push('WhatsApp number appears invalid — will be skipped');
           status = 'warning';
