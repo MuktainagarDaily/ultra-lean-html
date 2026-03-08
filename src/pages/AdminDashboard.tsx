@@ -109,6 +109,7 @@ export default function AdminDashboard() {
             label="Requests"
             badge={stats?.pending || 0}
           />
+          <TabButton active={tab === 'quality'} onClick={() => setTab('quality')} icon={<Wrench className="w-4 h-4" />} label="Data Quality" />
         </div>
 
         {tab === 'shops' && (
@@ -120,6 +121,7 @@ export default function AdminDashboard() {
         {tab === 'categories' && <CategoriesTab onEdit={(cat) => setCategoryForm(cat)} />}
         {tab === 'analytics' && <AnalyticsTab />}
         {tab === 'requests' && <RequestsTab onShopCreated={() => { qc.invalidateQueries({ queryKey: ['admin-shops'] }); qc.invalidateQueries({ queryKey: ['admin-stats'] }); }} />}
+        {tab === 'quality' && <DataQualityTab onEditShop={(shop) => setShopForm(shop)} />}
       </div>
 
 
