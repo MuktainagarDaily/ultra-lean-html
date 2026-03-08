@@ -220,7 +220,7 @@ export default function Home() {
               <img
                 src={logoIcon}
                 alt="Muktainagar Daily Logo"
-                className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 border-primary-foreground/20 shadow-lg"
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-primary-foreground/20 shadow-lg"
               />
             </div>
             {/* Wordmark */}
