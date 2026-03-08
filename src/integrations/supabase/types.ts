@@ -20,18 +20,21 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          updated_at: string
         }
         Insert: {
           icon?: string
           id?: string
           is_active?: boolean
           name: string
+          updated_at?: string
         }
         Update: {
           icon?: string
           id?: string
           is_active?: boolean
           name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -79,11 +82,13 @@ export type Database = {
           image_url: string | null
           is_active: boolean
           is_open: boolean
+          is_verified: boolean
           latitude: number | null
           longitude: number | null
           name: string
           opening_time: string | null
           phone: string | null
+          updated_at: string
           whatsapp: string | null
         }
         Insert: {
@@ -96,11 +101,13 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean
           is_open?: boolean
+          is_verified?: boolean
           latitude?: number | null
           longitude?: number | null
           name: string
           opening_time?: string | null
           phone?: string | null
+          updated_at?: string
           whatsapp?: string | null
         }
         Update: {
@@ -113,11 +120,13 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean
           is_open?: boolean
+          is_verified?: boolean
           latitude?: number | null
           longitude?: number | null
           name?: string
           opening_time?: string | null
           phone?: string | null
+          updated_at?: string
           whatsapp?: string | null
         }
         Relationships: [
