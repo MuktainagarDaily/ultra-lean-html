@@ -86,11 +86,13 @@ export default function Shops() {
         .order('name');
 
       if (debouncedSearch) {
-        const isNumeric = /^\d+$/.test(debouncedSearch.trim()) && debouncedSearch.trim().length >= 3;
+        // Normalize: trim, collapse multiple spaces
+        const normalized = debouncedSearch.trim().replace(/\s+/g, ' ');
+        const isNumeric = /^\d+$/.test(normalized) && normalized.length >= 3;
         if (isNumeric) {
-          query = query.or(`phone.ilike.%${debouncedSearch.trim()}%,whatsapp.ilike.%${debouncedSearch.trim()}%`);
+          query = query.or(`phone.ilike.%${normalized}%,whatsapp.ilike.%${normalized}%`);
         } else {
-          query = query.or(`name.ilike.%${debouncedSearch}%,area.ilike.%${debouncedSearch}%,address.ilike.%${debouncedSearch}%`);
+          query = query.or(`name.ilike.%${normalized}%,area.ilike.%${normalized}%,address.ilike.%${normalized}%`);
         }
       }
 

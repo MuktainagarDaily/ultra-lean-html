@@ -1,24 +1,46 @@
 import { useState } from 'react';
-import { X, Loader2, CheckCircle2, Store } from 'lucide-react';
+import { X, Loader2, CheckCircle2, Store, MapPin, Navigation } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { formatTime } from '@/lib/shopUtils';
 
-/* ── helpers (mirrors AdminDashboard patterns) ─────────────────── */
+/* ── helpers ────────────────────────────────────────────────────── */
+
+/** Strip all non-digit chars, remove leading 91 country code if 12 digits */
 function normalizePhone(phone: string): string {
-  let n = phone.replace(/[\s\-().+]/g, '');
+  let n = phone.replace(/\D/g, '');
   if (n.startsWith('91') && n.length === 12) n = n.slice(2);
   return n;
 }
 
-function isValidPhone(phone: string): boolean {
-  return phone.replace(/\D/g, '').length >= 10;
+/**
+ * Valid Indian mobile: exactly 10 digits, starting with 6–9.
+ * Also accepts 11 digits starting with 0 (STD prefix) or 12 digits with 91.
+ */
+function isValidIndianPhone(raw: string): boolean {
+  const digits = raw.replace(/\D/g, '');
+  // 10-digit mobile
+  if (digits.length === 10 && /^[6-9]/.test(digits)) return true;
+  // 0XXXXXXXXXX (11 digits with STD 0)
+  if (digits.length === 11 && digits.startsWith('0') && /^[6-9]/.test(digits.slice(1))) return true;
+  // 91XXXXXXXXXX (12 digits with country code)
+  if (digits.length === 12 && digits.startsWith('91') && /^[6-9]/.test(digits.slice(2))) return true;
+  return false;
+}
+
+/** Normalize to wa.me-ready format: always 10-digit core prefixed with 91 */
+function normalizeWhatsApp(raw: string): string {
+  const normalized = normalizePhone(raw);
+  if (normalized.length === 10) return `91${normalized}`;
+  return normalized;
 }
 
 function normalizeArea(s: string): string {
   return s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+const MAX_IMAGE_MB = 5;
 
 const inputCls =
   'w-full px-3 py-2.5 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm';
@@ -48,12 +70,15 @@ export function RequestListingModal({ onClose }: Props) {
     opening_time: '',
     closing_time: '',
     submitter_name: '',
+    latitude: '',
+    longitude: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
   const [done, setDone] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
@@ -73,18 +98,28 @@ export function RequestListingModal({ onClose }: Props) {
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
+
     if (!form.name.trim()) errs.name = 'Shop name is required';
+
     if (!form.phone.trim()) {
       errs.phone = 'Phone number is required';
-    } else if (!isValidPhone(form.phone)) {
-      errs.phone = 'Enter a valid phone number (at least 10 digits)';
+    } else if (!isValidIndianPhone(form.phone)) {
+      errs.phone = 'Enter a valid 10-digit Indian mobile number (e.g. 9876543210)';
     }
-    if (form.whatsapp.trim() && !isValidPhone(form.whatsapp)) {
-      errs.whatsapp = 'Enter a valid WhatsApp number (at least 10 digits)';
+
+    if (form.whatsapp.trim() && !isValidIndianPhone(form.whatsapp)) {
+      errs.whatsapp = 'Enter a valid 10-digit Indian mobile number';
     }
+
     if (!form.area.trim() && !form.address.trim()) {
       errs.area = 'Area or address is required';
     }
+
+    // Time validation: closing must be after opening if both provided
+    if (form.opening_time && form.closing_time && form.closing_time <= form.opening_time) {
+      errs.closing_time = 'Closing time must be after opening time';
+    }
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -113,6 +148,12 @@ export function RequestListingModal({ onClose }: Props) {
       toast.error('Please select an image file');
       return;
     }
+    const fileMB = file.size / (1024 * 1024);
+    if (fileMB > MAX_IMAGE_MB) {
+      toast.error(`Image too large (${fileMB.toFixed(1)} MB). Maximum size is ${MAX_IMAGE_MB} MB.`);
+      e.target.value = '';
+      return;
+    }
     setUploading(true);
     const compressed = await compressImage(file);
     const path = `request-${Date.now()}.webp`;
@@ -128,6 +169,33 @@ export function RequestListingModal({ onClose }: Props) {
     setUploading(false);
   };
 
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Your browser does not support location access');
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lng = pos.coords.longitude.toFixed(6);
+        set('latitude', lat);
+        set('longitude', lng);
+        setLocating(false);
+        toast.success('Location captured!');
+      },
+      (err) => {
+        setLocating(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          toast.error('Location permission denied. Please allow location access in your browser.');
+        } else {
+          toast.error('Could not get your location. Try again or enter coordinates manually.');
+        }
+      },
+      { timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
@@ -136,7 +204,7 @@ export function RequestListingModal({ onClose }: Props) {
     const { error } = await supabase.from('shop_requests').insert({
       name: form.name.trim(),
       phone: normalizePhone(form.phone),
-      whatsapp: form.whatsapp.trim() ? form.whatsapp.replace(/\D/g, '') : null,
+      whatsapp: form.whatsapp.trim() ? normalizeWhatsApp(form.whatsapp) : null,
       address: form.address.trim() || null,
       area: form.area.trim() ? normalizeArea(form.area) : null,
       category_text: form.category_text.trim() || null,
@@ -227,7 +295,7 @@ export function RequestListingModal({ onClose }: Props) {
                 className={inputCls + (errors.phone ? ' border-destructive' : '')}
                 placeholder="e.g. 9876543210"
                 inputMode="numeric"
-                maxLength={20}
+                maxLength={13}
               />
               {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
             </Field>
@@ -238,7 +306,7 @@ export function RequestListingModal({ onClose }: Props) {
                 className={inputCls + (errors.whatsapp ? ' border-destructive' : '')}
                 placeholder="e.g. 9876543210"
                 inputMode="numeric"
-                maxLength={20}
+                maxLength={13}
               />
               {errors.whatsapp && <p className="text-xs text-destructive mt-1">{errors.whatsapp}</p>}
             </Field>
@@ -276,6 +344,68 @@ export function RequestListingModal({ onClose }: Props) {
             {errors.area && <p className="text-xs text-destructive mt-1">{errors.area}</p>}
           </Field>
 
+          {/* Location helper */}
+          <div
+            className="rounded-xl px-4 py-3 border"
+            style={{ background: 'hsl(var(--muted) / 0.5)', borderColor: 'hsl(var(--border))' }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-foreground flex items-center gap-1.5 mb-0.5">
+                  <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                  Shop Location (optional)
+                </p>
+                {form.latitude && form.longitude ? (
+                  <p className="text-[11px] text-muted-foreground font-mono truncate">
+                    {form.latitude}, {form.longitude}
+                    <button
+                      type="button"
+                      onClick={() => { set('latitude', ''); set('longitude', ''); }}
+                      className="ml-2 text-destructive hover:opacity-70 font-sans font-semibold"
+                    >
+                      ✕ Clear
+                    </button>
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">Helps customers find you on maps</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleGetLocation}
+                disabled={locating}
+                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-60"
+                style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
+              >
+                {locating ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Navigation className="w-3.5 h-3.5" />
+                )}
+                {locating ? 'Locating…' : 'Use my location'}
+              </button>
+            </div>
+            {/* Manual override */}
+            {(form.latitude || form.longitude) && (
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <input
+                  value={form.latitude}
+                  onChange={(e) => set('latitude', e.target.value)}
+                  className={inputCls + ' text-xs'}
+                  placeholder="Latitude"
+                  inputMode="decimal"
+                />
+                <input
+                  value={form.longitude}
+                  onChange={(e) => set('longitude', e.target.value)}
+                  className={inputCls + ' text-xs'}
+                  placeholder="Longitude"
+                  inputMode="decimal"
+                />
+              </div>
+            )}
+          </div>
+
           {/* Category */}
           <Field label="Category (optional)">
             {categories.length > 0 ? (
@@ -306,7 +436,7 @@ export function RequestListingModal({ onClose }: Props) {
               <input
                 type="time"
                 value={form.opening_time}
-                onChange={(e) => set('opening_time', e.target.value)}
+                onChange={(e) => { set('opening_time', e.target.value); setErrors((err) => ({ ...err, closing_time: '' })); }}
                 className={inputCls}
               />
               {form.opening_time && (
@@ -317,17 +447,18 @@ export function RequestListingModal({ onClose }: Props) {
               <input
                 type="time"
                 value={form.closing_time}
-                onChange={(e) => set('closing_time', e.target.value)}
-                className={inputCls}
+                onChange={(e) => { set('closing_time', e.target.value); setErrors((err) => ({ ...err, closing_time: '' })); }}
+                className={inputCls + (errors.closing_time ? ' border-destructive' : '')}
               />
-              {form.closing_time && (
+              {errors.closing_time && <p className="text-xs text-destructive mt-1">{errors.closing_time}</p>}
+              {!errors.closing_time && form.closing_time && (
                 <p className="text-xs text-muted-foreground mt-1">{formatTime(form.closing_time)}</p>
               )}
             </Field>
           </div>
 
           {/* Shop image */}
-          <Field label="Shop Photo (optional)">
+          <Field label={`Shop Photo (optional, max ${MAX_IMAGE_MB} MB)`}>
             {imageUrl && (
               <img src={imageUrl} alt="Preview" className="w-full h-32 object-cover rounded-lg mb-2 border border-border" />
             )}
