@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Phone, MessageCircle, MapPin, Clock } from 'lucide-react';
 import { formatTime, isShopOpen } from '@/lib/shopUtils';
@@ -22,6 +23,7 @@ interface Shop {
 export function ShopCard({ shop }: { shop: Shop }) {
   const navigate = useNavigate();
   const open = isShopOpen(shop);
+  const [imgError, setImgError] = useState(false);
 
   const allCats: { name: string; icon: string }[] = [];
   if (shop.shop_categories?.length) {
@@ -41,19 +43,29 @@ export function ShopCard({ shop }: { shop: Shop }) {
       )}`
     : null;
 
+  // Normalize WhatsApp number for wa.me (digits only, with 91 country code)
+  const waNumber = shop.whatsapp
+    ? (() => {
+        let n = shop.whatsapp.replace(/\D/g, '');
+        if (n.length === 10) n = '91' + n;
+        return n;
+      })()
+    : null;
+
   return (
     <div
       className="bg-card rounded-xl border border-border hover:shadow-md transition-all cursor-pointer active:scale-[0.99] overflow-hidden"
       onClick={() => navigate(`/shop/${shop.id}`)}
     >
-      {/* Shop image */}
-      {shop.image_url && (
+      {/* Shop image — graceful fallback on error */}
+      {shop.image_url && !imgError && (
         <div className="h-32 overflow-hidden">
           <img
             src={shop.image_url}
             alt={shop.name}
             loading="lazy"
             className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
           />
         </div>
       )}
@@ -125,9 +137,9 @@ export function ShopCard({ shop }: { shop: Shop }) {
               <Phone className="w-4 h-4" /> Call
             </a>
           )}
-          {shop.whatsapp && (
+          {waNumber && (
             <a
-              href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}`}
+              href={`https://wa.me/${waNumber}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 flex items-center justify-center gap-1.5 text-white py-2.5 rounded-lg text-sm font-semibold active:scale-95 transition-all"

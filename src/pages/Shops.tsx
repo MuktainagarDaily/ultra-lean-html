@@ -112,7 +112,7 @@ export default function Shops() {
               type="text"
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
-              placeholder="Search by name or area..."
+              placeholder="Search by name, area, address..."
               className="w-full pl-9 pr-9 py-2.5 rounded-xl text-foreground bg-card text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
             />
             {localSearch && (
