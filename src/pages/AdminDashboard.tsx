@@ -3012,8 +3012,8 @@ function CsvImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4">
-      <div className="bg-card rounded-2xl border border-border w-full max-w-3xl shadow-2xl my-4">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-4">
+      <div className="bg-card rounded-2xl border border-border w-full max-w-3xl shadow-2xl my-4 max-h-[calc(100dvh-2rem)] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-2">
