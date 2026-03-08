@@ -2,10 +2,18 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Search, X, Clock, RefreshCw, AlertCircle, MapPin } from 'lucide-react';
+import { ArrowLeft, Search, X, Clock, RefreshCw, AlertCircle, SlidersHorizontal } from 'lucide-react';
 import { ShopCard } from '@/components/ShopCard';
 import { isShopOpen } from '@/lib/shopUtils';
 import { useInterval } from '@/hooks/useInterval';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
+
+type AvailabilityFilter = 'all' | 'open' | 'closed';
 
 function ShopSkeleton() {
   return (
@@ -33,14 +41,30 @@ export default function Shops() {
   const initialSearch = searchParams.get('search') || '';
   const [localSearch, setLocalSearch] = useState(initialSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
-  const [openNowOnly, setOpenNowOnly] = useState(false);
-  const [selectedArea, setSelectedArea] = useState('');
+  const [availability, setAvailability] = useState<AvailabilityFilter>('all');
+  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  // Temporary state inside the sheet (applied on "Show Results")
+  const [sheetAvailability, setSheetAvailability] = useState<AvailabilityFilter>('all');
+  const [sheetAreas, setSheetAreas] = useState<string[]>([]);
+  const [sheetCategories, setSheetCategories] = useState<string[]>([]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(localSearch), 300);
     return () => clearTimeout(t);
   }, [localSearch]);
+
+  // Sync sheet state when drawer opens
+  useEffect(() => {
+    if (filterOpen) {
+      setSheetAvailability(availability);
+      setSheetAreas(selectedAreas);
+      setSheetCategories(selectedCategories);
+    }
+  }, [filterOpen]);
 
   // Auto-refresh open/closed status every 60 seconds
   useInterval(useCallback(() => {
@@ -72,7 +96,7 @@ export default function Shops() {
     },
   });
 
-  // Derive sorted, unique, non-empty area list from fetched shops
+  // Derive sorted unique areas
   const areaOptions = useMemo(() => {
     const seen = new Set<string>();
     shops.forEach((s: any) => {
@@ -82,21 +106,85 @@ export default function Shops() {
     return Array.from(seen).sort((a, b) => a.localeCompare(b));
   }, [shops]);
 
-  const filteredShops = useMemo(() => {
-    let result = shops as any[];
-    if (openNowOnly) result = result.filter((s) => isShopOpen(s));
-    if (selectedArea) result = result.filter((s) => s.area?.trim() === selectedArea);
-    return result;
-  }, [shops, openNowOnly, selectedArea]);
+  // Derive category options from shop data
+  const categoryOptions = useMemo(() => {
+    const seen = new Map<string, { name: string; icon: string }>();
+    shops.forEach((s: any) => {
+      s.shop_categories?.forEach((sc: any) => {
+        const cat = sc.categories;
+        if (cat?.name && !seen.has(cat.name)) {
+          seen.set(cat.name, { name: cat.name, icon: cat.icon || '' });
+        }
+      });
+    });
+    return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [shops]);
 
-  const openCount = useMemo(() => shops.filter((s) => isShopOpen(s)).length, [shops]);
+  const applyFilters = useCallback((s: any, avail: AvailabilityFilter, areas: string[], cats: string[]) => {
+    if (avail === 'open' && !isShopOpen(s)) return false;
+    if (avail === 'closed' && isShopOpen(s)) return false;
+    if (areas.length > 0 && !areas.includes(s.area?.trim() || '')) return false;
+    if (cats.length > 0) {
+      const shopCatNames = (s.shop_categories || []).map((sc: any) => sc.categories?.name).filter(Boolean);
+      if (!cats.some((c) => shopCatNames.includes(c))) return false;
+    }
+    return true;
+  }, []);
+
+  const filteredShops = useMemo(() =>
+    (shops as any[]).filter((s) => applyFilters(s, availability, selectedAreas, selectedCategories)),
+    [shops, availability, selectedAreas, selectedCategories, applyFilters]
+  );
+
+  // Preview count while sheet is open
+  const sheetPreviewCount = useMemo(() =>
+    (shops as any[]).filter((s) => applyFilters(s, sheetAvailability, sheetAreas, sheetCategories)).length,
+    [shops, sheetAvailability, sheetAreas, sheetCategories, applyFilters]
+  );
+
+  const openCount = useMemo(() => shops.filter((s: any) => isShopOpen(s)).length, [shops]);
+
+  const activeFilterCount =
+    (availability !== 'all' ? 1 : 0) + selectedAreas.length + selectedCategories.length;
 
   const title = debouncedSearch ? `"${debouncedSearch}"` : 'All Shops';
+
+  const handleApply = () => {
+    setAvailability(sheetAvailability);
+    setSelectedAreas(sheetAreas);
+    setSelectedCategories(sheetCategories);
+    setFilterOpen(false);
+  };
+
+  const handleClearAll = () => {
+    setSheetAvailability('all');
+    setSheetAreas([]);
+    setSheetCategories([]);
+  };
+
+  const toggleSheetArea = (area: string) =>
+    setSheetAreas((prev) => prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area]);
+
+  const toggleSheetCategory = (cat: string) =>
+    setSheetCategories((prev) => prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]);
+
+  const removeFilter = (type: 'availability' | 'area' | 'category', value?: string) => {
+    if (type === 'availability') setAvailability('all');
+    if (type === 'area' && value) setSelectedAreas((prev) => prev.filter((a) => a !== value));
+    if (type === 'category' && value) setSelectedCategories((prev) => prev.filter((c) => c !== value));
+  };
+
+  const availabilityLabel: Record<AvailabilityFilter, string> = {
+    all: 'All Shops',
+    open: 'Open Now',
+    closed: 'Closed Now',
+  };
 
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-10 shadow-md">
         <div className="max-w-lg mx-auto">
+          {/* Title row */}
           <div className="flex items-center gap-3 mb-3">
             <button onClick={() => navigate(-1)} className="p-1 shrink-0 hover:bg-primary-foreground/10 rounded-lg transition-colors">
               <ArrowLeft className="w-6 h-6" />
@@ -104,7 +192,7 @@ export default function Shops() {
             <div className="min-w-0 flex-1">
               <h1 className="font-bold text-lg leading-tight truncate">{title}</h1>
               <p className="text-primary-foreground/70 text-xs">
-                {isLoading ? 'Loading...' : `${filteredShops.length} shops${openNowOnly ? ' open now' : ''} • ${openCount} open now`}
+                {isLoading ? 'Loading...' : `${filteredShops.length} shops • ${openCount} open now`}
               </p>
             </div>
             <button
@@ -136,36 +224,59 @@ export default function Shops() {
             )}
           </div>
 
-          {/* Filter chips row */}
+          {/* Filter bar */}
           <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none">
-            {/* Open Now chip */}
+            {/* Filter button */}
             <button
-              onClick={() => setOpenNowOnly((v) => !v)}
+              onClick={() => setFilterOpen(true)}
               className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                openNowOnly
-                  ? 'bg-success text-success-foreground'
+                activeFilterCount > 0
+                  ? 'bg-secondary text-secondary-foreground'
                   : 'bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25'
               }`}
             >
-              <span className={`w-2 h-2 rounded-full ${openNowOnly ? 'bg-success-foreground animate-pulse-open' : 'bg-primary-foreground/60'}`} />
-              Open Now {openNowOnly ? `(${filteredShops.length})` : `(${openCount})`}
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="bg-primary text-primary-foreground rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold leading-none">
+                  {activeFilterCount}
+                </span>
+              )}
             </button>
 
-            {/* Area chips — only render when areas available */}
-            {areaOptions.map((area) => (
-              <button
-                key={area}
-                onClick={() => setSelectedArea((v) => (v === area ? '' : area))}
-                className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${
-                  selectedArea === area
-                    ? 'bg-primary-foreground text-primary'
-                    : 'bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25'
-                }`}
-              >
-                <MapPin className="w-3 h-3" />
-                {area}
-              </button>
+            {/* Active filter pills */}
+            {availability !== 'all' && (
+              <span className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary">
+                {availability === 'open' ? '🟢' : '🔴'} {availabilityLabel[availability]}
+                <button onClick={() => removeFilter('availability')} className="ml-0.5 hover:opacity-70">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {selectedAreas.map((area) => (
+              <span key={area} className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary whitespace-nowrap">
+                📍 {area}
+                <button onClick={() => removeFilter('area', area)} className="ml-0.5 hover:opacity-70">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
             ))}
+            {selectedCategories.map((cat) => (
+              <span key={cat} className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary whitespace-nowrap">
+                {categoryOptions.find((c) => c.name === cat)?.icon} {cat}
+                <button onClick={() => removeFilter('category', cat)} className="ml-0.5 hover:opacity-70">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+            {activeFilterCount > 1 && (
+              <button
+                onClick={() => { setAvailability('all'); setSelectedAreas([]); setSelectedCategories([]); }}
+                className="shrink-0 text-xs text-primary-foreground/60 hover:text-primary-foreground underline whitespace-nowrap"
+              >
+                Clear all
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -189,28 +300,18 @@ export default function Shops() {
           </div>
         ) : filteredShops.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-4xl mb-3">{openNowOnly ? '🌙' : selectedArea ? '📍' : '🔍'}</p>
-            <p className="font-semibold text-foreground">
-              {openNowOnly ? 'No shops open right now' : selectedArea ? `No shops in ${selectedArea}` : 'No shops found'}
-            </p>
+            <p className="text-4xl mb-3">{availability === 'open' ? '🌙' : selectedAreas.length ? '📍' : selectedCategories.length ? '🏷️' : '🔍'}</p>
+            <p className="font-semibold text-foreground">No shops found</p>
             <p className="text-sm text-muted-foreground mt-1">
-              {openNowOnly ? 'Try removing the Open Now filter' : selectedArea ? 'Try a different area or clear the filter' : 'Try a different search term'}
+              {activeFilterCount > 0 ? 'Try adjusting your filters' : 'Try a different search term'}
             </p>
             <div className="flex justify-center gap-2 mt-4 flex-wrap">
-              {openNowOnly && (
+              {activeFilterCount > 0 && (
                 <button
-                  onClick={() => setOpenNowOnly(false)}
+                  onClick={() => { setAvailability('all'); setSelectedAreas([]); setSelectedCategories([]); }}
                   className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold"
                 >
-                  Show all shops
-                </button>
-              )}
-              {selectedArea && (
-                <button
-                  onClick={() => setSelectedArea('')}
-                  className="bg-muted text-foreground px-5 py-2 rounded-lg text-sm font-semibold"
-                >
-                  Clear area filter
+                  Clear filters
                 </button>
               )}
               {localSearch && (
@@ -221,7 +322,7 @@ export default function Shops() {
                   Clear search
                 </button>
               )}
-              {!openNowOnly && !localSearch && !selectedArea && (
+              {activeFilterCount === 0 && !localSearch && (
                 <button
                   onClick={() => navigate('/')}
                   className="bg-primary text-primary-foreground px-6 py-2 rounded-lg text-sm font-semibold"
@@ -234,7 +335,7 @@ export default function Shops() {
         ) : (
           <>
             <div className="space-y-3">
-              {filteredShops.map((shop) => (
+              {filteredShops.map((shop: any) => (
                 <ShopCard key={shop.id} shop={shop as any} />
               ))}
             </div>
@@ -245,6 +346,135 @@ export default function Shops() {
           </>
         )}
       </main>
+
+      {/* Filter Bottom Sheet */}
+      <Drawer open={filterOpen} onOpenChange={setFilterOpen}>
+        <DrawerContent className="max-h-[85vh]">
+          <DrawerHeader className="flex items-center justify-between px-5 pt-4 pb-2">
+            <DrawerTitle className="text-base font-bold">Filters</DrawerTitle>
+            {(sheetAvailability !== 'all' || sheetAreas.length > 0 || sheetCategories.length > 0) && (
+              <button onClick={handleClearAll} className="text-sm text-primary font-semibold hover:opacity-70">
+                Clear all
+              </button>
+            )}
+          </DrawerHeader>
+
+          <div className="overflow-y-auto px-5 pb-6 space-y-6">
+            {/* Availability */}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2.5">Availability</p>
+              <div className="flex gap-2">
+                {(['all', 'open', 'closed'] as AvailabilityFilter[]).map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => setSheetAvailability(opt)}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
+                      sheetAvailability === opt
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-card text-foreground border-border hover:border-primary/40'
+                    }`}
+                  >
+                    {opt === 'all' ? 'All' : opt === 'open' ? '🟢 Open' : '🔴 Closed'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Area / Locality */}
+            {areaOptions.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Area / Locality
+                    {sheetAreas.length > 0 && (
+                      <span className="ml-1.5 bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+                        {sheetAreas.length}
+                      </span>
+                    )}
+                  </p>
+                  {sheetAreas.length > 0 && (
+                    <button onClick={() => setSheetAreas([])} className="text-xs text-primary font-semibold hover:opacity-70">
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {areaOptions.map((area) => {
+                    const active = sheetAreas.includes(area);
+                    return (
+                      <button
+                        key={area}
+                        onClick={() => toggleSheetArea(area)}
+                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm border transition-all text-left ${
+                          active
+                            ? 'bg-primary/10 text-primary border-primary/40 font-semibold'
+                            : 'bg-card text-foreground border-border hover:border-primary/30'
+                        }`}
+                      >
+                        <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${
+                          active ? 'bg-primary border-primary' : 'border-muted-foreground/40'
+                        }`}>
+                          {active && <span className="text-primary-foreground text-[10px] font-bold leading-none">✓</span>}
+                        </span>
+                        <span className="truncate">{area}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Category */}
+            {categoryOptions.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Category
+                    {sheetCategories.length > 0 && (
+                      <span className="ml-1.5 bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+                        {sheetCategories.length}
+                      </span>
+                    )}
+                  </p>
+                  {sheetCategories.length > 0 && (
+                    <button onClick={() => setSheetCategories([])} className="text-xs text-primary font-semibold hover:opacity-70">
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {categoryOptions.map((cat) => {
+                    const active = sheetCategories.includes(cat.name);
+                    return (
+                      <button
+                        key={cat.name}
+                        onClick={() => toggleSheetCategory(cat.name)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm border transition-all font-medium ${
+                          active
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-card text-foreground border-border hover:border-primary/40'
+                        }`}
+                      >
+                        {cat.icon} {cat.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Apply CTA */}
+          <div className="px-5 pb-8 pt-2 border-t border-border">
+            <button
+              onClick={handleApply}
+              className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-bold text-sm active:scale-[0.98] transition-all"
+            >
+              Show {sheetPreviewCount} {sheetPreviewCount === 1 ? 'Shop' : 'Shops'}
+            </button>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
