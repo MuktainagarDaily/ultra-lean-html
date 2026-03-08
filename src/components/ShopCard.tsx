@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Phone, MessageCircle, MapPin, Clock, ShieldCheck } from 'lucide-react';
 import { formatTime, isShopOpen } from '@/lib/shopUtils';
 
+
 interface Shop {
   id: string;
   name: string;
