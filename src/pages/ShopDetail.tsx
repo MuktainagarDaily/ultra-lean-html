@@ -254,9 +254,9 @@ export default function ShopDetail() {
               Call {shop.phone}
             </a>
           )}
-          {shop.whatsapp && (
+          {waNumber && (
             <a
-              href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}`}
+              href={`https://wa.me/${waNumber}`}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => logEngagement(shop.id, 'whatsapp')}
