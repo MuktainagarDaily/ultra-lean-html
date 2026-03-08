@@ -284,9 +284,9 @@ All tables have Row-Level Security enabled.
 - **WhatsApp FAB** — floating "दुकान नोंदवा / List your shop" button
 
 #### Shop Listing & Detail
-- **All Shops** — search by name/area/phone; "Open Now" filter toggle; skeleton loading; error state with retry
+- **All Shops** — search by name, area, address (ilike on DB), plus phone digit match; "Open Now" filter toggle; skeleton loading; error state with retry
 - **Category Page** — single-query join; "Open Now" filter; skeleton loading
-- **Shop Detail** — full info card; Call / WhatsApp / Google Maps / Share buttons; verified badge if `is_verified = true`
+- **Shop Detail** — full info card; Call / WhatsApp / Open in Google Maps / Share buttons; verified badge if `is_verified = true`; broken image URLs fail gracefully (card stays stable)
 - **Inactive Shop Guard** — `/shop/:id` for `is_active = false` shows unavailable screen (🔒), not shop data
 - **Share Button** — uses `navigator.share` on mobile; falls back to clipboard copy with toast
 - **Auto-refresh** — `useInterval` hook refreshes shop open/closed status every 60 seconds
