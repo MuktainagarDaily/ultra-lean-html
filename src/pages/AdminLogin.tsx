@@ -19,8 +19,8 @@ export default function AdminLogin() {
     if (error) {
       if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.toLowerCase().includes('failed')) {
         setError('Network error — please check your internet connection and try again.');
-      } else if (error.message?.includes('Invalid login credentials')) {
-        setError('Invalid email or password. Make sure you created the account in the backend.');
+      } else if (error.message?.includes('Invalid login credentials') || error.message?.includes('invalid_credentials')) {
+        setError('Invalid email or password. Please check your credentials and try again.');
       } else {
         setError(error.message || 'Login failed. Please try again.');
       }
