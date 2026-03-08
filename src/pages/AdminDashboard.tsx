@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  Plus, Pencil, Trash2, LogOut, Store, Tag, Eye, EyeOff, MapPin, X, Check, Search, Home, ShieldCheck, ShieldOff, Filter, Loader2, AlertTriangle, BarChart2, Phone, MessageCircle, TrendingUp, Upload, Download, CheckCircle2, AlertCircle, SkipForward, Inbox, ThumbsUp, ThumbsDown
+  Plus, Pencil, Trash2, LogOut, Store, Tag, Eye, EyeOff, MapPin, X, Check, Search, Home, ShieldCheck, ShieldOff, Filter, Loader2, AlertTriangle, BarChart2, Phone, MessageCircle, TrendingUp, Upload, Download, CheckCircle2, AlertCircle, SkipForward, Inbox, ThumbsUp, ThumbsDown, Wrench, GitMerge, TriangleAlert, Users, RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatTime } from '@/lib/shopUtils';
@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-type Tab = 'shops' | 'categories' | 'analytics' | 'requests';
+type Tab = 'shops' | 'categories' | 'analytics' | 'requests' | 'quality';
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>('shops');
@@ -109,6 +109,7 @@ export default function AdminDashboard() {
             label="Requests"
             badge={stats?.pending || 0}
           />
+          <TabButton active={tab === 'quality'} onClick={() => setTab('quality')} icon={<Wrench className="w-4 h-4" />} label="Data Quality" />
         </div>
 
         {tab === 'shops' && (
@@ -120,6 +121,7 @@ export default function AdminDashboard() {
         {tab === 'categories' && <CategoriesTab onEdit={(cat) => setCategoryForm(cat)} />}
         {tab === 'analytics' && <AnalyticsTab />}
         {tab === 'requests' && <RequestsTab onShopCreated={() => { qc.invalidateQueries({ queryKey: ['admin-shops'] }); qc.invalidateQueries({ queryKey: ['admin-stats'] }); }} />}
+        {tab === 'quality' && <DataQualityTab onEditShop={(shop) => setShopForm(shop)} />}
       </div>
 
 
@@ -467,29 +469,25 @@ function ShopsTab({ onEdit, onImport }: { onEdit: (shop: any) => void; onImport:
 /* ─── CATEGORIES TAB ─────────────────────────────────────────── */
 function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
   const qc = useQueryClient();
-  // Delete confirmation state
   const [deleteCatTarget, setDeleteCatTarget] = useState<{ id: string; name: string; icon: string } | null>(null);
   const [deleteCatLinkedShops, setDeleteCatLinkedShops] = useState<string[]>([]);
   const [fetchingLinks, setFetchingLinks] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [mergeCatTarget, setMergeCatTarget] = useState<{ id: string; name: string; icon: string; shopCount: number } | null>(null);
 
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ['admin-categories'],
     queryFn: async () => {
-      // Fetch categories + shop count per category in one go
       const [{ data: cats, error: catErr }, { data: links, error: linkErr }] = await Promise.all([
         supabase.from('categories').select('*').order('name'),
         supabase.from('shop_categories').select('category_id'),
       ]);
       if (catErr) throw catErr;
       if (linkErr) throw linkErr;
-
-      // Count how many shops are linked to each category
       const countMap = new Map<string, number>();
       (links || []).forEach((row: any) => {
         countMap.set(row.category_id, (countMap.get(row.category_id) || 0) + 1);
       });
-
       return (cats || []).map((c) => ({ ...c, shopCount: countMap.get(c.id) || 0 }));
     },
   });
@@ -504,16 +502,11 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
 
   const handleDeleteClick = async (cat: { id: string; name: string; icon: string }) => {
     setFetchingLinks(true);
-    // Fetch the names of all shops linked to this category
     const { data } = await supabase
       .from('shop_categories')
       .select('shops(name)')
       .eq('category_id', cat.id);
-
-    const shopNames = (data || [])
-      .map((row: any) => row.shops?.name)
-      .filter(Boolean) as string[];
-
+    const shopNames = (data || []).map((row: any) => row.shops?.name).filter(Boolean) as string[];
     setDeleteCatLinkedShops(shopNames);
     setDeleteCatTarget(cat);
     setFetchingLinks(false);
@@ -591,6 +584,15 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
+                      {(cat as any).shopCount > 0 && (
+                        <button
+                          onClick={() => setMergeCatTarget(cat as any)}
+                          title="Merge into another category"
+                          className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                        >
+                          <GitMerge className="w-4 h-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => onEdit(cat)}
                         className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors"
@@ -668,7 +670,196 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Category Merge Modal */}
+      {mergeCatTarget && (
+        <CategoryMergeModal
+          source={mergeCatTarget}
+          allCategories={categories as any[]}
+          onClose={() => setMergeCatTarget(null)}
+          onMerged={() => {
+            setMergeCatTarget(null);
+            qc.invalidateQueries({ queryKey: ['admin-categories'] });
+            qc.invalidateQueries({ queryKey: ['admin-shops'] });
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/* ─── CATEGORY MERGE MODAL ───────────────────────────────────── */
+function CategoryMergeModal({
+  source,
+  allCategories,
+  onClose,
+  onMerged,
+}: {
+  source: { id: string; name: string; icon: string; shopCount: number };
+  allCategories: { id: string; name: string; icon: string; shopCount: number }[];
+  onClose: () => void;
+  onMerged: () => void;
+}) {
+  const [targetId, setTargetId] = useState('');
+  const [disableSource, setDisableSource] = useState(true);
+  const [merging, setMerging] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const targets = allCategories.filter((c) => c.id !== source.id);
+  const targetCat = targets.find((c) => c.id === targetId);
+
+  const handleMerge = async () => {
+    if (!targetId) return;
+    setMerging(true);
+    try {
+      // Fetch all shop_categories rows for the source category
+      const { data: sourceLinks, error: fetchErr } = await supabase
+        .from('shop_categories')
+        .select('id, shop_id')
+        .eq('category_id', source.id);
+      if (fetchErr) throw fetchErr;
+
+      // Fetch existing links for target to avoid duplicates
+      const { data: targetLinks, error: fetchErr2 } = await supabase
+        .from('shop_categories')
+        .select('shop_id')
+        .eq('category_id', targetId);
+      if (fetchErr2) throw fetchErr2;
+
+      const alreadyHasTarget = new Set((targetLinks || []).map((r: any) => r.shop_id));
+
+      // Separate: shops that need reassignment vs shops already in target (delete those)
+      const toReassign = (sourceLinks || []).filter((r: any) => !alreadyHasTarget.has(r.shop_id));
+      const toDelete = (sourceLinks || []).filter((r: any) => alreadyHasTarget.has(r.shop_id));
+
+      // Delete duplicate source links (shop already has target category)
+      if (toDelete.length > 0) {
+        const deleteIds = toDelete.map((r: any) => r.id);
+        const { error: delErr } = await supabase
+          .from('shop_categories')
+          .delete()
+          .in('id', deleteIds);
+        if (delErr) throw delErr;
+      }
+
+      // Reassign remaining source links to target
+      if (toReassign.length > 0) {
+        const reassignIds = toReassign.map((r: any) => r.id);
+        const { error: updateErr } = await supabase
+          .from('shop_categories')
+          .update({ category_id: targetId })
+          .in('id', reassignIds);
+        if (updateErr) throw updateErr;
+      }
+
+      // Optionally disable source category
+      if (disableSource) {
+        await supabase.from('categories').update({ is_active: false }).eq('id', source.id);
+      }
+
+      toast.success(`Merged ${source.icon} ${source.name} → ${targetCat?.icon} ${targetCat?.name}. ${source.shopCount} shop${source.shopCount !== 1 ? 's' : ''} reassigned.`);
+      onMerged();
+    } catch (e: any) {
+      toast.error('Merge failed: ' + (e.message || 'Unknown error'));
+    }
+    setMerging(false);
+  };
+
+  return (
+    <>
+      <Dialog open onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GitMerge className="w-5 h-5 text-primary shrink-0" />
+              Merge {source.icon} {source.name}
+            </DialogTitle>
+            <DialogDescription>
+              Reassign all {source.shopCount} shop{source.shopCount !== 1 ? 's' : ''} from this category into another category.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-semibold text-foreground block mb-1.5">Merge into</label>
+              <select
+                value={targetId}
+                onChange={(e) => setTargetId(e.target.value)}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Select target category…</option>
+                {targets.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.icon} {c.name} ({c.shopCount} shops)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {targetCat && (
+              <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                <strong className="text-foreground">{source.shopCount} shop{source.shopCount !== 1 ? 's' : ''}</strong> will be moved from{' '}
+                <span className="font-semibold text-foreground">{source.icon} {source.name}</span> to{' '}
+                <span className="font-semibold text-foreground">{targetCat.icon} {targetCat.name}</span>.
+              </div>
+            )}
+
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={disableSource}
+                onChange={(e) => setDisableSource(e.target.checked)}
+                className="w-4 h-4 rounded border-input accent-primary"
+              />
+              <span className="text-sm text-foreground">Disable source category after merge</span>
+            </label>
+          </div>
+
+          <DialogFooter>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg border border-border text-sm font-semibold hover:bg-muted transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => setConfirmOpen(true)}
+              disabled={!targetId || merging}
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              Review & Confirm
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <TriangleAlert className="w-5 h-5 text-secondary shrink-0" />
+              Confirm merge?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {source.shopCount} shop{source.shopCount !== 1 ? 's' : ''} will be reassigned from{' '}
+              <strong>{source.icon} {source.name}</strong> to <strong>{targetCat?.icon} {targetCat?.name}</strong>.
+              {disableSource && ' The source category will be disabled.'}
+              {' '}This cannot be undone automatically.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={merging}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setConfirmOpen(false); handleMerge(); }}
+              disabled={merging}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {merging ? <><Loader2 className="w-4 h-4 animate-spin" /> Merging…</> : 'Merge Category'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -943,6 +1134,296 @@ function AnalyticsTab() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ─── DATA QUALITY TAB ───────────────────────────────────────── */
+function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
+  const qc = useQueryClient();
+
+  const { data: shops = [], isLoading } = useQuery({
+    queryKey: ['admin-shops'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('shops')
+        .select('*, shop_categories(categories(id, name, icon))')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // ─── Area consistency ─────────────────────────────────────────
+  const areaSummary = useMemo(() => {
+    const map = new Map<string, number>();
+    shops.forEach((s) => {
+      const area = s.area?.trim();
+      if (area) map.set(area, (map.get(area) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([area, count]) => ({ area, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [shops]);
+
+  /** Flag suspicious area names */
+  const isSuspiciousArea = (area: string) => {
+    const t = area.trim();
+    if (t.length < 3) return true;
+    if (t === t.toUpperCase() && /[A-Z]{3,}/.test(t)) return true; // ALL_CAPS with letters
+    if (/^\d+$/.test(t)) return true; // numeric only
+    return false;
+  };
+
+  const [areaRenameTarget, setAreaRenameTarget] = useState<string | null>(null);
+  const [areaRenameValue, setAreaRenameValue] = useState('');
+  const [areaRenaming, setAreaRenaming] = useState(false);
+
+  const normalizeAreaValue = (s: string) =>
+    s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const handleAreaRename = async (oldArea: string) => {
+    if (!areaRenameValue.trim()) return;
+    const newArea = normalizeAreaValue(areaRenameValue);
+    if (newArea === oldArea) { setAreaRenameTarget(null); return; }
+    setAreaRenaming(true);
+    const { error } = await supabase
+      .from('shops')
+      .update({ area: newArea })
+      .eq('area', oldArea);
+    if (error) {
+      toast.error('Rename failed: ' + error.message);
+    } else {
+      toast.success(`Area renamed: "${oldArea}" → "${newArea}"`);
+      setAreaRenameTarget(null);
+      setAreaRenameValue('');
+      qc.invalidateQueries({ queryKey: ['admin-shops'] });
+    }
+    setAreaRenaming(false);
+  };
+
+  // ─── Duplicate detection ──────────────────────────────────────
+  /** Group shops by normalized phone */
+  const phoneDuplicateGroups = useMemo(() => {
+    const map = new Map<string, any[]>();
+    shops.forEach((s) => {
+      if (!s.phone) return;
+      let n = s.phone.replace(/[\s\-().+]/g, '');
+      if (n.startsWith('91') && n.length === 12) n = n.slice(2);
+      if (!map.has(n)) map.set(n, []);
+      map.get(n)!.push(s);
+    });
+    return Array.from(map.values()).filter((g) => g.length > 1);
+  }, [shops]);
+
+  /** Group shops by similar name+area (first 5 chars + same area) */
+  const nameAreaDuplicateGroups = useMemo(() => {
+    const map = new Map<string, any[]>();
+    shops.forEach((s) => {
+      const nameKey = s.name?.toLowerCase().replace(/\s+/g, '').slice(0, 5) || '';
+      const areaKey = (s.area || '').toLowerCase().trim();
+      const key = `${nameKey}::${areaKey}`;
+      if (!nameKey || !areaKey) return;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(s);
+    });
+    return Array.from(map.values()).filter((g) => g.length > 1);
+  }, [shops]);
+
+  // Merge both groups, deduplicate by shop IDs
+  const allDuplicateGroups = useMemo(() => {
+    const seen = new Set<string>();
+    const groups: any[][] = [];
+    [...phoneDuplicateGroups, ...nameAreaDuplicateGroups].forEach((group) => {
+      const key = group.map((s: any) => s.id).sort().join(',');
+      if (!seen.has(key)) {
+        seen.add(key);
+        groups.push(group);
+      }
+    });
+    return groups;
+  }, [phoneDuplicateGroups, nameAreaDuplicateGroups]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-card rounded-xl p-4 border border-border skeleton-shimmer h-16" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-xl font-bold text-foreground mb-1">Data Quality</h2>
+        <p className="text-sm text-muted-foreground">Review area consistency and spot potential duplicate shops. No automated changes — admin stays in control.</p>
+      </div>
+
+      {/* ── Section 1: Area Consistency ── */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <MapPin className="w-4 h-4 text-primary" />
+          <h3 className="font-bold text-foreground">Area Consistency</h3>
+          <span className="ml-auto text-xs text-muted-foreground">{areaSummary.length} unique area{areaSummary.length !== 1 ? 's' : ''}</span>
+        </div>
+
+        {areaSummary.length === 0 ? (
+          <div className="bg-card rounded-xl border border-border p-6 text-center text-muted-foreground text-sm">No area data found.</div>
+        ) : (
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 border-b border-border">
+                  <th className="text-left px-4 py-3 font-semibold text-foreground">Area Name</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground w-20">Shops</th>
+                  <th className="text-right px-4 py-3 font-semibold text-foreground">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {areaSummary.map(({ area, count }) => {
+                  const suspicious = isSuspiciousArea(area);
+                  const isEditing = areaRenameTarget === area;
+                  return (
+                    <tr key={area} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-foreground">{area}</span>
+                          {suspicious && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-secondary/15 text-secondary border border-secondary/30">
+                              <TriangleAlert className="w-2.5 h-2.5" /> suspicious
+                            </span>
+                          )}
+                        </div>
+                        {isEditing && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <input
+                              type="text"
+                              value={areaRenameValue}
+                              onChange={(e) => setAreaRenameValue(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') handleAreaRename(area); if (e.key === 'Escape') setAreaRenameTarget(null); }}
+                              placeholder="New area name…"
+                              autoFocus
+                              className="flex-1 h-8 rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                            />
+                            <button
+                              onClick={() => handleAreaRename(area)}
+                              disabled={areaRenaming || !areaRenameValue.trim()}
+                              className="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-50 hover:bg-primary/90"
+                            >
+                              {areaRenaming ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+                            </button>
+                            <button
+                              onClick={() => { setAreaRenameTarget(null); setAreaRenameValue(''); }}
+                              className="h-8 px-2 rounded-md border border-border text-xs hover:bg-muted"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center justify-center min-w-[1.75rem] px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary">
+                          {count}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {!isEditing && (
+                          <button
+                            onClick={() => { setAreaRenameTarget(area); setAreaRenameValue(area); }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 transition-colors border border-primary/20"
+                          >
+                            <Pencil className="w-3 h-3" /> Rename
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground mt-2">
+          Renaming an area updates all shops in that locality at once. Names are auto title-cased on save.
+          <span className="inline-flex items-center gap-1 ml-1 text-secondary font-medium"><TriangleAlert className="w-3 h-3" /> suspicious</span> flags very short, all-caps, or numeric-only names.
+        </p>
+      </section>
+
+      {/* ── Section 2: Possible Duplicates ── */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <Users className="w-4 h-4 text-primary" />
+          <h3 className="font-bold text-foreground">Possible Duplicate Shops</h3>
+          {allDuplicateGroups.length > 0 && (
+            <span className="ml-1 inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full text-[11px] font-bold bg-secondary/15 text-secondary border border-secondary/30">
+              {allDuplicateGroups.length}
+            </span>
+          )}
+          <button
+            onClick={() => qc.invalidateQueries({ queryKey: ['admin-shops'] })}
+            className="ml-auto p-1 text-muted-foreground hover:text-foreground rounded transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {allDuplicateGroups.length === 0 ? (
+          <div className="bg-card rounded-xl border border-border p-6 text-center">
+            <p className="text-2xl mb-2">✅</p>
+            <p className="font-semibold text-sm text-foreground">No duplicates detected</p>
+            <p className="text-xs text-muted-foreground mt-1">No shops share the same phone number or have a very similar name in the same area.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {allDuplicateGroups.map((group, gi) => (
+              <div key={gi} className="bg-card rounded-xl border border-secondary/30 overflow-hidden">
+                <div className="px-4 py-2 bg-secondary/8 border-b border-secondary/20 flex items-center gap-2">
+                  <TriangleAlert className="w-3.5 h-3.5 text-secondary shrink-0" />
+                  <span className="text-xs font-semibold text-secondary">Possible duplicate group · {group.length} shops</span>
+                </div>
+                <div className="divide-y divide-border">
+                  {group.map((shop: any) => {
+                    const cats = (shop.shop_categories || [])
+                      .map((sc: any) => sc.categories)
+                      .filter(Boolean);
+                    return (
+                      <div key={shop.id} className="px-4 py-3 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm text-foreground truncate">{shop.name}</span>
+                            {!shop.is_active && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">Inactive</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-0.5 flex-wrap text-xs text-muted-foreground">
+                            {shop.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{shop.phone}</span>}
+                            {shop.area && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{shop.area}</span>}
+                            {cats.length > 0 && (
+                              <span>{cats.map((c: any) => `${c.icon} ${c.name}`).join(', ')}</span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => onEditShop(shop)}
+                          className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 border border-primary/20 transition-colors"
+                        >
+                          <Pencil className="w-3 h-3" /> Edit
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground mt-2">
+          Duplicates are flagged by matching normalized phone number, or very similar name + same area. No shops are automatically changed — use Edit to resolve manually.
+        </p>
+      </section>
     </div>
   );
 }
