@@ -2181,10 +2181,21 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
     const { error } = await supabase.from('shop_requests').delete().eq('id', req.id);
     if (error) {
       toast.error('Failed to delete request');
-    } else {
-      toast.success('Request deleted');
-      qc.invalidateQueries({ queryKey: ['admin-requests'] });
+      setActionLoading(null);
+      return;
     }
+    // DB deleted — now attempt storage cleanup (non-blocking, safe)
+    if (req.image_url) {
+      const path = extractStoragePath(req.image_url);
+      if (path) {
+        const { error: storageErr } = await supabase.storage.from('shop-images').remove([path]);
+        if (storageErr) {
+          toast.warning('Request deleted, but its image could not be removed from storage.');
+        }
+      }
+    }
+    toast.success('Request deleted');
+    qc.invalidateQueries({ queryKey: ['admin-requests'] });
     setViewRequest(null);
     setActionLoading(null);
   };
