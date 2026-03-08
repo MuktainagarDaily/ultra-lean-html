@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Phone, MessageCircle, ArrowLeft, MapPin, Clock, Tag, Navigation, Share2, ShieldCheck } from 'lucide-react';
 import { formatTime, isShopOpen } from '@/lib/shopUtils';
@@ -17,6 +18,7 @@ async function logEngagement(shopId: string, eventType: 'call' | 'whatsapp') {
 export default function ShopDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [imgError, setImgError] = useState(false);
 
   const { data: shop, isLoading } = useQuery({
     queryKey: ['shop', id],
@@ -115,6 +117,15 @@ export default function ShopDetail() {
       )}`
     : null;
 
+  // Normalize WhatsApp number for wa.me (digits only, with 91 country code)
+  const waNumber = shop.whatsapp
+    ? (() => {
+        let n = shop.whatsapp.replace(/\D/g, '');
+        if (n.length === 10) n = '91' + n;
+        return n;
+      })()
+    : null;
+
   const isVerified = (shop as any).is_verified;
 
   return (
@@ -139,14 +150,15 @@ export default function ShopDetail() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-5 space-y-4 pb-28">
-        {/* Shop Image */}
-        {shop.image_url && (
+        {/* Shop Image — graceful fallback on broken URL */}
+        {shop.image_url && !imgError && (
           <div className="rounded-xl overflow-hidden border border-border shadow-sm">
             <img
               src={shop.image_url}
               alt={shop.name}
               className="w-full h-52 object-cover"
               loading="lazy"
+              onError={() => setImgError(true)}
             />
           </div>
         )}
@@ -242,9 +254,9 @@ export default function ShopDetail() {
               Call {shop.phone}
             </a>
           )}
-          {shop.whatsapp && (
+          {waNumber && (
             <a
-              href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}`}
+              href={`https://wa.me/${waNumber}`}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => logEngagement(shop.id, 'whatsapp')}

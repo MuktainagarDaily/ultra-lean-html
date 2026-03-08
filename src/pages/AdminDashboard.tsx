@@ -195,7 +195,9 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
         (s) =>
           s.name?.toLowerCase().includes(q) ||
           s.area?.toLowerCase().includes(q) ||
-          s.phone?.includes(q)
+          s.address?.toLowerCase().includes(q) ||
+          s.phone?.replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
+          s.whatsapp?.replace(/\D/g, '').includes(q.replace(/\D/g, ''))
       );
     }
     if (categoryFilter) {
@@ -253,7 +255,7 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
               type="text"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              placeholder="Search name, area, phone..."
+              placeholder="Search name, area, phone, address..."
               className="pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring w-44"
             />
           </div>
@@ -730,13 +732,28 @@ function AnalyticsTab() {
 
 /* ─── SHOP MODAL ─────────────────────────────────────────────── */
 
-/** Normalize phone for duplicate detection: strip spaces, dashes, parens, dots;
- *  strip leading +91 or 91 prefix so formatting differences don't bypass check */
+/** Normalize phone for duplicate detection and wa.me links:
+ *  strips spaces, dashes, parens, dots, +;
+ *  strips leading 91 country code (12-digit → 10-digit) */
 function normalizePhone(phone: string): string {
   let n = phone.replace(/[\s\-().+]/g, '');
-  // Strip leading country code: 91XXXXXXXXXX → XXXXXXXXXX (10 digits)
   if (n.startsWith('91') && n.length === 12) n = n.slice(2);
   return n;
+}
+
+/** Normalize a WhatsApp number for a wa.me link (digits-only, with 91 prefix) */
+function normalizeWhatsApp(wa: string): string {
+  let n = wa.replace(/\D/g, '');
+  // Ensure country code 91 is present for Indian numbers
+  if (n.length === 10) n = '91' + n;
+  // Strip extra leading 91 if already 12+ digits with 91 prefix
+  if (n.startsWith('91') && n.length === 12) return n;
+  return n;
+}
+
+/** Check if a phone number has at least 10 digits */
+function isValidPhone(phone: string): boolean {
+  return phone.replace(/\D/g, '').length >= 10;
 }
 
 type DupeShopInfo = {
@@ -799,7 +816,14 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
     if (!form.name.trim()) errs.name = 'Shop name is required';
-    if (!form.phone.trim()) errs.phone = 'Phone number is required';
+    if (!form.phone.trim()) {
+      errs.phone = 'Phone number is required';
+    } else if (!isValidPhone(form.phone)) {
+      errs.phone = 'Enter a valid phone number (at least 10 digits)';
+    }
+    if (form.whatsapp.trim() && !isValidPhone(form.whatsapp)) {
+      errs.whatsapp = 'Enter a valid WhatsApp number (at least 10 digits)';
+    }
     if (!form.area.trim() && !form.address.trim()) errs.area = 'Area or address is required';
     if (form.latitude) {
       const lat = parseFloat(form.latitude);
@@ -855,12 +879,16 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
   const executeSave = async () => {
     setSaving(true);
 
+    // Capitalize first letter of each word in area for consistency
+    const normalizeArea = (s: string) => s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+
     const payload: any = {
       name: form.name.trim(),
       phone: form.phone.trim() || null,
-      whatsapp: form.whatsapp.trim() || null,
+      // Normalize WhatsApp to digits-only with country code for wa.me links
+      whatsapp: form.whatsapp.trim() ? normalizeWhatsApp(form.whatsapp) : null,
       address: form.address.trim() || null,
-      area: form.area.trim() || null,
+      area: form.area.trim() ? normalizeArea(form.area) : null,
       opening_time: form.opening_time || null,
       closing_time: form.closing_time || null,
       is_open: form.is_open,
@@ -1002,27 +1030,49 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
                   value={form.phone}
                   onChange={(e) => { set('phone', e.target.value); setErrors((err) => ({ ...err, phone: '' })); }}
                   className={inputCls + (errors.phone ? ' border-destructive' : '')}
-                  placeholder="+91 9876543210"
+                  placeholder="e.g. 9876543210"
+                  inputMode="numeric"
                   maxLength={20}
                 />
                 {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
               </Field>
-              <Field label="WhatsApp">
-                <input value={form.whatsapp} onChange={(e) => set('whatsapp', e.target.value)} className={inputCls} placeholder="+91 9876543210" maxLength={20} />
+              <Field label="WhatsApp (optional)">
+                <input
+                  value={form.whatsapp}
+                  onChange={(e) => { set('whatsapp', e.target.value); setErrors((err) => ({ ...err, whatsapp: '' })); }}
+                  className={inputCls + (errors.whatsapp ? ' border-destructive' : '')}
+                  placeholder="e.g. 9876543210"
+                  inputMode="numeric"
+                  maxLength={20}
+                />
+                {errors.whatsapp && <p className="text-xs text-destructive mt-1">{errors.whatsapp}</p>}
+                <p className="text-xs text-muted-foreground mt-1">Leave blank if same as phone</p>
               </Field>
             </div>
 
-            <Field label="Address">
-              <input value={form.address} onChange={(e) => { set('address', e.target.value); setErrors((err) => ({ ...err, area: '' })); }} className={inputCls} placeholder="Full address" maxLength={250} />
+            <Field label="Address (Street / Full address)">
+              <input value={form.address} onChange={(e) => { set('address', e.target.value); setErrors((err) => ({ ...err, area: '' })); }} className={inputCls} placeholder="e.g. Near Bus Stand, Station Road" maxLength={250} />
             </Field>
             <Field label="Area / Locality *">
               <input
                 value={form.area}
                 onChange={(e) => { set('area', e.target.value); setErrors((err) => ({ ...err, area: '' })); }}
                 className={inputCls + (errors.area ? ' border-destructive' : '')}
-                placeholder="e.g. Main Road, Ward 5"
+                placeholder="e.g. Main Road, Muktainagar"
+                list="common-areas"
                 maxLength={100}
               />
+              <datalist id="common-areas">
+                <option value="Main Road" />
+                <option value="Station Road" />
+                <option value="Bus Stand Area" />
+                <option value="Market Area" />
+                <option value="Ward 1" />
+                <option value="Ward 2" />
+                <option value="Ward 3" />
+                <option value="Ward 4" />
+                <option value="Ward 5" />
+              </datalist>
               {errors.area && <p className="text-xs text-destructive mt-1">{errors.area}</p>}
             </Field>
 

@@ -1,62 +1,87 @@
-# V1_DOC_CHANGES.md — DOCUMENT.md Audit Corrections
+# V1_DOC_CHANGES.md — Polish Pass Changes
 
 > Generated: March 2026  
-> Audit scope: Full codebase verification against DOCUMENT.md claims  
-> Method: Direct inspection of `Home.tsx`, `AdminDashboard.tsx`, `ShopDetail.tsx`, migration SQL, and supabase types
+> Scope: V1 polish pass — data quality, admin UX, search quality, copy consistency
 
 ---
 
 ## Changes Made
 
-### Section: Key Features — V1 > Homepage (`Home.tsx`)
+### 1. Phone & WhatsApp Normalization
 
-**Old wording:**
-> Search bar — prominent, full-width; placeholder in Marathi (`दुकान, सेवा किंवा भाग शोधा…`); focus ring on tap
+**What changed in code:**
+- Added `isValidPhone()` validation — blocks save if phone has fewer than 10 digits
+- Added WhatsApp validation — warns if WhatsApp number is provided but has fewer than 10 digits
+- Added `normalizeWhatsApp()` — on save, WhatsApp is stored as digits-only with `91` country code prefix (e.g. `919876543210`), ensuring `wa.me` links always work correctly
+- `ShopCard` and `ShopDetail` now compute the wa.me number from stored value without raw `.replace(/\D/g,'')` inline — handled at save time and normalized at display time
+- Image `onError` handler added to `ShopCard` and `ShopDetail` — broken image URLs hide the image and keep card layout stable
 
-**New wording:**
-> Search bar — prominent, full-width; placeholder in Marathi (`दुकान, सेवा किंवा भाग शोधा…`); focus ring animates on tap (standard browser focus; no programmatic auto-focus implemented)
-
-**Reason for change:**  
-`Home.tsx` defines `searchRef = useRef<HTMLInputElement>` and wires `onFocus`/`onBlur` handlers to animate the search icon colour — but there is no `useEffect` or event handler that calls `searchRef.current?.focus()` programmatically. The phrase "auto-focuses on mobile tap" implied deliberate programmatic focus, which does not exist. The ref is used purely for the icon animation. Standard browser tap-to-focus behaviour applies.
+**DOCUMENT.md update (Business Logic > Phone Normalization):**
+Added note that WhatsApp numbers are normalized to digits-only with `91` country code on save. Also added `normalizeWhatsApp()` to the documented function inventory.
 
 ---
 
-## Verified True — No Change Required
+### 2. Admin Search — Extended to address field
 
-The following documented claims were inspected and confirmed accurate:
+**What changed in code:**
+- Admin shops search (`ShopsTab`) now also matches `address` and `whatsapp` digit substring in addition to `name`, `area`, `phone`
+- Placeholder updated to "Search name, area, phone, address..."
 
-| Claim | Verified In |
+**DOCUMENT.md update (Admin Panel > Shops Tab):**
+- "Search by name, area, or phone" → "Search by name, area, address, or phone"
+
+---
+
+### 3. Public Search — Extended to address field
+
+**What changed in code:**
+- `Shops.tsx` Supabase query now searches `name`, `area`, `address` via `ilike`
+- Numeric-only input triggers phone/WhatsApp digit search instead
+- Placeholder updated to "Search by name, area, address..."
+
+**DOCUMENT.md update (Public Site > Shop Listing):**
+- "search by name/area/phone" → "search by name, area, address (DB ilike); phone digit match for numeric queries"
+
+---
+
+### 4. Admin Form UX Improvements
+
+**What changed in code:**
+- Phone and WhatsApp `placeholder` changed from `+91 9876543210` to `e.g. 9876543210` (cleaner, consistent with Indian plain-number input)
+- `inputMode="numeric"` added to phone and WhatsApp inputs for mobile keyboard
+- WhatsApp field now labeled "WhatsApp (optional)" with hint "Leave blank if same as phone"
+- Address field label changed from "Address" to "Address (Street / Full address)" for clarity
+- Area field `placeholder` updated to "e.g. Main Road, Muktainagar"
+- Area field now has a `<datalist>` with common Muktainagar area suggestions (Main Road, Station Road, Bus Stand Area, Market Area, Ward 1–5) — admin can type freely or pick a suggestion
+- Area value is title-cased on save (e.g. "main road" → "Main Road") for consistent display
+
+**DOCUMENT.md update (Admin Panel > Shop Form):**
+- Added note: "Area is title-cased on save; common area suggestions provided via datalist"
+
+---
+
+### 5. Image Fallback
+
+**What changed in code:**
+- `ShopCard`: `useState(false)` for `imgError`; `onError={() => setImgError(true)}` on `<img>`; image section hidden when `imgError = true`
+- `ShopDetail`: same pattern — `imgError` state moved before early returns (React hooks rule); broken image hides gracefully
+
+**DOCUMENT.md update (Public Site > Shop Listing):**
+- Added: "broken image URLs fail gracefully — card/detail layout stays stable"
+
+---
+
+## Verified Unchanged — Still True
+
+| Claim | Status |
 |---|---|
-| Analytics tab with 3 summary cards (Total Taps, Calls, WhatsApp) | `AdminDashboard.tsx` lines 609–728 |
-| Ranked engagement table sorted by total desc | `AdminDashboard.tsx` line 636 |
-| Empty state when no analytics data | `AdminDashboard.tsx` lines 672–677 |
-| `shop_engagement` table — correct columns (id, shop_id, event_type, created_at) | `types.ts` + migration SQL |
-| Indexes on `shop_id`, `event_type`, `created_at` | Migration `20260308081815_*.sql` |
-| RLS: public `INSERT = true`, authenticated-only `SELECT` | Migration SQL confirmed |
-| `logEngagement` fire-and-forget; never blocks tap action | `ShopDetail.tsx` lines 8–15 |
-| Call button fires `logEngagement('call')` | `ShopDetail.tsx` line 237 |
-| WhatsApp button fires `logEngagement('whatsapp')` | `ShopDetail.tsx` line 250 |
-| Hero section: 145deg gradient, grid texture overlay, decorative blobs | `Home.tsx` confirmed |
-| Trust strip with Phone / Star / MapPin icons | `Home.tsx` lines 172–191 |
-| Stats pills (total shops, open-now, category count) | `Home.tsx` lines 158–168 |
-| Category grid sorted by shop count descending | `Home.tsx` lines 68–75 |
-| WhatsApp FAB with Marathi label | `Home.tsx` lines 277–288 |
-| Inactive shop `/shop/:id` shows 🔒 unavailable state; data not exposed | `ShopDetail.tsx` lines 87–101 |
-| Active shops filtered client-side with `.eq('is_active', true)` on listing pages | `Shops.tsx`, `CategoryPage.tsx` |
-| No `window.confirm()` / `window.alert()` / `window.prompt()` in codebase | Full codebase search: 0 matches |
-| AlertDialog for shop delete | `AdminDashboard.tsx` lines 395–418 |
-| AlertDialog for category delete with scrollable linked shop list | `AdminDashboard.tsx` lines 556–604 |
-| Duplicate phone blocks save; shows name, phone, area, category pills | `AdminDashboard.tsx` lines 1101–1163 |
-| Phone normalisation: strips spaces, dashes, parens, `+`; strips `91` prefix from 12-digit numbers | `AdminDashboard.tsx` lines 735–739 |
-| Duplicate check excludes self on edit (`s.id !== shop.id`) | `AdminDashboard.tsx` line 912 |
-| Lat range validation: -90 to 90 | `AdminDashboard.tsx` lines 804–808 |
-| Lng range validation: -180 to 180 | `AdminDashboard.tsx` lines 809–811 |
-| Name required; phone required; area OR address required | `validate()` function confirmed |
-| Category is NOT required (optional; save never blocked for missing category) | `validate()` has no category check — DOCUMENT.md correctly omits "Category — required" |
-| `updated_at` trigger on `shops` and `categories` | Migration SQL + network response shows timestamps updating |
-
----
-
-## Note on "Category required" claim
-
-The audit instruction anticipated that DOCUMENT.md might incorrectly state "Category — required" in the Shop Form Validation section. **This entry does not appear in the current DOCUMENT.md** — it was either never written or was already removed in a prior edit. No correction was needed for this item.
+| Analytics tab — 3 summary cards + ranked table + empty state | ✅ unchanged |
+| `shop_engagement` RLS — public INSERT, authenticated SELECT | ✅ unchanged |
+| `logEngagement` fire-and-forget | ✅ unchanged |
+| Inactive shop 🔒 guard in ShopDetail | ✅ unchanged |
+| Duplicate phone detection + self-exclusion on edit | ✅ unchanged |
+| Category is optional (no validation enforced) | ✅ unchanged |
+| Lat/lng range validation | ✅ unchanged |
+| AlertDialog for shop and category deletes | ✅ unchanged |
+| Hero gradient, trust strip, Marathi placeholder, FAB | ✅ unchanged |
+| Auto-refresh every 60s (Shops + CategoryPage) | ✅ unchanged |

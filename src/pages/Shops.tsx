@@ -57,7 +57,14 @@ export default function Shops() {
         .order('name');
 
       if (debouncedSearch) {
-        query = query.or(`name.ilike.%${debouncedSearch}%,area.ilike.%${debouncedSearch}%`);
+        const q = debouncedSearch.replace(/\D/g, '');
+        // Search name, area, address, and phone digits
+        if (q.length >= 3 && /^\d+$/.test(debouncedSearch.trim())) {
+          // Numeric search — match phone substring
+          query = query.or(`phone.ilike.%${debouncedSearch.trim()}%,whatsapp.ilike.%${debouncedSearch.trim()}%`);
+        } else {
+          query = query.or(`name.ilike.%${debouncedSearch}%,area.ilike.%${debouncedSearch}%,address.ilike.%${debouncedSearch}%`);
+        }
       }
 
       const { data, error } = await query;
@@ -105,7 +112,7 @@ export default function Shops() {
               type="text"
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
-              placeholder="Search by name or area..."
+              placeholder="Search by name, area, address..."
               className="w-full pl-9 pr-9 py-2.5 rounded-xl text-foreground bg-card text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
             />
             {localSearch && (
