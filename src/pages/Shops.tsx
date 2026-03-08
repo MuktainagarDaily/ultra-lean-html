@@ -81,7 +81,7 @@ export default function Shops() {
     queryFn: async () => {
       let query = supabase
         .from('shops')
-        .select('*, shop_categories(categories(name, icon))')
+        .select('*, shop_categories(categories(name, icon, is_active))')
         .eq('is_active', true)
         .order('name');
 
@@ -118,7 +118,7 @@ export default function Shops() {
     shops.forEach((s: any) => {
       s.shop_categories?.forEach((sc: any) => {
         const cat = sc.categories;
-        if (cat?.name && !seen.has(cat.name)) {
+        if (cat?.name && cat.is_active !== false && !seen.has(cat.name)) {
           seen.set(cat.name, { name: cat.name, icon: cat.icon || '' });
         }
       });

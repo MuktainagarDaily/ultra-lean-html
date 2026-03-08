@@ -1465,6 +1465,19 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
 
 /* ─── SHOP MODAL ─────────────────────────────────────────────── */
 
+/** Extract the storage file path from a Supabase public URL.
+ *  Returns null if the URL is not a recognized shop-images bucket URL. */
+function extractStoragePath(publicUrl: string): string | null {
+  try {
+    const marker = '/object/public/shop-images/';
+    const idx = publicUrl.indexOf(marker);
+    if (idx === -1) return null;
+    return decodeURIComponent(publicUrl.slice(idx + marker.length).split('?')[0]);
+  } catch {
+    return null;
+  }
+}
+
 /** Normalize phone for duplicate detection and wa.me links:
  *  strips spaces, dashes, parens, dots, +;
  *  strips leading 91 country code (12-digit → 10-digit) */
@@ -1499,6 +1512,8 @@ type DupeShopInfo = {
 
 function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void; onSaved: () => void }) {
   const isEdit = !!shop.id;
+  // Track the image URL at mount time so we can clean it up if a new one is uploaded
+  const oldImageUrl = useRef<string>(shop.image_url || '');
   const [form, setForm] = useState({
     name: shop.name || '',
     phone: shop.phone || '',
@@ -1655,6 +1670,18 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
       }
     }
     toast.success(isEdit ? 'Shop updated!' : 'Shop added!');
+
+    // After successful save, clean up the old image from storage if it was replaced
+    if (isEdit && oldImageUrl.current && oldImageUrl.current !== form.image_url) {
+      const path = extractStoragePath(oldImageUrl.current);
+      if (path) {
+        const { error: storageErr } = await supabase.storage.from('shop-images').remove([path]);
+        if (storageErr) {
+          toast.warning('Shop saved, but the previous image could not be removed from storage.');
+        }
+      }
+    }
+
     onSaved();
     setSaving(false);
   };
@@ -2168,10 +2195,21 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
     const { error } = await supabase.from('shop_requests').delete().eq('id', req.id);
     if (error) {
       toast.error('Failed to delete request');
-    } else {
-      toast.success('Request deleted');
-      qc.invalidateQueries({ queryKey: ['admin-requests'] });
+      setActionLoading(null);
+      return;
     }
+    // DB deleted — now attempt storage cleanup (non-blocking, safe)
+    if (req.image_url) {
+      const path = extractStoragePath(req.image_url);
+      if (path) {
+        const { error: storageErr } = await supabase.storage.from('shop-images').remove([path]);
+        if (storageErr) {
+          toast.warning('Request deleted, but its image could not be removed from storage.');
+        }
+      }
+    }
+    toast.success('Request deleted');
+    qc.invalidateQueries({ queryKey: ['admin-requests'] });
     setViewRequest(null);
     setActionLoading(null);
   };

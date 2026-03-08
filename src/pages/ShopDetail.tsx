@@ -25,7 +25,7 @@ export default function ShopDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shops')
-        .select('*, shop_categories(categories(name, icon))')
+        .select('*, shop_categories(categories(name, icon, is_active))')
         .eq('id', id!)
         .single();
       if (error) throw error;
@@ -106,7 +106,7 @@ export default function ShopDetail() {
 
   const allCats: { name: string; icon: string }[] = (shop as any).shop_categories
     ?.map((sc: any) => sc.categories)
-    .filter(Boolean) || [];
+    .filter((c: any) => c && c.is_active !== false) || [];
 
   const hasCoords = shop.latitude && shop.longitude;
   const mapsUrl = hasCoords

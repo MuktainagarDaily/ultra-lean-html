@@ -75,7 +75,7 @@ export default function CategoryPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shop_categories')
-        .select('shops(*, shop_categories(categories(name, icon)))')
+        .select('shops(*, shop_categories(categories(name, icon, is_active)))')
         .eq('category_id', id!);
       if (error) throw error;
       return data
