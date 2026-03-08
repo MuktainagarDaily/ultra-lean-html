@@ -1680,10 +1680,12 @@ function CsvImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
       } else if (!isValidPhone(phone)) {
         messages.push('Phone must be at least 10 digits');
         status = 'error';
-      } else if (latitude && (isNaN(parseFloat(latitude)) || parseFloat(latitude) < -90 || parseFloat(latitude) > 90)) {
+      }
+      if (latitude && (isNaN(parseFloat(latitude)) || parseFloat(latitude) < -90 || parseFloat(latitude) > 90)) {
         messages.push('Latitude must be between -90 and 90');
         status = 'error';
-      } else if (longitude && (isNaN(parseFloat(longitude)) || parseFloat(longitude) < -180 || parseFloat(longitude) > 180)) {
+      }
+      if (longitude && (isNaN(parseFloat(longitude)) || parseFloat(longitude) < -180 || parseFloat(longitude) > 180)) {
         messages.push('Longitude must be between -180 and 180');
         status = 'error';
       }
