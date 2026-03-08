@@ -150,14 +150,15 @@ export default function ShopDetail() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-5 space-y-4 pb-28">
-        {/* Shop Image */}
-        {shop.image_url && (
+        {/* Shop Image — graceful fallback on broken URL */}
+        {shop.image_url && !imgError && (
           <div className="rounded-xl overflow-hidden border border-border shadow-sm">
             <img
               src={shop.image_url}
               alt={shop.name}
               className="w-full h-52 object-cover"
               loading="lazy"
+              onError={() => setImgError(true)}
             />
           </div>
         )}
