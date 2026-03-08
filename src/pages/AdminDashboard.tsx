@@ -631,16 +631,49 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
 }
 
 /* ─── ANALYTICS TAB ──────────────────────────────────────────── */
+
+type DateRange = '7d' | '30d' | 'all';
+
+const DATE_RANGE_OPTIONS: { label: string; value: DateRange }[] = [
+  { label: 'Last 7 days', value: '7d' },
+  { label: 'Last 30 days', value: '30d' },
+  { label: 'All time', value: 'all' },
+];
+
+type ShopSort = 'total' | 'call' | 'whatsapp';
+
 function AnalyticsTab() {
+  const [dateRange, setDateRange] = useState<DateRange>('30d');
+  const [shopSort, setShopSort] = useState<ShopSort>('total');
+
+  // Build ISO cutoff from selected range
+  const cutoff = useMemo(() => {
+    if (dateRange === 'all') return null;
+    const d = new Date();
+    d.setDate(d.getDate() - (dateRange === '7d' ? 7 : 30));
+    return d.toISOString();
+  }, [dateRange]);
+
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ['admin-engagement'],
+    queryKey: ['admin-engagement', dateRange],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('shop_engagement')
-        .select('shop_id, event_type, shops(name, area)')
-        .order('shop_id');
+        .select('shop_id, event_type, created_at, shops(name, area, shop_categories(categories(id, name, icon)))')
+        .order('created_at', { ascending: false });
+      if (cutoff) query = query.gte('created_at', cutoff);
+      const { data, error } = await query;
       if (error) throw error;
-      return data as { shop_id: string; event_type: string; shops: { name: string; area: string | null } | null }[];
+      return data as {
+        shop_id: string;
+        event_type: string;
+        created_at: string;
+        shops: {
+          name: string;
+          area: string | null;
+          shop_categories: { categories: { id: string; name: string; icon: string } | null }[];
+        } | null;
+      }[];
     },
   });
 
@@ -648,14 +681,39 @@ function AnalyticsTab() {
   const aggregated = useMemo(() => {
     const map = new Map<string, { name: string; area: string | null; call: number; whatsapp: number; total: number }>();
     rows.forEach((r) => {
-      const key = r.shop_id;
-      if (!map.has(key)) {
-        map.set(key, { name: r.shops?.name ?? r.shop_id, area: r.shops?.area ?? null, call: 0, whatsapp: 0, total: 0 });
+      if (!map.has(r.shop_id)) {
+        map.set(r.shop_id, { name: r.shops?.name ?? r.shop_id, area: r.shops?.area ?? null, call: 0, whatsapp: 0, total: 0 });
       }
-      const entry = map.get(key)!;
-      if (r.event_type === 'call') entry.call += 1;
-      if (r.event_type === 'whatsapp') entry.whatsapp += 1;
-      entry.total += 1;
+      const e = map.get(r.shop_id)!;
+      if (r.event_type === 'call') e.call += 1;
+      if (r.event_type === 'whatsapp') e.whatsapp += 1;
+      e.total += 1;
+    });
+    return Array.from(map.values());
+  }, [rows]);
+
+  // Sorted shop lists by dimension
+  const sortedShops = useMemo(() => {
+    const key = shopSort;
+    return [...aggregated].sort((a, b) => b[key] - a[key]).filter((r) => r[key] > 0);
+  }, [aggregated, shopSort]);
+
+  // Aggregate by category
+  const aggregatedCategories = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; icon: string; total: number; call: number; whatsapp: number }>();
+    rows.forEach((r) => {
+      const cats = r.shops?.shop_categories ?? [];
+      cats.forEach((sc) => {
+        const cat = sc.categories;
+        if (!cat) return;
+        if (!map.has(cat.id)) {
+          map.set(cat.id, { id: cat.id, name: cat.name, icon: cat.icon, total: 0, call: 0, whatsapp: 0 });
+        }
+        const e = map.get(cat.id)!;
+        e.total += 1;
+        if (r.event_type === 'call') e.call += 1;
+        if (r.event_type === 'whatsapp') e.whatsapp += 1;
+      });
     });
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [rows]);
@@ -664,14 +722,29 @@ function AnalyticsTab() {
   const totalWhatsApp = rows.filter((r) => r.event_type === 'whatsapp').length;
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
+    <div className="space-y-6">
+      {/* Header + Date Range Filter */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-bold text-foreground">Engagement Analytics</h2>
-        <p className="text-xs text-muted-foreground">All-time tap counts</p>
+        <div className="flex items-center gap-1.5 bg-card border border-border rounded-lg p-1">
+          {DATE_RANGE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setDateRange(opt.value)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                dateRange === opt.value
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-3 gap-3">
         <div className="bg-card rounded-xl border border-border px-3 py-3 text-center">
           <TrendingUp className="w-5 h-5 mx-auto mb-1 text-primary" />
           <div className="text-xl font-bold text-foreground">{rows.length}</div>
@@ -689,65 +762,145 @@ function AnalyticsTab() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => <div key={i} className="bg-card rounded-xl p-4 border border-border skeleton-shimmer h-14" />)}
-        </div>
-      ) : aggregated.length === 0 ? (
-        <div className="bg-card rounded-xl border border-border p-10 text-center text-muted-foreground">
-          <p className="text-3xl mb-2">📊</p>
-          <p className="font-semibold">No engagement data yet</p>
-          <p className="text-xs mt-1">Call and WhatsApp taps will appear here once users start engaging.</p>
-        </div>
-      ) : (
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/60 border-b border-border">
-                  <th className="text-left px-4 py-3 font-semibold text-foreground">#</th>
-                  <th className="text-left px-4 py-3 font-semibold text-foreground">Shop</th>
-                  <th className="text-right px-4 py-3 font-semibold text-foreground">
-                    <span className="flex items-center justify-end gap-1"><Phone className="w-3.5 h-3.5" /> Calls</span>
-                  </th>
-                  <th className="text-right px-4 py-3 font-semibold text-foreground">
-                    <span className="flex items-center justify-end gap-1"><MessageCircle className="w-3.5 h-3.5" /> WA</span>
-                  </th>
-                  <th className="text-right px-4 py-3 font-semibold text-foreground">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {aggregated.map((row, idx) => (
-                  <tr key={idx} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 text-muted-foreground font-medium">{idx + 1}</td>
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-foreground">{row.name}</div>
-                      {row.area && <div className="text-xs text-muted-foreground">{row.area}</div>}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {row.call > 0 ? (
-                        <span className="font-semibold text-foreground">{row.call}</span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {row.whatsapp > 0 ? (
-                        <span className="font-semibold text-foreground">{row.whatsapp}</span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-bold text-primary">{row.total}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Top Shops */}
+      <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+          <h3 className="font-bold text-foreground">Top Shops</h3>
+          {/* Sort dimension selector */}
+          <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-1 self-start sm:self-auto">
+            {([
+              { value: 'total', label: 'Total' },
+              { value: 'call', label: '📞 Calls' },
+              { value: 'whatsapp', label: '💬 WhatsApp' },
+            ] as { value: ShopSort; label: string }[]).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setShopSort(opt.value)}
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                  shopSort === opt.value
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
-      )}
+
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => <div key={i} className="bg-card rounded-xl p-4 border border-border skeleton-shimmer h-14" />)}
+          </div>
+        ) : sortedShops.length === 0 ? (
+          <div className="bg-card rounded-xl border border-border p-8 text-center text-muted-foreground">
+            <p className="text-2xl mb-2">📊</p>
+            <p className="font-semibold text-sm">No engagement data for this period</p>
+            <p className="text-xs mt-1">Call and WhatsApp taps will appear here once users engage.</p>
+          </div>
+        ) : (
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/60 border-b border-border">
+                    <th className="text-left px-4 py-3 font-semibold text-foreground w-8">#</th>
+                    <th className="text-left px-4 py-3 font-semibold text-foreground">Shop</th>
+                    <th className="text-right px-4 py-3 font-semibold text-foreground hidden sm:table-cell">
+                      <span className="flex items-center justify-end gap-1"><Phone className="w-3.5 h-3.5" /> Calls</span>
+                    </th>
+                    <th className="text-right px-4 py-3 font-semibold text-foreground hidden sm:table-cell">
+                      <span className="flex items-center justify-end gap-1"><MessageCircle className="w-3.5 h-3.5" /> WA</span>
+                    </th>
+                    <th className="text-right px-4 py-3 font-semibold text-foreground">
+                      {shopSort === 'total' ? 'Total' : shopSort === 'call' ? 'Calls' : 'WA'}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedShops.map((row, idx) => (
+                    <tr key={idx} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 text-muted-foreground font-medium">{idx + 1}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-foreground">{row.name}</div>
+                        {row.area && <div className="text-xs text-muted-foreground">{row.area}</div>}
+                      </td>
+                      <td className="px-4 py-3 text-right hidden sm:table-cell">
+                        {row.call > 0 ? <span className="font-semibold text-foreground">{row.call}</span> : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right hidden sm:table-cell">
+                        {row.whatsapp > 0 ? <span className="font-semibold text-foreground">{row.whatsapp}</span> : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className={`font-bold ${shopSort === 'total' ? 'text-primary' : shopSort === 'call' ? 'text-primary' : ''}`} style={shopSort === 'whatsapp' ? { color: '#25D366' } : undefined}>
+                          {row[shopSort]}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Top Categories */}
+      <div>
+        <h3 className="font-bold text-foreground mb-3">Top Categories by Engagement</h3>
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => <div key={i} className="bg-card rounded-xl p-4 border border-border skeleton-shimmer h-14" />)}
+          </div>
+        ) : aggregatedCategories.length === 0 ? (
+          <div className="bg-card rounded-xl border border-border p-8 text-center text-muted-foreground">
+            <p className="text-2xl mb-2">🏷️</p>
+            <p className="font-semibold text-sm">No category engagement for this period</p>
+          </div>
+        ) : (
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/60 border-b border-border">
+                    <th className="text-left px-4 py-3 font-semibold text-foreground w-8">#</th>
+                    <th className="text-left px-4 py-3 font-semibold text-foreground">Category</th>
+                    <th className="text-right px-4 py-3 font-semibold text-foreground hidden sm:table-cell">
+                      <span className="flex items-center justify-end gap-1"><Phone className="w-3.5 h-3.5" /> Calls</span>
+                    </th>
+                    <th className="text-right px-4 py-3 font-semibold text-foreground hidden sm:table-cell">
+                      <span className="flex items-center justify-end gap-1"><MessageCircle className="w-3.5 h-3.5" /> WA</span>
+                    </th>
+                    <th className="text-right px-4 py-3 font-semibold text-foreground">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {aggregatedCategories.map((cat, idx) => (
+                    <tr key={cat.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 text-muted-foreground font-medium">{idx + 1}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg leading-none">{cat.icon}</span>
+                          <span className="font-semibold text-foreground">{cat.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right hidden sm:table-cell">
+                        {cat.call > 0 ? <span className="font-semibold text-foreground">{cat.call}</span> : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right hidden sm:table-cell">
+                        {cat.whatsapp > 0 ? <span className="font-semibold text-foreground">{cat.whatsapp}</span> : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-bold text-primary">{cat.total}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
