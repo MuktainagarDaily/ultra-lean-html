@@ -361,3 +361,96 @@ Empty state shows a clean ✅ confirmation when no duplicates found.
 | Verified Only public filter toggle | ✅ unchanged |
 | Public shop submission + admin review queue (Phase 4) | ✅ unchanged |
 
+---
+
+## V2 Phase 6 — Homepage Discovery, Trust Signals & Better Empty States
+
+> Scope: Public-facing UX — featured verified shops, recently added section, contextual empty states, stronger trust signals.
+
+### What Was Already There (Kept Unchanged)
+
+| Feature | Status |
+|---|---|
+| `ShopCard` component (full card) | ✅ unchanged |
+| Home `shops` query | ✅ unchanged — no new queries added |
+| `StatPill` component | ✅ extended (not rebuilt) |
+| Trust strip layout | ✅ kept, content improved |
+| Category grid + sorting | ✅ unchanged |
+| View All Shops CTA + List Your Shop CTA | ✅ unchanged |
+
+---
+
+### 1. Featured Verified Shops Section
+
+- Added to `Home.tsx` between Category grid and View All CTA
+- Derived from existing `shops` query via `useMemo` — **zero new network requests**
+- Filter: `is_verified === true`, sorted by `created_at` desc, max 6 shops
+- Hidden cleanly when `verifiedShops.length === 0`
+- Header: ShieldCheck icon + "Verified Shops" + "View all →" link to `/shops?filter=verified`
+- Sub-label: "Reviewed and confirmed by our team"
+- Horizontal scroll row (`overflow-x-auto scrollbar-none`) with `CompactShopCard`
+
+### 2. Recently Added Section
+
+- Added after Featured Verified, before View All CTA
+- Derived from same `shops` query — sorted by `created_at` desc, max 5 shops
+- Quality filter: only shops with `name` + (`phone` OR `area`) are included
+- Hidden when `recentShops.length < 3` (not useful with fewer entries)
+- Same horizontal scroll row with `CompactShopCard`
+
+### 3. CompactShopCard Component (inline in Home.tsx)
+
+- Lightweight card: `w-[185px]`, category emoji icon, name (2-line clamp), area, open/closed dot, verified badge (if applicable)
+- Quick actions: Call + WhatsApp buttons (both shown if available)
+- Clickable → navigates to `/shop/:id`
+- Reuses design tokens, no new classes
+
+### 4. Verified Count StatPill
+
+- `verifiedCount` derived via `useMemo` from existing `shops` data
+- Added as 4th `StatPill` in hero stats row
+- Hidden when `verifiedCount === 0`
+- Icon: `ShieldCheck`
+
+### 5. Trust Strip Improvements
+
+- "Verified listings" → dynamically shows `{verifiedCount} verified listings` when count > 0
+- Added 4th item: "Reviewed & maintained" — reinforces directory quality
+- `ShieldCheck` icon replaces `Star` for verified slot
+
+### 6. Verified Filter URL Param (`?filter=verified`)
+
+- `Shops.tsx` now reads `searchParams.get('filter')` on load
+- `verifiedOnly` state initialized to `filterParam === 'verified'`
+- Allows "View all verified →" from homepage to pre-activate the verified filter
+- Filter remains fully interactive after page load — not locked
+
+### 7. Contextual Empty States — Shops.tsx
+
+Replaced single generic empty state with scenario-specific messages:
+
+| Scenario | Icon | Message | Primary Action |
+|---|---|---|---|
+| Search with no results | 🔍 | `No shops match "{search}"` | Clear search + Browse categories |
+| Verified only, none found | ✅ | "No verified shops yet" | View all shops |
+| Open only, none open | 🌙 | "No shops open right now" | Show all shops |
+| Area filter, none in area | 📍 | `No shops found in {area}` | Clear area filter |
+| Combo filters | 🔍 | "No shops match these filters" | Clear all filters |
+| No data at all | 🏪 | "No shops listed yet" | Go Home |
+
+### 8. Contextual Empty States — CategoryPage.tsx
+
+- **With active filters**: "No {categoryName} shops match your filters" → [Clear filters]
+- **No filters, category empty**: "No {categoryName} shops listed yet" → [View all shops] + [Browse categories]
+- Category name used in message for natural reading ("No Grocery shops match your filters")
+
+---
+
+### Phase 6 — Intentionally Deferred
+
+- Area browsing chips strip on homepage (horizontal scrollable area pills)
+- "Recently Updated" shops (uses `updated_at` instead of `created_at`)
+- Per-shop engagement drill-down in analytics
+- Reviews or ratings
+- Ads, public accounts, chat, notifications
+

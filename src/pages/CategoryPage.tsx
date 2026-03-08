@@ -222,30 +222,46 @@ export default function CategoryPage() {
             {[1, 2, 3].map((i) => <ShopSkeleton key={i} />)}
           </div>
         ) : filteredShops.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-4xl mb-3">{availability === 'open' ? '🌙' : selectedAreas.length ? '📍' : '🏪'}</p>
-            <p className="font-semibold text-foreground">No shops found</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {activeFilterCount > 0 ? 'Try adjusting your filters' : 'No shops in this category yet'}
-            </p>
-            <div className="flex justify-center gap-2 mt-4 flex-wrap">
-              {activeFilterCount > 0 && (
-                <button
-                  onClick={() => { setAvailability('all'); setSelectedAreas([]); }}
-                  className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold"
-                >
-                  Clear filters
-                </button>
-              )}
-              {!activeFilterCount && (
-                <button
-                  onClick={() => navigate('/')}
-                  className="bg-primary text-primary-foreground px-6 py-2 rounded-lg text-sm font-semibold"
-                >
-                  Go Home
-                </button>
-              )}
-            </div>
+          <div className="text-center py-16 px-4">
+            {activeFilterCount > 0 ? (
+              <>
+                <p className="text-4xl mb-3">{availability === 'open' ? '🌙' : '📍'}</p>
+                <p className="font-semibold text-foreground">
+                  No {category?.name || 'shops'} match your filters
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">Try removing a filter to see more results</p>
+                <div className="flex justify-center gap-2 mt-4">
+                  <button
+                    onClick={() => { setAvailability('all'); setSelectedAreas([]); }}
+                    className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold active:scale-95 transition-all"
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-4xl mb-3">🏪</p>
+                <p className="font-semibold text-foreground">
+                  No {category?.name || ''} shops listed yet
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">Be the first to list one!</p>
+                <div className="flex justify-center gap-2 mt-4 flex-wrap">
+                  <button
+                    onClick={() => navigate('/shops')}
+                    className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold active:scale-95 transition-all"
+                  >
+                    View all shops
+                  </button>
+                  <button
+                    onClick={() => navigate('/')}
+                    className="bg-muted text-foreground px-5 py-2 rounded-lg text-sm font-semibold active:scale-95 transition-all"
+                  >
+                    Browse categories
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <>

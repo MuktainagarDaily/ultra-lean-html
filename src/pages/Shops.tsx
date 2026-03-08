@@ -39,12 +39,13 @@ export default function Shops() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const initialSearch = searchParams.get('search') || '';
+  const filterParam = searchParams.get('filter');
   const [localSearch, setLocalSearch] = useState(initialSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
   const [availability, setAvailability] = useState<AvailabilityFilter>('all');
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [verifiedOnly, setVerifiedOnly] = useState(filterParam === 'verified');
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [filterOpen, setFilterOpen] = useState(false);
 
@@ -314,38 +315,101 @@ export default function Shops() {
             {[1, 2, 3, 4].map((i) => <ShopSkeleton key={i} />)}
           </div>
         ) : filteredShops.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-4xl mb-3">{availability === 'open' ? '🌙' : selectedAreas.length ? '📍' : selectedCategories.length ? '🏷️' : '🔍'}</p>
-            <p className="font-semibold text-foreground">No shops found</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {activeFilterCount > 0 ? 'Try adjusting your filters' : 'Try a different search term'}
-            </p>
-            <div className="flex justify-center gap-2 mt-4 flex-wrap">
-              {activeFilterCount > 0 && (
-                <button
-                  onClick={() => { setAvailability('all'); setSelectedAreas([]); setSelectedCategories([]); setVerifiedOnly(false); }}
-                  className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold"
-                >
-                  Clear filters
-                </button>
-              )}
-              {localSearch && (
-                <button
-                  onClick={() => setLocalSearch('')}
-                  className="bg-muted text-foreground px-5 py-2 rounded-lg text-sm font-semibold"
-                >
-                  Clear search
-                </button>
-              )}
-              {activeFilterCount === 0 && !localSearch && (
-                <button
-                  onClick={() => navigate('/')}
-                  className="bg-primary text-primary-foreground px-6 py-2 rounded-lg text-sm font-semibold"
-                >
-                  Go Home
-                </button>
-              )}
-            </div>
+          <div className="text-center py-16 px-4">
+            {/* Contextual empty states */}
+            {localSearch && activeFilterCount === 0 ? (
+              <>
+                <p className="text-4xl mb-3">🔍</p>
+                <p className="font-semibold text-foreground">No shops match "{localSearch}"</p>
+                <p className="text-sm text-muted-foreground mt-1">Try a different name, area, or phone number</p>
+                <div className="flex justify-center gap-2 mt-4">
+                  <button
+                    onClick={() => setLocalSearch('')}
+                    className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold active:scale-95 transition-all"
+                  >
+                    Clear search
+                  </button>
+                  <button
+                    onClick={() => navigate('/')}
+                    className="bg-muted text-foreground px-5 py-2 rounded-lg text-sm font-semibold active:scale-95 transition-all"
+                  >
+                    Browse categories
+                  </button>
+                </div>
+              </>
+            ) : verifiedOnly && activeFilterCount === 1 ? (
+              <>
+                <p className="text-4xl mb-3">✅</p>
+                <p className="font-semibold text-foreground">No verified shops yet</p>
+                <p className="text-sm text-muted-foreground mt-1">Check back soon as more shops get verified</p>
+                <div className="flex justify-center gap-2 mt-4">
+                  <button
+                    onClick={() => setVerifiedOnly(false)}
+                    className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold active:scale-95 transition-all"
+                  >
+                    View all shops
+                  </button>
+                </div>
+              </>
+            ) : availability === 'open' && activeFilterCount === 1 ? (
+              <>
+                <p className="text-4xl mb-3">🌙</p>
+                <p className="font-semibold text-foreground">No shops open right now</p>
+                <p className="text-sm text-muted-foreground mt-1">Try browsing all shops to find what you need</p>
+                <div className="flex justify-center gap-2 mt-4">
+                  <button
+                    onClick={() => setAvailability('all')}
+                    className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold active:scale-95 transition-all"
+                  >
+                    Show all shops
+                  </button>
+                </div>
+              </>
+            ) : selectedAreas.length > 0 && activeFilterCount === selectedAreas.length ? (
+              <>
+                <p className="text-4xl mb-3">📍</p>
+                <p className="font-semibold text-foreground">
+                  No shops found in {selectedAreas.length === 1 ? selectedAreas[0] : 'selected areas'}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">Try a different area or browse all shops</p>
+                <div className="flex justify-center gap-2 mt-4">
+                  <button
+                    onClick={() => setSelectedAreas([])}
+                    className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold active:scale-95 transition-all"
+                  >
+                    Clear area filter
+                  </button>
+                </div>
+              </>
+            ) : activeFilterCount > 0 ? (
+              <>
+                <p className="text-4xl mb-3">🔍</p>
+                <p className="font-semibold text-foreground">No shops match these filters</p>
+                <p className="text-sm text-muted-foreground mt-1">Remove a filter to see more results</p>
+                <div className="flex justify-center gap-2 mt-4">
+                  <button
+                    onClick={() => { setAvailability('all'); setSelectedAreas([]); setSelectedCategories([]); setVerifiedOnly(false); }}
+                    className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold active:scale-95 transition-all"
+                  >
+                    Clear all filters
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-4xl mb-3">🏪</p>
+                <p className="font-semibold text-foreground">No shops listed yet</p>
+                <p className="text-sm text-muted-foreground mt-1">Be the first to list your shop!</p>
+                <div className="flex justify-center gap-2 mt-4">
+                  <button
+                    onClick={() => navigate('/')}
+                    className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold active:scale-95 transition-all"
+                  >
+                    Go Home
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <>
