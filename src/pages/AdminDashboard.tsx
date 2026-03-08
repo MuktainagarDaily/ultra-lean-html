@@ -286,7 +286,9 @@ function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
                         <div className="font-semibold text-foreground flex items-center gap-1.5">
                           {shop.name}
                           {shop.is_verified && (
-                            <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" title="Verified" />
+                            <span title="Verified">
+                              <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
+                            </span>
                           )}
                         </div>
                         {shop.phone && <div className="text-xs text-muted-foreground">{shop.phone}</div>}
