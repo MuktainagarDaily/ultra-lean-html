@@ -1720,7 +1720,7 @@ function CsvImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
       let resolvedCategoryId: string | null = null;
       if (category) {
         resolvedCategoryId = catMap.get(category.toLowerCase().trim()) ?? null;
-        if (!resolvedCategoryId && (status === 'ready' || status === 'warning')) {
+        if (!resolvedCategoryId && status !== 'error' && status !== 'duplicate') {
           messages.push(`Category "${category}" not found — will import without category`);
           status = 'warning';
         }
