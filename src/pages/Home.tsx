@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, TrendingUp, Store } from 'lucide-react';
+import { Search, MapPin, TrendingUp, Store, Star, Phone } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { isShopOpen } from '@/lib/shopUtils';
@@ -17,7 +17,9 @@ function CategorySkeleton() {
 
 export default function Home() {
   const [search, setSearch] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
   const navigate = useNavigate();
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const { data: categories = [], isLoading: catsLoading } = useQuery({
     queryKey: ['categories'],
@@ -85,43 +87,67 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       {/* Hero Header */}
       <header
-        className="text-primary-foreground px-4 pt-10 pb-8 relative overflow-hidden"
+        className="text-primary-foreground px-4 pt-8 pb-7 relative overflow-hidden"
         style={{
-          background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(214 85% 30%) 100%)',
+          background: 'linear-gradient(145deg, hsl(var(--primary)) 0%, hsl(214 85% 28%) 60%, hsl(215 90% 22%) 100%)',
         }}
       >
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, hsl(var(--secondary)), transparent)', transform: 'translate(30%, -30%)' }}
+        {/* Decorative blobs */}
+        <div
+          className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-[0.08] pointer-events-none"
+          style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(35%, -35%)' }}
         />
-        <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, hsl(var(--primary-glow)), transparent)', transform: 'translate(-30%, 30%)' }}
+        <div
+          className="absolute bottom-0 left-0 w-44 h-44 rounded-full opacity-[0.07] pointer-events-none"
+          style={{ background: 'radial-gradient(circle, hsl(var(--secondary)), transparent)', transform: 'translate(-35%, 35%)' }}
+        />
+        {/* Grid texture overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.04] pointer-events-none"
+          style={{
+            backgroundImage: 'linear-gradient(hsl(var(--primary-foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary-foreground)) 1px, transparent 1px)',
+            backgroundSize: '32px 32px',
+          }}
         />
 
-        <div className="max-w-lg mx-auto text-center relative z-10">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <div className="bg-primary-foreground/20 p-2 rounded-xl">
+        <div className="max-w-lg mx-auto relative z-10">
+          {/* Brand Row */}
+          <div className="flex items-center justify-center gap-2.5 mb-1">
+            <div className="bg-primary-foreground/20 backdrop-blur-sm p-2 rounded-xl border border-primary-foreground/10">
               <MapPin className="w-5 h-5" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">Muktainagar Daily</h1>
           </div>
-          <p className="text-primary-foreground/80 text-sm mb-5">
+
+          {/* Trust tagline */}
+          <p className="text-primary-foreground/80 text-sm text-center mb-1">
             आपल्या गावातील सर्व दुकाने एकाच ठिकाणी
+          </p>
+          <p className="text-primary-foreground/55 text-xs text-center mb-5 font-medium tracking-wide">
+            MUKTAINAGAR · JALGAON DISTRICT · MAHARASHTRA
           </p>
 
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="relative mb-5">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
+            <Search
+              className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none transition-colors ${
+                searchFocused ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            />
             <input
+              ref={searchRef}
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search shops, services, areas..."
-              className="w-full pl-12 pr-28 py-4 rounded-xl text-foreground bg-card text-base shadow-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              placeholder="दुकान, सेवा किंवा भाग शोधा…"
+              className="w-full pl-12 pr-28 py-4 rounded-xl text-foreground bg-card text-base shadow-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
+              autoComplete="off"
             />
             <button
               type="submit"
-              className="absolute right-2 top-1/2 -translate-y-1/2 font-semibold text-sm px-4 py-2 rounded-lg transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 font-semibold text-sm px-4 py-2 rounded-lg transition-colors active:scale-95"
               style={{ background: 'hsl(var(--secondary))', color: 'hsl(var(--secondary-foreground))' }}
             >
               Search
@@ -130,23 +156,39 @@ export default function Home() {
 
           {/* Stats Row */}
           {shops.length > 0 && (
-            <div className="flex items-center justify-center gap-4">
-              <div className="flex items-center gap-1.5 bg-primary-foreground/15 px-3 py-1.5 rounded-full">
-                <Store className="w-3.5 h-3.5" />
-                <span className="text-xs font-semibold">{shops.length} Shops</span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-primary-foreground/15 px-3 py-1.5 rounded-full">
-                <span className="w-2 h-2 rounded-full animate-pulse-open" style={{ background: 'hsl(var(--success))' }} />
-                <span className="text-xs font-semibold">{openNowCount} Open Now</span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-primary-foreground/15 px-3 py-1.5 rounded-full">
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span className="text-xs font-semibold">{categories.length} Categories</span>
-              </div>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <StatPill icon={<Store className="w-3.5 h-3.5" />} label={`${shops.length} Shops`} />
+              <StatPill
+                icon={<span className="w-2 h-2 rounded-full animate-pulse-open shrink-0" style={{ background: 'hsl(var(--success))' }} />}
+                label={`${openNowCount} Open Now`}
+                highlight
+              />
+              <StatPill icon={<TrendingUp className="w-3.5 h-3.5" />} label={`${categories.length} Categories`} />
             </div>
           )}
         </div>
       </header>
+
+      {/* Trust Strip */}
+      <div
+        className="py-2.5 px-4 flex items-center justify-center gap-4 border-b border-border text-xs font-medium text-muted-foreground overflow-x-auto"
+        style={{ background: 'hsl(var(--primary) / 0.03)' }}
+      >
+        <span className="flex items-center gap-1.5 shrink-0">
+          <Phone className="w-3.5 h-3.5 text-primary" />
+          Direct phone calls
+        </span>
+        <span className="w-px h-3.5 bg-border shrink-0" />
+        <span className="flex items-center gap-1.5 shrink-0">
+          <Star className="w-3.5 h-3.5 text-primary" />
+          Verified listings
+        </span>
+        <span className="w-px h-3.5 bg-border shrink-0" />
+        <span className="flex items-center gap-1.5 shrink-0">
+          <MapPin className="w-3.5 h-3.5 text-primary" />
+          Local businesses
+        </span>
+      </div>
 
       <main className="max-w-lg mx-auto px-4 py-6 pb-28">
         {/* Categories — sorted by shop count (most popular first) */}
@@ -244,6 +286,17 @@ export default function Home() {
         </svg>
         <span className="leading-tight">दुकान नोंदवा / List your shop</span>
       </a>
+    </div>
+  );
+}
+
+function StatPill({ icon, label, highlight }: { icon: React.ReactNode; label: string; highlight?: boolean }) {
+  return (
+    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
+      highlight ? 'bg-success/20 text-success border border-success/30' : 'bg-primary-foreground/15'
+    }`}>
+      {icon}
+      <span>{label}</span>
     </div>
   );
 }

@@ -5,6 +5,15 @@ import { Phone, MessageCircle, ArrowLeft, MapPin, Clock, Tag, Navigation, Share2
 import { formatTime, isShopOpen } from '@/lib/shopUtils';
 import { toast } from 'sonner';
 
+/** Fire-and-forget engagement log — never blocks the UI */
+async function logEngagement(shopId: string, eventType: 'call' | 'whatsapp') {
+  try {
+    await supabase.from('shop_engagement').insert({ shop_id: shopId, event_type: eventType });
+  } catch {
+    // non-blocking — silently ignore errors
+  }
+}
+
 export default function ShopDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -225,6 +234,7 @@ export default function ShopDetail() {
           {shop.phone && (
             <a
               href={`tel:${shop.phone}`}
+              onClick={() => logEngagement(shop.id, 'call')}
               className="flex items-center justify-center gap-3 w-full py-4 rounded-xl font-bold text-base active:scale-95 transition-all shadow-sm"
               style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}
             >
@@ -237,6 +247,7 @@ export default function ShopDetail() {
               href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}`}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => logEngagement(shop.id, 'whatsapp')}
               className="flex items-center justify-center gap-3 w-full text-white py-4 rounded-xl font-bold text-base active:scale-95 transition-all shadow-sm"
               style={{ background: '#25D366' }}
             >
