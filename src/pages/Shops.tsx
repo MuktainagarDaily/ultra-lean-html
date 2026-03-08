@@ -367,7 +367,7 @@ export default function Shops() {
         <DrawerContent className="max-h-[85vh]">
           <DrawerHeader className="flex items-center justify-between px-5 pt-4 pb-2">
             <DrawerTitle className="text-base font-bold">Filters</DrawerTitle>
-            {(sheetAvailability !== 'all' || sheetAreas.length > 0 || sheetCategories.length > 0) && (
+            {(sheetAvailability !== 'all' || sheetAreas.length > 0 || sheetCategories.length > 0 || sheetVerifiedOnly) && (
               <button onClick={handleClearAll} className="text-sm text-primary font-semibold hover:opacity-70">
                 Clear all
               </button>
