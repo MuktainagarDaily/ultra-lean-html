@@ -2046,7 +2046,7 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Phone *">
                 <input
                   value={form.phone}
