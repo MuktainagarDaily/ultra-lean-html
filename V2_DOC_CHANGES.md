@@ -177,7 +177,87 @@ Final step shows five distinct counters:
 
 ---
 
-## Phase 4 — Intentionally Not Added Yet
+## V2 Phase 4 — Public Shop Submission + Admin Review Queue
+
+> Scope: Safe public listing request flow with admin moderation before any shop goes live.
+
+### 1. Data Model — `shop_requests` Table
+
+New table added via migration:
+
+- `id`, `name`, `phone`, `whatsapp`, `address`, `area`, `category_text`
+- `opening_time`, `closing_time`, `image_url`, `submitter_name`
+- `status` — `pending` | `approved` | `rejected` (CHECK constraint)
+- `admin_notes`, `created_at`, `updated_at` (auto-trigger via `set_updated_at`)
+
+RLS policies:
+- Public `INSERT WITH CHECK (true)` — anyone can submit, no auth required
+- Authenticated `SELECT`, `UPDATE`, `DELETE` — admin-only operations
+
+### 2. Public Submission Form — `RequestListingModal`
+
+New component: `src/components/RequestListingModal.tsx`
+
+- Reuses existing validation patterns: `normalizePhone`, `isValidPhone`, `normalizeArea`, `formatTime`
+- Reuses image upload + compress-to-WebP via `shop-images` bucket (same as ShopModal)
+- Category field: shows dropdown if categories exist, falls back to free-text input
+- Optional fields: WhatsApp, address, times, image, submitter name
+- Two-stage UI: form → success screen with moderation-first messaging
+- No auto-publish: status is always `pending` on insert
+- Validation: name required, phone ≥10 digits, area OR address required, WhatsApp length check
+
+### 3. Entry Point — Home Page FAB Replaced
+
+- WhatsApp FAB removed (was a plain wa.me link to a phone number)
+- Replaced with inline "List Your Shop — Free" section CTA button below the View All Shops CTA
+- `RequestListingModal` mounts on click; unmounts on close or successful submit
+
+### 4. Admin Review Queue — `RequestsTab`
+
+New tab added to `AdminDashboard`:
+
+- Tab button: **Requests** with a live badge showing pending count
+- Status filter pills: Pending / Approved / Rejected / All
+- Table columns: Shop name + phone + submitter name, Area, Category text, Status badge, Actions
+- Actions per row:
+  - 👁️ View details (opens detail dialog)
+  - 👍 Approve (pending rows only)
+  - 👎 Reject (pending rows only)
+  - 🗑️ Delete (all rows)
+
+### 5. Approve Workflow
+
+On approval:
+1. Normalises phone via `normalizePhone()` — consistent with ShopModal
+2. **Duplicate phone check** against live `shops` table — blocks approval if match found, shows error toast
+3. Case-insensitive category name lookup via `ilike` against `categories` table
+4. Inserts shop with `is_active: true`, `is_verified: false` (admin can verify manually after)
+5. Inserts `shop_categories` row if category resolved
+6. Updates request status to `approved`
+7. Invalidates `admin-shops`, `admin-stats`, `admin-requests` query caches
+
+### 6. Reject Workflow
+
+- Updates request status to `rejected`
+- Does NOT create a shop entry
+- Request remains visible in Rejected filter for audit trail
+
+### 7. Stats Bar Update
+
+- Added 5th stat card: **Pending** with badge count
+- `StatCard` updated to support optional `highlight` prop (highlights count in secondary color when > 0)
+- `TabButton` updated to support optional `badge` prop showing a numeric indicator
+
+### 8. Moderation Safety Rules (Enforced)
+
+- No public submission creates a live shop entry (status = pending always)
+- Admin approval runs duplicate detection before inserting
+- Rejected requests are preserved for audit, not auto-deleted
+- No public user accounts, no auto-publish path exists
+
+---
+
+## Phase 5 — Intentionally Deferred
 
 - XLSX/Excel import
 - Image import via CSV
@@ -185,12 +265,27 @@ Final step shows five distinct counters:
 - Multi-category assignment in CSV import
 - CSV export of engagement data
 - Per-shop engagement drill-down / trend lines
-- Notification system
-- Public shop submission flow
+- Notification system (email/push) on new request
 - Multi-city support
-
+- Admin notes field on approval/rejection
+- Requester email/callback for status updates
+- Re-open rejected request
+- Bulk approve/reject
 
 ---
 
-## Kept Unchanged (Verified Phase 1 + 2 + 3)
+## Kept Unchanged (Verified Phase 1 + 2 + 3 + 4)
+
+| Feature | Status |
+|---|---|
+| Phone normalization + WhatsApp wa.me links | ✅ unchanged |
+| Duplicate phone detection dialog (ShopModal) | ✅ unchanged |
+| Inactive shop 🔒 guard in ShopDetail | ✅ unchanged |
+| Filter bottom sheet (area, availability, category, verified) | ✅ unchanged |
+| Auto-refresh every 60s | ✅ unchanged |
+| Category delete safety dialog | ✅ unchanged |
+| Admin search: name, area, phone, address | ✅ unchanged |
+| Analytics date range filter + top shops + top categories | ✅ unchanged |
+| CSV bulk import with validation + preview + result | ✅ unchanged |
+| Verified Only public filter toggle | ✅ unchanged |
 

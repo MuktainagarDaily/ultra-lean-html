@@ -1,10 +1,10 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  Plus, Pencil, Trash2, LogOut, Store, Tag, Eye, EyeOff, MapPin, X, Check, Search, Home, ShieldCheck, ShieldOff, Filter, Loader2, AlertTriangle, BarChart2, Phone, MessageCircle, TrendingUp, Upload, Download, CheckCircle2, AlertCircle, SkipForward
+  Plus, Pencil, Trash2, LogOut, Store, Tag, Eye, EyeOff, MapPin, X, Check, Search, Home, ShieldCheck, ShieldOff, Filter, Loader2, AlertTriangle, BarChart2, Phone, MessageCircle, TrendingUp, Upload, Download, CheckCircle2, AlertCircle, SkipForward, Inbox, ThumbsUp, ThumbsDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatTime } from '@/lib/shopUtils';
@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-type Tab = 'shops' | 'categories' | 'analytics';
+type Tab = 'shops' | 'categories' | 'analytics' | 'requests';
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>('shops');
@@ -43,17 +43,18 @@ export default function AdminDashboard() {
     navigate('/admin/login');
   };
 
-  // Stats query — includes verified count
+  // Stats query — includes verified count + pending requests badge
   const { data: stats } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: async () => {
-      const [{ count: total }, { count: active }, { count: cats }, { count: verified }] = await Promise.all([
+      const [{ count: total }, { count: active }, { count: cats }, { count: verified }, { count: pending }] = await Promise.all([
         supabase.from('shops').select('id', { count: 'exact', head: true }),
         supabase.from('shops').select('id', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('categories').select('id', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('shops').select('id', { count: 'exact', head: true }).eq('is_verified', true),
+        supabase.from('shop_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       ]);
-      return { total: total || 0, active: active || 0, cats: cats || 0, verified: verified || 0 };
+      return { total: total || 0, active: active || 0, cats: cats || 0, verified: verified || 0, pending: pending || 0 };
     },
   });
 
@@ -87,11 +88,12 @@ export default function AdminDashboard() {
       <div className="max-w-5xl mx-auto px-4 py-4">
         {/* Stats Bar */}
         {stats && (
-          <div className="grid grid-cols-4 gap-3 mb-5">
+          <div className="grid grid-cols-5 gap-3 mb-5">
             <StatCard label="Total Shops" value={stats.total} icon="🏪" />
             <StatCard label="Active" value={stats.active} icon="✅" />
             <StatCard label="Verified" value={stats.verified} icon="🛡️" />
             <StatCard label="Categories" value={stats.cats} icon="🏷️" />
+            <StatCard label="Pending" value={stats.pending} icon="📬" highlight={stats.pending > 0} />
           </div>
         )}
 
@@ -100,6 +102,13 @@ export default function AdminDashboard() {
           <TabButton active={tab === 'shops'} onClick={() => setTab('shops')} icon={<Store className="w-4 h-4" />} label="Shops" />
           <TabButton active={tab === 'categories'} onClick={() => setTab('categories')} icon={<Tag className="w-4 h-4" />} label="Categories" />
           <TabButton active={tab === 'analytics'} onClick={() => setTab('analytics')} icon={<BarChart2 className="w-4 h-4" />} label="Analytics" />
+          <TabButton
+            active={tab === 'requests'}
+            onClick={() => setTab('requests')}
+            icon={<Inbox className="w-4 h-4" />}
+            label="Requests"
+            badge={stats?.pending || 0}
+          />
         </div>
 
         {tab === 'shops' && (
@@ -110,7 +119,9 @@ export default function AdminDashboard() {
         )}
         {tab === 'categories' && <CategoriesTab onEdit={(cat) => setCategoryForm(cat)} />}
         {tab === 'analytics' && <AnalyticsTab />}
+        {tab === 'requests' && <RequestsTab onShopCreated={() => { qc.invalidateQueries({ queryKey: ['admin-shops'] }); qc.invalidateQueries({ queryKey: ['admin-stats'] }); }} />}
       </div>
+
 
       {shopForm !== null && (
         <ShopModal
@@ -150,28 +161,35 @@ export default function AdminDashboard() {
   );
 }
 
-function StatCard({ label, value, icon }: { label: string; value: number; icon: string }) {
+function StatCard({ label, value, icon, highlight }: { label: string; value: number; icon: string; highlight?: boolean }) {
   return (
-    <div className="bg-card rounded-xl border border-border px-2 py-3 text-center">
+    <div className={`bg-card rounded-xl border px-2 py-3 text-center ${highlight ? 'border-secondary/60' : 'border-border'}`}>
       <div className="text-xl mb-0.5">{icon}</div>
-      <div className="text-xl font-bold text-foreground">{value}</div>
+      <div className={`text-xl font-bold ${highlight ? '' : 'text-foreground'}`} style={highlight ? { color: 'hsl(var(--secondary))' } : undefined}>{value}</div>
       <div className="text-xs text-muted-foreground leading-tight">{label}</div>
     </div>
   );
 }
 
-function TabButton({ active, onClick, icon, label }: any) {
+function TabButton({ active, onClick, icon, label, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; badge?: number }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
+      className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
         active ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-card text-muted-foreground hover:text-foreground border border-border'
       }`}
     >
       {icon} {label}
+      {badge != null && badge > 0 && (
+        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center px-1 leading-none"
+          style={{ background: 'hsl(var(--secondary))', color: 'hsl(var(--secondary-foreground))' }}>
+          {badge}
+        </span>
+      )}
     </button>
   );
 }
+
 
 /* ─── SHOPS TAB ─────────────────────────────────────────────── */
 function ShopsTab({ onEdit, onImport }: { onEdit: (shop: any) => void; onImport: () => void }) {
@@ -1489,7 +1507,346 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const inputCls = "w-full px-3 py-2.5 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm";
 
+/* ─── REQUESTS TAB ────────────────────────────────────────────── */
+
+type RequestStatus = 'pending' | 'approved' | 'rejected';
+
+interface ShopRequest {
+  id: string;
+  name: string;
+  phone: string;
+  whatsapp: string | null;
+  address: string | null;
+  area: string | null;
+  category_text: string | null;
+  opening_time: string | null;
+  closing_time: string | null;
+  image_url: string | null;
+  submitter_name: string | null;
+  status: RequestStatus;
+  admin_notes: string | null;
+  created_at: string;
+}
+
+function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
+  const qc = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState<RequestStatus | 'all'>('pending');
+  const [viewRequest, setViewRequest] = useState<ShopRequest | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null); // request id being acted on
+
+  const { data: requests = [], isLoading } = useQuery({
+    queryKey: ['admin-requests', statusFilter],
+    queryFn: async () => {
+      let query = supabase
+        .from('shop_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as ShopRequest[];
+    },
+  });
+
+  const pendingCount = requests.filter((r) => r.status === 'pending').length;
+
+  const handleApprove = async (req: ShopRequest) => {
+    setActionLoading(req.id);
+
+    // Duplicate phone check
+    const normalizePhone = (phone: string) => {
+      let n = phone.replace(/[\s\-().+]/g, '');
+      if (n.startsWith('91') && n.length === 12) n = n.slice(2);
+      return n;
+    };
+    const normPhone = normalizePhone(req.phone);
+    const { data: existing } = await supabase
+      .from('shops')
+      .select('id, name')
+      .eq('phone', normPhone);
+
+    if (existing && existing.length > 0) {
+      toast.error(`Phone ${req.phone} is already registered to "${existing[0].name}". Resolve before approving.`);
+      setActionLoading(null);
+      return;
+    }
+
+    // Find category id if category_text is set
+    let resolvedCategoryId: string | null = null;
+    if (req.category_text?.trim()) {
+      const { data: catMatches } = await supabase
+        .from('categories')
+        .select('id, name')
+        .ilike('name', req.category_text.trim());
+      if (catMatches && catMatches.length > 0) {
+        resolvedCategoryId = catMatches[0].id;
+      }
+    }
+
+    // Normalize area (title case)
+    const normalizeArea = (s: string) => s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+
+    // Insert shop
+    const { data: inserted, error: insertError } = await supabase
+      .from('shops')
+      .insert({
+        name: req.name.trim(),
+        phone: normPhone,
+        whatsapp: req.whatsapp?.trim() || null,
+        address: req.address?.trim() || null,
+        area: req.area?.trim() ? normalizeArea(req.area) : null,
+        opening_time: req.opening_time || null,
+        closing_time: req.closing_time || null,
+        image_url: req.image_url || null,
+        is_active: true,
+        is_open: true,
+        is_verified: false,
+      })
+      .select('id')
+      .single();
+
+    if (insertError || !inserted) {
+      toast.error('Failed to create shop. ' + (insertError?.message || ''));
+      setActionLoading(null);
+      return;
+    }
+
+    // Link category if resolved
+    if (resolvedCategoryId) {
+      await supabase.from('shop_categories').insert({
+        shop_id: inserted.id,
+        category_id: resolvedCategoryId,
+      });
+    }
+
+    // Update request status
+    await supabase.from('shop_requests').update({ status: 'approved' }).eq('id', req.id);
+
+    toast.success(`"${req.name}" has been approved and added to the shop directory.`);
+    qc.invalidateQueries({ queryKey: ['admin-requests'] });
+    qc.invalidateQueries({ queryKey: ['admin-stats'] });
+    onShopCreated();
+    setViewRequest(null);
+    setActionLoading(null);
+  };
+
+  const handleReject = async (req: ShopRequest) => {
+    setActionLoading(req.id);
+    const { error } = await supabase
+      .from('shop_requests')
+      .update({ status: 'rejected' })
+      .eq('id', req.id);
+    if (error) {
+      toast.error('Failed to reject request');
+    } else {
+      toast.success(`Request from "${req.name}" has been rejected.`);
+      qc.invalidateQueries({ queryKey: ['admin-requests'] });
+      qc.invalidateQueries({ queryKey: ['admin-stats'] });
+    }
+    setViewRequest(null);
+    setActionLoading(null);
+  };
+
+  const handleDelete = async (req: ShopRequest) => {
+    setActionLoading(req.id);
+    const { error } = await supabase.from('shop_requests').delete().eq('id', req.id);
+    if (error) {
+      toast.error('Failed to delete request');
+    } else {
+      toast.success('Request deleted');
+      qc.invalidateQueries({ queryKey: ['admin-requests'] });
+    }
+    setViewRequest(null);
+    setActionLoading(null);
+  };
+
+  const statusBadge = (status: RequestStatus) => {
+    if (status === 'pending') return <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-secondary/15 text-secondary border border-secondary/30">⏳ Pending</span>;
+    if (status === 'approved') return <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-success/10 text-success border border-success/30">✅ Approved</span>;
+    return <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-destructive/10 text-destructive border border-destructive/30">❌ Rejected</span>;
+  };
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Listing Requests</h2>
+          {statusFilter === 'pending' && pendingCount > 0 && (
+            <p className="text-sm text-muted-foreground mt-0.5">{pendingCount} pending review</p>
+          )}
+        </div>
+        {/* Status filter */}
+        <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-1 self-start sm:self-auto">
+          {(['pending', 'approved', 'rejected', 'all'] as (RequestStatus | 'all')[]).map((opt) => (
+            <button
+              key={opt}
+              onClick={() => setStatusFilter(opt)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all capitalize ${
+                statusFilter === opt
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => <div key={i} className="bg-card rounded-xl p-4 border border-border skeleton-shimmer h-16" />)}
+        </div>
+      ) : requests.length === 0 ? (
+        <div className="bg-card rounded-xl border border-border p-10 text-center">
+          <Inbox className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
+          <p className="font-semibold text-muted-foreground">
+            {statusFilter === 'pending' ? 'No pending requests' : `No ${statusFilter} requests`}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {statusFilter === 'pending' ? 'Submissions from the public form will appear here.' : ''}
+          </p>
+        </div>
+      ) : (
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 border-b border-border">
+                  <th className="text-left px-4 py-3 font-semibold text-foreground">Shop</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground hidden sm:table-cell">Area</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Category</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground">Status</th>
+                  <th className="text-right px-4 py-3 font-semibold text-foreground">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {requests.map((req) => (
+                  <tr key={req.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-foreground">{req.name}</div>
+                      {req.phone && <div className="text-xs text-muted-foreground">{req.phone}</div>}
+                      {req.submitter_name && <div className="text-xs text-muted-foreground italic">by {req.submitter_name}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell text-sm">{req.area || '—'}</td>
+                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell text-sm">{req.category_text || '—'}</td>
+                    <td className="px-4 py-3">{statusBadge(req.status)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setViewRequest(req)}
+                          className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                          title="View details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        {req.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleApprove(req)}
+                              disabled={actionLoading === req.id}
+                              className="p-1.5 hover:bg-success/10 rounded-lg transition-colors disabled:opacity-50"
+                              title="Approve"
+                              style={{ color: 'hsl(var(--success))' }}
+                            >
+                              {actionLoading === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsUp className="w-4 h-4" />}
+                            </button>
+                            <button
+                              onClick={() => handleReject(req)}
+                              disabled={actionLoading === req.id}
+                              className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors disabled:opacity-50"
+                              title="Reject"
+                            >
+                              <ThumbsDown className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => handleDelete(req)}
+                          disabled={actionLoading === req.id}
+                          className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors disabled:opacity-50"
+                          title="Delete request"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* View Request Detail Dialog */}
+      {viewRequest && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto py-4 px-4">
+          <div className="bg-card rounded-2xl border border-border w-full max-w-md shadow-2xl my-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div>
+                <h3 className="font-bold text-lg text-foreground">{viewRequest.name}</h3>
+                <div className="mt-1">{statusBadge(viewRequest.status)}</div>
+              </div>
+              <button onClick={() => setViewRequest(null)} className="p-1 hover:bg-muted rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-3">
+              {viewRequest.image_url && (
+                <img src={viewRequest.image_url} alt="Shop" className="w-full h-40 object-cover rounded-xl border border-border mb-2" />
+              )}
+
+              {[
+                { label: 'Phone', value: viewRequest.phone },
+                { label: 'WhatsApp', value: viewRequest.whatsapp },
+                { label: 'Area', value: viewRequest.area },
+                { label: 'Address', value: viewRequest.address },
+                { label: 'Category', value: viewRequest.category_text },
+                { label: 'Opening', value: viewRequest.opening_time ? formatTime(viewRequest.opening_time) : null },
+                { label: 'Closing', value: viewRequest.closing_time ? formatTime(viewRequest.closing_time) : null },
+                { label: 'Submitted by', value: viewRequest.submitter_name },
+                { label: 'Submitted on', value: new Date(viewRequest.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) },
+              ].map(({ label, value }) =>
+                value ? (
+                  <div key={label} className="flex items-start gap-3">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide w-20 shrink-0 pt-0.5">{label}</span>
+                    <span className="text-sm text-foreground break-words">{value}</span>
+                  </div>
+                ) : null
+              )}
+            </div>
+
+            {viewRequest.status === 'pending' && (
+              <div className="px-6 pb-6 flex gap-3">
+                <button
+                  onClick={() => handleReject(viewRequest)}
+                  disabled={!!actionLoading}
+                  className="flex-1 py-2.5 border border-border rounded-xl font-semibold text-destructive hover:bg-destructive/5 transition-colors text-sm disabled:opacity-50"
+                >
+                  {actionLoading === viewRequest.id ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Reject'}
+                </button>
+                <button
+                  onClick={() => handleApprove(viewRequest)}
+                  disabled={!!actionLoading}
+                  className="flex-1 py-2.5 rounded-xl font-bold text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  style={{ background: 'hsl(var(--success))', color: 'hsl(var(--success-foreground))' }}
+                >
+                  {actionLoading === viewRequest.id ? <><Loader2 className="w-4 h-4 animate-spin" /> Approving…</> : '✅ Approve & Publish'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── CSV IMPORT MODAL ────────────────────────────────────────── */
+
 
 type ImportRowStatus = 'ready' | 'warning' | 'error' | 'duplicate';
 

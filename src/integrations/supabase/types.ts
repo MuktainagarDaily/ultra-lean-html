@@ -100,6 +100,60 @@ export type Database = {
           },
         ]
       }
+      shop_requests: {
+        Row: {
+          address: string | null
+          admin_notes: string | null
+          area: string | null
+          category_text: string | null
+          closing_time: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          name: string
+          opening_time: string | null
+          phone: string
+          status: string
+          submitter_name: string | null
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          address?: string | null
+          admin_notes?: string | null
+          area?: string | null
+          category_text?: string | null
+          closing_time?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          name: string
+          opening_time?: string | null
+          phone: string
+          status?: string
+          submitter_name?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          address?: string | null
+          admin_notes?: string | null
+          area?: string | null
+          category_text?: string | null
+          closing_time?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          name?: string
+          opening_time?: string | null
+          phone?: string
+          status?: string
+          submitter_name?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       shops: {
         Row: {
           address: string | null
