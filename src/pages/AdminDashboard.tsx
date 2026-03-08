@@ -174,7 +174,7 @@ function TabButton({ active, onClick, icon, label }: any) {
 }
 
 /* ─── SHOPS TAB ─────────────────────────────────────────────── */
-function ShopsTab({ onEdit }: { onEdit: (shop: any) => void }) {
+function ShopsTab({ onEdit, onImport }: { onEdit: (shop: any) => void; onImport: () => void }) {
   const qc = useQueryClient();
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
