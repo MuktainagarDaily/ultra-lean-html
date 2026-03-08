@@ -1030,27 +1030,49 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
                   value={form.phone}
                   onChange={(e) => { set('phone', e.target.value); setErrors((err) => ({ ...err, phone: '' })); }}
                   className={inputCls + (errors.phone ? ' border-destructive' : '')}
-                  placeholder="+91 9876543210"
+                  placeholder="e.g. 9876543210"
+                  inputMode="numeric"
                   maxLength={20}
                 />
                 {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
               </Field>
-              <Field label="WhatsApp">
-                <input value={form.whatsapp} onChange={(e) => set('whatsapp', e.target.value)} className={inputCls} placeholder="+91 9876543210" maxLength={20} />
+              <Field label="WhatsApp (optional)">
+                <input
+                  value={form.whatsapp}
+                  onChange={(e) => { set('whatsapp', e.target.value); setErrors((err) => ({ ...err, whatsapp: '' })); }}
+                  className={inputCls + (errors.whatsapp ? ' border-destructive' : '')}
+                  placeholder="e.g. 9876543210"
+                  inputMode="numeric"
+                  maxLength={20}
+                />
+                {errors.whatsapp && <p className="text-xs text-destructive mt-1">{errors.whatsapp}</p>}
+                <p className="text-xs text-muted-foreground mt-1">Leave blank if same as phone</p>
               </Field>
             </div>
 
-            <Field label="Address">
-              <input value={form.address} onChange={(e) => { set('address', e.target.value); setErrors((err) => ({ ...err, area: '' })); }} className={inputCls} placeholder="Full address" maxLength={250} />
+            <Field label="Address (Street / Full address)">
+              <input value={form.address} onChange={(e) => { set('address', e.target.value); setErrors((err) => ({ ...err, area: '' })); }} className={inputCls} placeholder="e.g. Near Bus Stand, Station Road" maxLength={250} />
             </Field>
             <Field label="Area / Locality *">
               <input
                 value={form.area}
                 onChange={(e) => { set('area', e.target.value); setErrors((err) => ({ ...err, area: '' })); }}
                 className={inputCls + (errors.area ? ' border-destructive' : '')}
-                placeholder="e.g. Main Road, Ward 5"
+                placeholder="e.g. Main Road, Muktainagar"
+                list="common-areas"
                 maxLength={100}
               />
+              <datalist id="common-areas">
+                <option value="Main Road" />
+                <option value="Station Road" />
+                <option value="Bus Stand Area" />
+                <option value="Market Area" />
+                <option value="Ward 1" />
+                <option value="Ward 2" />
+                <option value="Ward 3" />
+                <option value="Ward 4" />
+                <option value="Ward 5" />
+              </datalist>
               {errors.area && <p className="text-xs text-destructive mt-1">{errors.area}</p>}
             </Field>
 
