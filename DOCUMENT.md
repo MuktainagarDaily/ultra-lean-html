@@ -36,10 +36,10 @@
 | Database | PostgreSQL (via Supabase) |
 | Auth | Supabase Auth (email + password, admin-only) |
 | Storage | Supabase Storage (`shop-images` bucket, public) |
-| UI Components | Radix UI primitives + shadcn/ui |
+| UI Components | Radix UI primitives + shadcn/ui (`AlertDialog`, `Dialog`, etc.) |
 | Icons | Lucide React |
 | Toast Notifications | Sonner |
-| Form Validation | Custom (client-side, Zod-ready) |
+| Form Validation | Custom client-side (name, phone, area required; lat/lng range validated) |
 | Image Compression | Canvas API → WebP (client-side) |
 | Deployment | Lovable Cloud |
 
@@ -89,7 +89,7 @@ DOCUMENT.md                    — This file
 | `/` | `Home` | Homepage: hero, search, categories, stats | Public |
 | `/shops` | `Shops` | All active shops, search + Open Now filter | Public |
 | `/category/:id` | `CategoryPage` | Shops filtered by a specific category | Public |
-| `/shop/:id` | `ShopDetail` | Full shop details, call/WhatsApp/Maps buttons | Public |
+| `/shop/:id` | `ShopDetail` | Full shop details — **blocked if `is_active = false`** | Public |
 | `/admin/login` | `AdminLogin` | Admin email + password login | Public |
 | `/admin` | `AdminDashboard` | Manage shops and categories | Auth-only |
 | `*` | `NotFound` | 404 catch-all | Public |
@@ -99,6 +99,12 @@ DOCUMENT.md                    — This file
 - Show a loading state while auth is resolving
 - Redirect unauthenticated users to `/admin/login`
 - Render children if authenticated
+
+### Inactive Shop Access
+If a user navigates directly to `/shop/:id` for a shop where `is_active = false`:
+- The shop detail page renders an **"unavailable" state** (🔒 icon, "This shop is currently unavailable" message)
+- The shop data is never displayed to the public
+- Admin behavior is unaffected (admin accesses shops through the dashboard, not public URLs)
 
 ---
 
@@ -124,8 +130,8 @@ DOCUMENT.md                    — This file
 | `whatsapp` | text | Yes | null | WhatsApp number (digits only for wa.me) |
 | `address` | text | Yes | null | Full street address |
 | `area` | text | Yes | null | Locality / ward / area name |
-| `latitude` | float8 | Yes | null | GPS latitude |
-| `longitude` | float8 | Yes | null | GPS longitude |
+| `latitude` | float8 | Yes | null | GPS latitude (-90 to 90) |
+| `longitude` | float8 | Yes | null | GPS longitude (-180 to 180) |
 | `opening_time` | time | Yes | null | Daily opening time (HH:MM) |
 | `closing_time` | time | Yes | null | Daily closing time (HH:MM) |
 | `is_open` | boolean | No | `true` | Manual override flag (fallback when no times set) |
@@ -160,12 +166,14 @@ BEGIN
 END;
 $$;
 
--- Trigger on shops
+-- Trigger on shops (created via migration, idempotent)
+DROP TRIGGER IF EXISTS shops_updated_at ON public.shops;
 CREATE TRIGGER shops_updated_at
   BEFORE UPDATE ON public.shops
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- Trigger on categories
+-- Trigger on categories (created via migration, idempotent)
+DROP TRIGGER IF EXISTS categories_updated_at ON public.categories;
 CREATE TRIGGER categories_updated_at
   BEFORE UPDATE ON public.categories
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
@@ -190,10 +198,12 @@ All tables have Row-Level Security enabled.
 
 | Policy | Command | Rule |
 |---|---|---|
-| Shops are publicly readable | SELECT | `true` (anyone can read active + inactive) |
+| Shops are publicly readable | SELECT | `true` (anyone can read, incl. inactive) |
 | Authenticated users can insert shops | INSERT | `auth.role() = 'authenticated'` |
 | Authenticated users can update shops | UPDATE | `auth.role() = 'authenticated'` |
 | Authenticated users can delete shops | DELETE | `auth.role() = 'authenticated'` |
+
+> **Note:** The public `SELECT` policy returns all rows including `is_active = false`. Inactive shop filtering is enforced **at the application layer** (public listing pages filter `is_active = true` in the query; ShopDetail blocks rendering if `is_active = false`).
 
 ### `shop_categories`
 
@@ -202,8 +212,6 @@ All tables have Row-Level Security enabled.
 | Shop categories are publicly readable | SELECT | `true` |
 | Authenticated users can insert shop_categories | INSERT | `auth.role() = 'authenticated'` |
 | Authenticated users can delete shop_categories | DELETE | `auth.role() = 'authenticated'` |
-
-> **Note:** All RLS policies use `PERMISSIVE` mode (standard). Public `SELECT` returns all rows including `is_active = false` — public pages filter `is_active = true` in the query, not at RLS level.
 
 ---
 
@@ -249,7 +257,8 @@ All tables have Row-Level Security enabled.
 - **All Shops** — search by name/area/phone; "Open Now" filter toggle; skeleton loading; error state with retry
 - **Category Page** — single-query join; "Open Now" filter; skeleton loading
 - **Shop Detail** — full info, Call/WhatsApp/Maps/Share buttons; "Verified" badge if `is_verified = true`
-- **Share Button** — uses `navigator.share` on mobile; falls back to clipboard copy
+- **Inactive Shop Guard** — direct URL `/shop/:id` for inactive shop shows unavailable screen, not shop data
+- **Share Button** — uses `navigator.share` on mobile; falls back to clipboard copy with toast
 - **Auto-refresh** — `useInterval` hook refreshes shop open/closed status every 60 seconds
 - **WhatsApp FAB** — floating "List your shop" button on homepage
 
@@ -259,13 +268,20 @@ All tables have Row-Level Security enabled.
 - **Shop Management** — Add/Edit/Delete shops; activate/deactivate toggle; verified toggle
 - **Category Filter** — dropdown in admin shops tab (client-side, no extra query)
 - **Search** — filter by name, area, or phone in admin shops tab
-- **Duplicate Phone Warning** — warns admin before saving if phone already used by another shop (allows save)
-- **Safe Category Delete** — shows count of linked shops before confirming deletion
+- **Duplicate Phone Detection** — before saving, normalizes and checks for duplicate phone numbers:
+  - strips spaces, dashes, parentheses, `+`
+  - strips leading `91` country code (12-digit → 10-digit normalization)
+  - if duplicate found: **blocks the save**, opens a confirmation `Dialog`
+  - shows: matching shop name, phone, area, and categories
+  - admin must explicitly click "Save Anyway" to proceed; Cancel is the safe default
+- **Shop Delete Confirmation** — uses `AlertDialog` (Radix UI); shows shop name; requires explicit confirm; loading state while deleting
+- **Category Delete Confirmation** — uses `AlertDialog` (Radix UI); fetches and shows names of all linked shops in a scrollable list; explains that shops are not deleted, only links are removed; loading state while deleting
 - **Category Management** — Add/Edit/Delete/Toggle categories
 - **Image Upload** — compress to WebP, preview, store in `shop-images` bucket
-- **Form Validation** — name required, phone required, area/address required, lat/lng format check
+- **Form Validation** — name required, phone required, area/address required; latitude validated (-90 to 90); longitude validated (-180 to 180)
 - **Multi-category** — pill selector in shop form; junction table `shop_categories`
-- **GPS Coordinates** — latitude/longitude fields with link to Google Maps for lookup
+- **GPS Coordinates** — latitude/longitude fields with range validation and link to Google Maps for lookup
+- **Manual Open Override** — `is_open` checkbox clearly labeled as fallback for shops without opening/closing times
 
 ### Open/Closed Status Logic (`isShopOpen`)
 ```typescript
@@ -306,7 +322,8 @@ These were deliberately excluded from V1 to keep the product simple and maintain
 | Pagination / infinite scroll | Shop count is small enough for single page in V1 |
 | Verified badge on shop cards | `is_verified` column exists; show on cards in V1.5 |
 | Admin image delete (storage cleanup) | Old images accumulate; add cleanup in V1.5 |
-| Password reset flow | Admin can use Supabase dashboard for now |
+| Password reset flow | Admin can reset via auth settings for now |
+| RLS-level inactive filtering | Currently filtered at app layer; could add DB-level policy in V2 |
 | Payment / ad platform | V3+ |
 | Job board / lost & found | Out of scope |
 | PWA push notifications | V2 |

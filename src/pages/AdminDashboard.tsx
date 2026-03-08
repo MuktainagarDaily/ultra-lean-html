@@ -1030,8 +1030,7 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
             <button
               onClick={handleSaveAnyway}
               disabled={saving}
-              className="flex-1 py-2.5 rounded-lg font-bold text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              style={{ background: 'hsl(38 92% 50%)', color: 'hsl(0 0% 10%)' }}
+              className="flex-1 py-2.5 rounded-lg font-bold text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/90"
             >
               {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : 'Save Anyway'}
             </button>
