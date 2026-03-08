@@ -127,7 +127,7 @@ export default function Home() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shops')
-        .select('*, shop_categories(category_id, categories(name, icon))')
+        .select('*, shop_categories(category_id, categories(name, icon, is_active))')
         .eq('is_active', true);
       if (error) throw error;
       return data;

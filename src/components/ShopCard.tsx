@@ -28,9 +28,9 @@ export function ShopCard({ shop }: { shop: Shop }) {
   const allCats: { name: string; icon: string }[] = [];
   if (shop.shop_categories?.length) {
     shop.shop_categories.forEach((sc) => {
-      if (sc.categories) allCats.push(sc.categories);
+      if (sc.categories && (sc.categories as any).is_active !== false) allCats.push(sc.categories);
     });
-  } else if (shop.categories) {
+  } else if (shop.categories && (shop.categories as any).is_active !== false) {
     allCats.push(shop.categories);
   }
 

@@ -1670,6 +1670,18 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
       }
     }
     toast.success(isEdit ? 'Shop updated!' : 'Shop added!');
+
+    // After successful save, clean up the old image from storage if it was replaced
+    if (isEdit && oldImageUrl.current && oldImageUrl.current !== form.image_url) {
+      const path = extractStoragePath(oldImageUrl.current);
+      if (path) {
+        const { error: storageErr } = await supabase.storage.from('shop-images').remove([path]);
+        if (storageErr) {
+          toast.warning('Shop saved, but the previous image could not be removed from storage.');
+        }
+      }
+    }
+
     onSaved();
     setSaving(false);
   };
