@@ -167,8 +167,8 @@ function StatCard({ label, value, icon, highlight }: { label: string; value: num
   return (
     <div className={`bg-card rounded-xl border px-2 py-3 text-center ${highlight ? 'border-secondary/60' : 'border-border'}`}>
       <div className="text-xl mb-0.5">{icon}</div>
-      <div className={`text-xl font-bold ${highlight ? '' : 'text-foreground'}`} style={highlight ? { color: 'hsl(var(--secondary))' } : undefined}>{value}</div>
-      <div className="text-xs text-muted-foreground leading-tight">{label}</div>
+      <div className={`text-lg sm:text-xl font-bold leading-tight ${highlight ? '' : 'text-foreground'}`} style={highlight ? { color: 'hsl(var(--secondary))' } : undefined}>{value}</div>
+      <div className="text-[10px] sm:text-xs text-muted-foreground leading-tight mt-0.5 truncate">{label}</div>
     </div>
   );
 }
