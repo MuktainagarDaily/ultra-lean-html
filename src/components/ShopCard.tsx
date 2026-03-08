@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, MessageCircle, MapPin, Clock } from 'lucide-react';
+import { Phone, MessageCircle, MapPin, Clock, ShieldCheck } from 'lucide-react';
 import { formatTime, isShopOpen } from '@/lib/shopUtils';
+
 
 interface Shop {
   id: string;
@@ -79,6 +80,15 @@ export function ShopCard({ shop }: { shop: Shop }) {
                 <span key={i} className="text-base leading-none">{c.icon}</span>
               ))}
               <h3 className="font-bold text-foreground text-base truncate">{shop.name}</h3>
+              {(shop as any).is_verified && (
+                <span
+                  className="shrink-0 flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full font-semibold"
+                  style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
+                  title="Verified by Muktainagar Daily"
+                >
+                  <ShieldCheck className="w-3 h-3" /> Verified
+                </span>
+              )}
             </div>
 
             {shop.area && (

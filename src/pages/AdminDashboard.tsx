@@ -434,9 +434,21 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ['admin-categories'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('categories').select('*').order('name');
-      if (error) throw error;
-      return data;
+      // Fetch categories + shop count per category in one go
+      const [{ data: cats, error: catErr }, { data: links, error: linkErr }] = await Promise.all([
+        supabase.from('categories').select('*').order('name'),
+        supabase.from('shop_categories').select('category_id'),
+      ]);
+      if (catErr) throw catErr;
+      if (linkErr) throw linkErr;
+
+      // Count how many shops are linked to each category
+      const countMap = new Map<string, number>();
+      (links || []).forEach((row: any) => {
+        countMap.set(row.category_id, (countMap.get(row.category_id) || 0) + 1);
+      });
+
+      return (cats || []).map((c) => ({ ...c, shopCount: countMap.get(c.id) || 0 }));
     },
   });
 
@@ -504,6 +516,7 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
               <tr className="bg-muted/60 border-b border-border">
                 <th className="text-left px-4 py-3 font-semibold text-foreground">Icon</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground">Name</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden sm:table-cell">Shops</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground">Status</th>
                 <th className="text-right px-4 py-3 font-semibold text-foreground">Actions</th>
               </tr>
@@ -513,6 +526,15 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
                 <tr key={cat.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3 text-2xl">{cat.icon}</td>
                   <td className="px-4 py-3 font-semibold text-foreground">{cat.name}</td>
+                  <td className="px-4 py-3 hidden sm:table-cell">
+                    <span className={`inline-flex items-center justify-center min-w-[1.75rem] px-2 py-0.5 rounded-full text-xs font-bold ${
+                      (cat as any).shopCount > 0
+                        ? 'bg-primary/10 text-primary'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {(cat as any).shopCount}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => toggleActive.mutate({ id: cat.id, is_active: !cat.is_active })}
@@ -546,7 +568,7 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
               ))}
               {categories.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="text-center py-10 text-muted-foreground">No categories yet.</td>
+                  <td colSpan={5} className="text-center py-10 text-muted-foreground">No categories yet.</td>
                 </tr>
               )}
             </tbody>

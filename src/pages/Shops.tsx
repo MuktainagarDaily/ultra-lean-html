@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Search, X, Clock, RefreshCw, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Search, X, Clock, RefreshCw, AlertCircle, MapPin } from 'lucide-react';
 import { ShopCard } from '@/components/ShopCard';
 import { isShopOpen } from '@/lib/shopUtils';
 import { useInterval } from '@/hooks/useInterval';
@@ -34,6 +34,7 @@ export default function Shops() {
   const [localSearch, setLocalSearch] = useState(initialSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
   const [openNowOnly, setOpenNowOnly] = useState(false);
+  const [selectedArea, setSelectedArea] = useState('');
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
 
   useEffect(() => {
@@ -57,10 +58,8 @@ export default function Shops() {
         .order('name');
 
       if (debouncedSearch) {
-        const q = debouncedSearch.replace(/\D/g, '');
-        // Search name, area, address, and phone digits
-        if (q.length >= 3 && /^\d+$/.test(debouncedSearch.trim())) {
-          // Numeric search — match phone substring
+        const isNumeric = /^\d+$/.test(debouncedSearch.trim()) && debouncedSearch.trim().length >= 3;
+        if (isNumeric) {
           query = query.or(`phone.ilike.%${debouncedSearch.trim()}%,whatsapp.ilike.%${debouncedSearch.trim()}%`);
         } else {
           query = query.or(`name.ilike.%${debouncedSearch}%,area.ilike.%${debouncedSearch}%,address.ilike.%${debouncedSearch}%`);
@@ -73,10 +72,22 @@ export default function Shops() {
     },
   });
 
+  // Derive sorted, unique, non-empty area list from fetched shops
+  const areaOptions = useMemo(() => {
+    const seen = new Set<string>();
+    shops.forEach((s: any) => {
+      const a = s.area?.trim();
+      if (a) seen.add(a);
+    });
+    return Array.from(seen).sort((a, b) => a.localeCompare(b));
+  }, [shops]);
+
   const filteredShops = useMemo(() => {
-    if (!openNowOnly) return shops;
-    return shops.filter((s) => isShopOpen(s));
-  }, [shops, openNowOnly]);
+    let result = shops as any[];
+    if (openNowOnly) result = result.filter((s) => isShopOpen(s));
+    if (selectedArea) result = result.filter((s) => s.area?.trim() === selectedArea);
+    return result;
+  }, [shops, openNowOnly, selectedArea]);
 
   const openCount = useMemo(() => shops.filter((s) => isShopOpen(s)).length, [shops]);
 
@@ -125,18 +136,37 @@ export default function Shops() {
             )}
           </div>
 
-          {/* Open Now filter */}
-          <button
-            onClick={() => setOpenNowOnly((v) => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-              openNowOnly
-                ? 'bg-success text-success-foreground'
-                : 'bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25'
-            }`}
-          >
-            <span className={`w-2 h-2 rounded-full ${openNowOnly ? 'bg-success-foreground animate-pulse-open' : 'bg-primary-foreground/60'}`} />
-            Open Now {openNowOnly ? `(${filteredShops.length})` : `(${openCount})`}
-          </button>
+          {/* Filter chips row */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none">
+            {/* Open Now chip */}
+            <button
+              onClick={() => setOpenNowOnly((v) => !v)}
+              className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                openNowOnly
+                  ? 'bg-success text-success-foreground'
+                  : 'bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${openNowOnly ? 'bg-success-foreground animate-pulse-open' : 'bg-primary-foreground/60'}`} />
+              Open Now {openNowOnly ? `(${filteredShops.length})` : `(${openCount})`}
+            </button>
+
+            {/* Area chips — only render when areas available */}
+            {areaOptions.map((area) => (
+              <button
+                key={area}
+                onClick={() => setSelectedArea((v) => (v === area ? '' : area))}
+                className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${
+                  selectedArea === area
+                    ? 'bg-primary-foreground text-primary'
+                    : 'bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25'
+                }`}
+              >
+                <MapPin className="w-3 h-3" />
+                {area}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -159,20 +189,28 @@ export default function Shops() {
           </div>
         ) : filteredShops.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-4xl mb-3">{openNowOnly ? '🌙' : '🔍'}</p>
+            <p className="text-4xl mb-3">{openNowOnly ? '🌙' : selectedArea ? '📍' : '🔍'}</p>
             <p className="font-semibold text-foreground">
-              {openNowOnly ? 'No shops open right now' : 'No shops found'}
+              {openNowOnly ? 'No shops open right now' : selectedArea ? `No shops in ${selectedArea}` : 'No shops found'}
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              {openNowOnly ? 'Try removing the Open Now filter' : 'Try a different search term'}
+              {openNowOnly ? 'Try removing the Open Now filter' : selectedArea ? 'Try a different area or clear the filter' : 'Try a different search term'}
             </p>
-            <div className="flex justify-center gap-2 mt-4">
+            <div className="flex justify-center gap-2 mt-4 flex-wrap">
               {openNowOnly && (
                 <button
                   onClick={() => setOpenNowOnly(false)}
                   className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold"
                 >
                   Show all shops
+                </button>
+              )}
+              {selectedArea && (
+                <button
+                  onClick={() => setSelectedArea('')}
+                  className="bg-muted text-foreground px-5 py-2 rounded-lg text-sm font-semibold"
+                >
+                  Clear area filter
                 </button>
               )}
               {localSearch && (
@@ -183,7 +221,7 @@ export default function Shops() {
                   Clear search
                 </button>
               )}
-              {!openNowOnly && !localSearch && (
+              {!openNowOnly && !localSearch && !selectedArea && (
                 <button
                   onClick={() => navigate('/')}
                   className="bg-primary text-primary-foreground px-6 py-2 rounded-lg text-sm font-semibold"
