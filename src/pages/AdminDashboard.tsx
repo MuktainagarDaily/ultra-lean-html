@@ -568,7 +568,7 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
               ))}
               {categories.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="text-center py-10 text-muted-foreground">No categories yet.</td>
+                  <td colSpan={5} className="text-center py-10 text-muted-foreground">No categories yet.</td>
                 </tr>
               )}
             </tbody>
