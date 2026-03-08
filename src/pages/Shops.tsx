@@ -44,6 +44,7 @@ export default function Shops() {
   const [availability, setAvailability] = useState<AvailabilityFilter>('all');
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [filterOpen, setFilterOpen] = useState(false);
 
@@ -51,6 +52,7 @@ export default function Shops() {
   const [sheetAvailability, setSheetAvailability] = useState<AvailabilityFilter>('all');
   const [sheetAreas, setSheetAreas] = useState<string[]>([]);
   const [sheetCategories, setSheetCategories] = useState<string[]>([]);
+  const [sheetVerifiedOnly, setSheetVerifiedOnly] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(localSearch), 300);
@@ -63,6 +65,7 @@ export default function Shops() {
       setSheetAvailability(availability);
       setSheetAreas(selectedAreas);
       setSheetCategories(selectedCategories);
+      setSheetVerifiedOnly(verifiedOnly);
     }
   }, [filterOpen]);
 
@@ -120,7 +123,7 @@ export default function Shops() {
     return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [shops]);
 
-  const applyFilters = useCallback((s: any, avail: AvailabilityFilter, areas: string[], cats: string[]) => {
+  const applyFilters = useCallback((s: any, avail: AvailabilityFilter, areas: string[], cats: string[], verified: boolean) => {
     if (avail === 'open' && !isShopOpen(s)) return false;
     if (avail === 'closed' && isShopOpen(s)) return false;
     if (areas.length > 0 && !areas.includes(s.area?.trim() || '')) return false;
@@ -128,24 +131,25 @@ export default function Shops() {
       const shopCatNames = (s.shop_categories || []).map((sc: any) => sc.categories?.name).filter(Boolean);
       if (!cats.some((c) => shopCatNames.includes(c))) return false;
     }
+    if (verified && !s.is_verified) return false;
     return true;
   }, []);
 
   const filteredShops = useMemo(() =>
-    (shops as any[]).filter((s) => applyFilters(s, availability, selectedAreas, selectedCategories)),
-    [shops, availability, selectedAreas, selectedCategories, applyFilters]
+    (shops as any[]).filter((s) => applyFilters(s, availability, selectedAreas, selectedCategories, verifiedOnly)),
+    [shops, availability, selectedAreas, selectedCategories, verifiedOnly, applyFilters]
   );
 
   // Preview count while sheet is open
   const sheetPreviewCount = useMemo(() =>
-    (shops as any[]).filter((s) => applyFilters(s, sheetAvailability, sheetAreas, sheetCategories)).length,
-    [shops, sheetAvailability, sheetAreas, sheetCategories, applyFilters]
+    (shops as any[]).filter((s) => applyFilters(s, sheetAvailability, sheetAreas, sheetCategories, sheetVerifiedOnly)).length,
+    [shops, sheetAvailability, sheetAreas, sheetCategories, sheetVerifiedOnly, applyFilters]
   );
 
   const openCount = useMemo(() => shops.filter((s: any) => isShopOpen(s)).length, [shops]);
 
   const activeFilterCount =
-    (availability !== 'all' ? 1 : 0) + selectedAreas.length + selectedCategories.length;
+    (availability !== 'all' ? 1 : 0) + selectedAreas.length + selectedCategories.length + (verifiedOnly ? 1 : 0);
 
   const title = debouncedSearch ? `"${debouncedSearch}"` : 'All Shops';
 
@@ -153,6 +157,7 @@ export default function Shops() {
     setAvailability(sheetAvailability);
     setSelectedAreas(sheetAreas);
     setSelectedCategories(sheetCategories);
+    setVerifiedOnly(sheetVerifiedOnly);
     setFilterOpen(false);
   };
 
@@ -160,6 +165,7 @@ export default function Shops() {
     setSheetAvailability('all');
     setSheetAreas([]);
     setSheetCategories([]);
+    setSheetVerifiedOnly(false);
   };
 
   const toggleSheetArea = (area: string) =>
@@ -168,10 +174,11 @@ export default function Shops() {
   const toggleSheetCategory = (cat: string) =>
     setSheetCategories((prev) => prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]);
 
-  const removeFilter = (type: 'availability' | 'area' | 'category', value?: string) => {
+  const removeFilter = (type: 'availability' | 'area' | 'category' | 'verified', value?: string) => {
     if (type === 'availability') setAvailability('all');
     if (type === 'area' && value) setSelectedAreas((prev) => prev.filter((a) => a !== value));
     if (type === 'category' && value) setSelectedCategories((prev) => prev.filter((c) => c !== value));
+    if (type === 'verified') setVerifiedOnly(false);
   };
 
   const availabilityLabel: Record<AvailabilityFilter, string> = {
