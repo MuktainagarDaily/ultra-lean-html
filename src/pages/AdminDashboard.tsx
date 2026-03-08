@@ -43,17 +43,18 @@ export default function AdminDashboard() {
     navigate('/admin/login');
   };
 
-  // Stats query — includes verified count
+  // Stats query — includes verified count + pending requests badge
   const { data: stats } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: async () => {
-      const [{ count: total }, { count: active }, { count: cats }, { count: verified }] = await Promise.all([
+      const [{ count: total }, { count: active }, { count: cats }, { count: verified }, { count: pending }] = await Promise.all([
         supabase.from('shops').select('id', { count: 'exact', head: true }),
         supabase.from('shops').select('id', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('categories').select('id', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('shops').select('id', { count: 'exact', head: true }).eq('is_verified', true),
+        supabase.from('shop_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       ]);
-      return { total: total || 0, active: active || 0, cats: cats || 0, verified: verified || 0 };
+      return { total: total || 0, active: active || 0, cats: cats || 0, verified: verified || 0, pending: pending || 0 };
     },
   });
 
