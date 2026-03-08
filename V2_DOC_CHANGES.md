@@ -257,8 +257,79 @@ On approval:
 
 ---
 
+## V2 Phase 5 — Data Quality & Admin Cleanup Tools
+
+> Scope: Category merge, area consistency panel, duplicate shop detection — data governance without destructive automation.
+
+### 1. Category Merge Workflow
+
+- **Merge button** (GitMerge icon) added per category row — visible only when `shopCount > 0`
+- `CategoryMergeModal` component (inline, same file pattern as other modals):
+  - Title: "Merge {icon} {name}"
+  - Dropdown: select target category (all categories except source)
+  - Shows reassignment preview: "X shops will be moved from A → B"
+  - Checkbox: "Disable source category after merge" (checked by default)
+  - Two-step confirmation: "Review & Confirm" → AlertDialog before execution
+- **Merge logic** (safe):
+  1. Fetches all `shop_categories` rows for source category
+  2. Fetches existing `shop_categories` rows for target category
+  3. Shops already linked to target: their source row is deleted (prevents duplicate join rows)
+  4. Remaining shops: source `category_id` updated to target via `.in('id', reassignIds)` on `shop_categories`
+  5. Optionally disables source category via `categories.update({ is_active: false })`
+- Invalidates `admin-categories` and `admin-shops` query caches on success
+
+### 2. DataQualityTab — Area Consistency Panel
+
+New **"Data Quality"** tab (5th tab, Wrench icon) added to admin dashboard.
+
+**Area Consistency section:**
+- Queries all shops client-side, groups by `area` field via `useMemo`
+- Table: Area name | Shop count | Rename action
+- Sorted by shop count descending
+- **Suspicious area badge** (⚠ orange) flagged when: length < 3, ALL_CAPS with 3+ letters, or numeric-only
+- **Rename inline**: clicking Rename opens an input field in the same row; Enter to save, Escape to cancel
+- **Rename execution**: single Supabase call `UPDATE shops SET area = newName WHERE area = oldName` — bulk-updates all shops with that area
+- New area name is auto title-cased via `normalizeAreaValue()` before saving
+- Invalidates `admin-shops` after rename; re-derives area list from updated data
+
+### 3. DataQualityTab — Duplicate Shop Detector
+
+**Possible Duplicates section:**
+
+Two detection passes run client-side on the shop list:
+1. **Phone duplicates**: normalizes each phone via `normalizePhone()`, groups shops sharing the same 10-digit number
+2. **Name+area similarity**: groups shops sharing the same first-5-chars of lowercased name AND the same area string
+
+Both passes are merged (deduped by shop ID pair) into `allDuplicateGroups`.
+
+Each duplicate group renders as a card:
+- Header shows count + warning indicator
+- Each shop in the group shows: name, inactive badge (if applicable), phone, area, categories
+- **Edit button** per shop opens existing `ShopModal` via `onEditShop` callback
+- No auto-delete, no auto-merge — admin resolves manually
+- Refresh button re-fetches shop list
+
+Empty state shows a clean ✅ confirmation when no duplicates found.
+
+### 4. What Was Kept Unchanged
+
+- Category usage counts in CategoriesTab (`shopCount`) — ✅ unchanged
+- Category delete dialog with linked shop names — ✅ unchanged
+- Category edit/rename via CategoryModal — ✅ unchanged
+- ShopModal duplicate phone detection — ✅ unchanged
+- normalizeArea() in ShopModal and CSV import — ✅ unchanged
+- All public filters, search, and browsing — ✅ unchanged
+
+---
+
 ## Phase 5 — Intentionally Deferred
 
+- Full Levenshtein text-similarity duplicate detection
+- Bulk area reassignment (select multiple areas → merge into one)
+- Category taxonomy hierarchy
+- Shop CSV export
+- Audit log of admin changes (who changed what, when)
+- Area table with canonical names (enforce from a list)
 - XLSX/Excel import
 - Image import via CSV
 - Per-row "force import anyway" override for duplicates
@@ -274,7 +345,7 @@ On approval:
 
 ---
 
-## Kept Unchanged (Verified Phase 1 + 2 + 3 + 4)
+## Kept Unchanged (Verified Phase 1 + 2 + 3 + 4 + 5)
 
 | Feature | Status |
 |---|---|
@@ -288,4 +359,5 @@ On approval:
 | Analytics date range filter + top shops + top categories | ✅ unchanged |
 | CSV bulk import with validation + preview + result | ✅ unchanged |
 | Verified Only public filter toggle | ✅ unchanged |
+| Public shop submission + admin review queue (Phase 4) | ✅ unchanged |
 
