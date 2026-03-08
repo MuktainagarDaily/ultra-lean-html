@@ -74,7 +74,7 @@ export default function AdminDashboard() {
             <Home className="w-4 h-4" />
             <span className="hidden sm:inline">Client Site</span>
           </button>
-          <span className="text-xs text-primary-foreground/70 hidden md:block truncate max-w-[140px]">{user?.email}</span>
+          <span className="text-xs text-primary-foreground/70 hidden xl:block truncate max-w-[160px]">{user?.email}</span>
           <button
             onClick={handleSignOut}
             className="flex items-center gap-1.5 bg-primary-foreground/10 hover:bg-primary-foreground/20 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors"
