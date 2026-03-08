@@ -1103,7 +1103,7 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+              <AlertTriangle className="w-5 h-5 text-secondary shrink-0" />
               Phone number already in use
             </DialogTitle>
             <DialogDescription asChild>
