@@ -351,44 +351,13 @@ export default function Home() {
           )}
         </section>
 
-        {/* Featured Verified Shops — hidden when no verified shops */}
-        {verifiedShops.length > 0 && (
-          <section className="mt-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
-                <h2 className="text-base sm:text-lg font-bold text-foreground">Verified Shops</h2>
-              </div>
-              <button
-                onClick={() => navigate('/shops?filter=verified')}
-                className="text-xs font-semibold text-primary hover:underline shrink-0"
-              >
-                View all →
-              </button>
-            </div>
-            <p className="text-[11px] text-muted-foreground mb-3 -mt-1">
-              Reviewed and confirmed by our team
-            </p>
-            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
-              {verifiedShops.map((shop) => (
-                <CompactShopCard key={shop.id} shop={shop} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Recently Added — hidden when fewer than 3 shops total */}
+        {/* Recently Added — hidden when fewer than 3 qualifying shops */}
         {recentShops.length >= 3 && (
           <section className="mt-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm leading-none">🆕</span>
-                <h2 className="text-base sm:text-lg font-bold text-foreground">Recently Added</h2>
-              </div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm leading-none">🆕</span>
+              <h2 className="text-base sm:text-lg font-bold text-foreground">Recently Added</h2>
             </div>
-            <p className="text-[11px] text-muted-foreground mb-3 -mt-1">
-              Newly listed local businesses
-            </p>
             <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
               {recentShops.map((shop) => (
                 <CompactShopCard key={shop.id} shop={shop} />
