@@ -2005,7 +2005,7 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
             <h2 className="font-bold text-lg text-foreground">{isEdit ? 'Edit Shop' : 'Add New Shop'}</h2>
             <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg"><X className="w-5 h-5" /></button>
           </div>
-          <form onSubmit={handleSave} className="p-6 space-y-4">
+          <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
             <Field label="Shop Name *">
               <input
                 value={form.name}
