@@ -214,11 +214,27 @@ export default function Home() {
 
         <div className="max-w-lg mx-auto relative z-10">
           {/* Brand Row */}
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <div className="bg-primary-foreground/20 backdrop-blur-sm p-2 rounded-xl border border-primary-foreground/10 shrink-0">
-              <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
+          <div className="flex items-center justify-center gap-3 mb-1">
+            {/* MD Logo mark */}
+            <div className="shrink-0 drop-shadow-md">
+              <img
+                src={logoIcon}
+                alt="Muktainagar Daily Logo"
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 border-primary-foreground/20 shadow-lg"
+              />
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight leading-tight">Muktainagar Daily</h1>
+            {/* Wordmark */}
+            <div className="flex flex-col">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight leading-tight text-primary-foreground">
+                Muktainagar Daily
+              </h1>
+              <span
+                className="text-[10px] sm:text-[11px] font-semibold tracking-widest uppercase leading-none mt-0.5"
+                style={{ color: 'hsl(var(--secondary))' }}
+              >
+                Local Business Directory
+              </span>
+            </div>
           </div>
 
           {/* Trust tagline */}
