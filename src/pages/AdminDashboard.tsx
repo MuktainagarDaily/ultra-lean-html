@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-type Tab = 'shops' | 'categories';
+type Tab = 'shops' | 'categories' | 'analytics';
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>('shops');
