@@ -516,6 +516,7 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
               <tr className="bg-muted/60 border-b border-border">
                 <th className="text-left px-4 py-3 font-semibold text-foreground">Icon</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground">Name</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden sm:table-cell">Shops</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground">Status</th>
                 <th className="text-right px-4 py-3 font-semibold text-foreground">Actions</th>
               </tr>
