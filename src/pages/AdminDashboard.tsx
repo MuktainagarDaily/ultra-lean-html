@@ -1938,6 +1938,14 @@ function CsvImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
                 )}
                 <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={handleFileChange} className="sr-only" disabled={parsing} />
               </label>
+              {/* DEV TEST ONLY — remove after testing */}
+              <button
+                onClick={loadTestData}
+                disabled={parsing}
+                className="flex items-center gap-2 border border-dashed border-amber-400 bg-amber-50 text-amber-700 px-4 py-2.5 rounded-lg font-semibold text-xs hover:bg-amber-100 transition-colors"
+              >
+                🧪 Load Test Data
+              </button>
             </div>
           </div>
         )}
