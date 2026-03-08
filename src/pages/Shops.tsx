@@ -39,12 +39,13 @@ export default function Shops() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const initialSearch = searchParams.get('search') || '';
+  const filterParam = searchParams.get('filter');
   const [localSearch, setLocalSearch] = useState(initialSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
   const [availability, setAvailability] = useState<AvailabilityFilter>('all');
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [verifiedOnly, setVerifiedOnly] = useState(filterParam === 'verified');
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [filterOpen, setFilterOpen] = useState(false);
 

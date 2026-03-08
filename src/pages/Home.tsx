@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, TrendingUp, Store, Star, Phone, Plus } from 'lucide-react';
+import { Search, MapPin, TrendingUp, Store, Star, Phone, Plus, ShieldCheck } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { isShopOpen } from '@/lib/shopUtils';
@@ -13,6 +13,92 @@ function CategorySkeleton() {
         <div key={i} className="rounded-xl p-3 border border-border skeleton-shimmer h-[88px]" />
       ))}
     </div>
+  );
+}
+
+/** Compact card used in horizontal scroll rows (Verified + Recent sections) */
+function CompactShopCard({ shop }: { shop: any }) {
+  const navigate = useNavigate();
+  const open = isShopOpen(shop);
+
+  const waNumber = useMemo(() => {
+    const raw = (shop.whatsapp || shop.phone || '').replace(/\D/g, '');
+    return raw.length === 10 ? `91${raw}` : raw;
+  }, [shop.whatsapp, shop.phone]);
+
+  const allCats = useMemo(() => {
+    const from_sc = (shop.shop_categories || [])
+      .map((sc: any) => sc.categories)
+      .filter(Boolean);
+    if (from_sc.length > 0) return from_sc;
+    if (shop.categories) return [shop.categories];
+    return [];
+  }, [shop]);
+
+  const catIcon = allCats[0]?.icon || '🏪';
+
+  return (
+    <button
+      onClick={() => navigate(`/shop/${shop.id}`)}
+      className="flex flex-col gap-2 bg-card rounded-xl p-3 border border-border hover:border-primary hover:shadow-md transition-all active:scale-95 w-[185px] shrink-0 text-left"
+    >
+      {/* Top row: icon + open dot */}
+      <div className="flex items-center justify-between gap-1 w-full">
+        <span className="text-xl leading-none">{catIcon}</span>
+        <span
+          className={`w-2 h-2 rounded-full shrink-0 ${open ? 'animate-pulse-open' : 'opacity-40'}`}
+          style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--muted-foreground))' }}
+        />
+      </div>
+
+      {/* Name */}
+      <p className="text-xs font-bold text-foreground leading-tight line-clamp-2 w-full">{shop.name}</p>
+
+      {/* Area */}
+      {shop.area && (
+        <p className="text-[10px] text-muted-foreground leading-tight flex items-center gap-1">
+          <MapPin className="w-2.5 h-2.5 shrink-0" />
+          <span className="truncate">{shop.area}</span>
+        </p>
+      )}
+
+      {/* Verified badge */}
+      {shop.is_verified && (
+        <span
+          className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none w-fit"
+          style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
+        >
+          <ShieldCheck className="w-2.5 h-2.5" />
+          Verified
+        </span>
+      )}
+
+      {/* Quick actions */}
+      <div className="flex gap-1.5 w-full mt-auto pt-1">
+        {shop.phone && (
+          <a
+            href={`tel:${shop.phone}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors"
+            style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
+          >
+            📞 Call
+          </a>
+        )}
+        {(shop.whatsapp || shop.phone) && (
+          <a
+            href={`https://wa.me/${waNumber}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors"
+            style={{ background: 'hsl(142 70% 45% / 0.12)', color: 'hsl(142 70% 35%)' }}
+          >
+            💬 WA
+          </a>
+        )}
+      </div>
+    </button>
   );
 }
 
@@ -53,6 +139,11 @@ export default function Home() {
     [shops]
   );
 
+  const verifiedCount = useMemo(
+    () => shops.filter((s: any) => s.is_verified).length,
+    [shops]
+  );
+
   const catShopCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     shops.forEach((shop) => {
@@ -72,6 +163,26 @@ export default function Home() {
         return diff !== 0 ? diff : a.name.localeCompare(b.name);
       }),
     [categories, catShopCounts]
+  );
+
+  // Featured verified shops — most recent first, max 6, active only
+  const verifiedShops = useMemo(
+    () =>
+      (shops as any[])
+        .filter((s) => s.is_verified)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 6),
+    [shops]
+  );
+
+  // Recently added shops — sorted by created_at desc, active only, must have name + (phone or area), max 5
+  const recentShops = useMemo(
+    () =>
+      [...(shops as any[])]
+        .filter((s) => s.name && (s.phone || s.area))
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 5),
+    [shops]
   );
 
   const handleSearch = (e: React.FormEvent) => {
@@ -154,7 +265,7 @@ export default function Home() {
             </button>
           </form>
 
-          {/* Stats Row — wraps gracefully on tiny screens */}
+          {/* Stats Row */}
           {shops.length > 0 && (
             <div className="flex items-center justify-center gap-2 flex-wrap">
               <StatPill icon={<Store className="w-3 h-3" />} label={`${shops.length} Shops`} />
@@ -164,12 +275,15 @@ export default function Home() {
                 highlight
               />
               <StatPill icon={<TrendingUp className="w-3 h-3" />} label={`${categories.length} Categories`} />
+              {verifiedCount > 0 && (
+                <StatPill icon={<ShieldCheck className="w-3 h-3" />} label={`${verifiedCount} Verified`} />
+              )}
             </div>
           )}
         </div>
       </header>
 
-      {/* Trust Strip — scrollable on tiny screens */}
+      {/* Trust Strip */}
       <div
         className="py-2.5 px-4 flex items-center justify-start sm:justify-center gap-3 sm:gap-4 border-b border-border text-xs font-medium text-muted-foreground overflow-x-auto scrollbar-none"
         style={{ background: 'hsl(var(--primary) / 0.03)' }}
@@ -180,13 +294,18 @@ export default function Home() {
         </span>
         <span className="w-px h-3 bg-border shrink-0" />
         <span className="flex items-center gap-1.5 shrink-0">
-          <Star className="w-3 h-3 text-primary shrink-0" />
-          Verified listings
+          <ShieldCheck className="w-3 h-3 text-primary shrink-0" />
+          {verifiedCount > 0 ? `${verifiedCount} verified listings` : 'Verified listings'}
         </span>
         <span className="w-px h-3 bg-border shrink-0" />
         <span className="flex items-center gap-1.5 shrink-0">
           <MapPin className="w-3 h-3 text-primary shrink-0" />
           Local businesses
+        </span>
+        <span className="w-px h-3 bg-border shrink-0" />
+        <span className="flex items-center gap-1.5 shrink-0">
+          <Star className="w-3 h-3 text-primary shrink-0" />
+          Reviewed & maintained
         </span>
       </div>
 
@@ -241,6 +360,52 @@ export default function Home() {
             </div>
           )}
         </section>
+
+        {/* Featured Verified Shops — hidden when no verified shops */}
+        {verifiedShops.length > 0 && (
+          <section className="mt-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+                <h2 className="text-base sm:text-lg font-bold text-foreground">Verified Shops</h2>
+              </div>
+              <button
+                onClick={() => navigate('/shops?filter=verified')}
+                className="text-xs font-semibold text-primary hover:underline shrink-0"
+              >
+                View all →
+              </button>
+            </div>
+            <p className="text-[11px] text-muted-foreground mb-3 -mt-1">
+              Reviewed and confirmed by our team
+            </p>
+            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
+              {verifiedShops.map((shop) => (
+                <CompactShopCard key={shop.id} shop={shop} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Recently Added — hidden when fewer than 3 shops total */}
+        {recentShops.length >= 3 && (
+          <section className="mt-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm leading-none">🆕</span>
+                <h2 className="text-base sm:text-lg font-bold text-foreground">Recently Added</h2>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground mb-3 -mt-1">
+              Newly listed local businesses
+            </p>
+            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
+              {recentShops.map((shop) => (
+                <CompactShopCard key={shop.id} shop={shop} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* All Shops CTA */}
         <section className="mt-5">
