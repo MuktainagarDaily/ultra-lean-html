@@ -1,75 +1,107 @@
-# V2_DOC_CHANGES.md — V2 Phase 1 Changes
+# V2_DOC_CHANGES.md — V2 Changes Log
 
 > Generated: March 2026
-> Scope: V2 Phase 1 — Area filter, Verified badge on listing cards, Category usage counts in admin
+> Tracks all changes made during V2 phases.
 
 ---
 
-## Changes Made
+## V2 Phase 1 — Area Filter · Verified Badge · Category Counts
 
-### 1. Area Filter — Shops Page (`src/pages/Shops.tsx`)
+> Scope: Public-facing discoverability + admin operational clarity
+
+### 1. Area Filter — Shops Page + Category Page
+
+- Filter bottom sheet (vaul Drawer) replaces flat horizontal chip row
+- Three-way availability toggle: All / Open Now / Closed Now
+- Multi-select area checklist (2-column grid, checkboxes)
+- Multi-select category pills (Shops page only)
+- Active filter pills in header bar with individual × removal
+- Filter button shows active count badge
+- "Show N Shops" CTA in sheet updates in real time as filters change
+- All filters stack with existing search
+
+### 2. Verified Badge on ShopCard
+
+- `ShieldCheck` + "Verified" pill rendered when `is_verified = true`
+- Style matches ShopDetail verified badge (primary color tint)
+- Hidden for unverified shops; no layout impact
+
+### 3. Category Usage Counts in Admin
+
+- `CategoriesTab` query fetches `shop_categories` in parallel with categories
+- `countMap` built in JS (O(n)), each category extended with `shopCount`
+- "Shops" column added to admin categories table (hidden on mobile)
+- 0-count shows muted badge; active count shows primary-tinted pill
+
+### 4. Mobile Responsiveness Improvements
+
+- **Home page**: responsive hero text, search bar, stat pills, category grid, trust strip, FAB
+- **ShopCard**: image height, verified badge size, category chip overflow, 44px touch targets
+- **ShopDetail**: action buttons 52px min-height, truncated phone number display
+
+---
+
+## V2 Phase 2 — Better Analytics
+
+> Scope: Date-filtered analytics, top shops by engagement type, top categories by engagement
+
+### 1. Analytics Date Range Filter
+
+**What changed (`src/pages/AdminDashboard.tsx` — `AnalyticsTab`):**
+- `DateRange` type: `'7d' | '30d' | 'all'` — default is `'30d'`
+- Segmented pill selector renders inline next to the section title
+- ISO cutoff computed via `useMemo` from selected range
+- Query key includes `dateRange` so React Query re-fetches on change
+- Supabase query uses `.gte('created_at', cutoff)` when range is not "all time"
+- All three sections (summary cards, top shops, top categories) share the same filtered `rows` array
+
+### 2. Top Shops by Engagement Type
 
 **What changed:**
-- Fetched shop data now derives a sorted list of unique, non-empty `area` values.
-- A horizontally scrollable chip strip is rendered below the search bar in the sticky header.
-- Each chip shows a `MapPin` icon + area name. Tapping toggles selection (active chip turns white/inverted).
-- Area filter stacks with existing Open Now filter and search — all three work together.
-- Empty state updated to show `📍` with "No shops in <area>" message when area filter active.
-- "Clear area filter" button added to empty-state actions.
+- `ShopSort` type: `'total' | 'call' | 'whatsapp'`
+- "Top Shops" section has a 3-way toggle (Total / 📞 Calls / 💬 WhatsApp)
+- `sortedShops` derived via `useMemo` — sorted descending by selected dimension, zero-count rows excluded
+- On mobile: Calls and WA columns hidden (`hidden sm:table-cell`); active sort column always visible
+- Highlighted column color matches dimension (primary for total/calls, `#25D366` for WhatsApp)
+- Empty state shows calm message when no data for selected period
 
-**Behavior:**
-- Default: no area selected — all shops shown (unchanged behavior).
-- Selecting an area chip filters `filteredShops` client-side (no extra DB round trip).
-- Chips only appear for areas that actually exist in the current result set.
-- Junk/empty `area` values are excluded (`s.area?.trim()` guard).
-
----
-
-### 2. Area Filter — Category Page (`src/pages/CategoryPage.tsx`)
+### 3. Top Categories by Engagement
 
 **What changed:**
-- Same area chip pattern added to the CategoryPage header filter strip.
-- Open Now chip moved into the unified filter chips row for visual consistency.
-- Area options derived from shops in that category only (correct scope).
-- Empty state updated with area-specific messaging.
+- `aggregatedCategories` built from `rows` by walking `shops.shop_categories` join
+- Each category accumulates `total`, `call`, `whatsapp` counts from all linked shops
+- Sorted descending by total; displayed in same table pattern as top shops
+- Category icon rendered inline in the name column
+- Calls + WA columns hidden on mobile; Total always visible
+- Empty state consistent with top shops empty state
+- Multi-category shops are counted for each of their categories (correct — engagement happened for that shop, which belongs to multiple categories)
 
 ---
 
-### 3. Verified Badge on ShopCard (`src/components/ShopCard.tsx`)
+## Kept Unchanged (Verified Phase 1 + Phase 2)
 
-**What changed:**
-- `ShieldCheck` icon imported from lucide-react.
-- When `shop.is_verified === true`, a small `🛡 Verified` pill is rendered inline next to the shop name.
-- Style matches the existing verified badge on `ShopDetail.tsx` — primary color tint background, primary text.
-- Badge only renders when verified; no layout change for unverified shops.
-- Card layout preserved; badge wraps naturally in the flex row.
-
----
-
-### 4. Category Usage Counts in Admin (`src/pages/AdminDashboard.tsx`)
-
-**What changed:**
-- `CategoriesTab` query now fetches both `categories` and all `shop_categories` rows in parallel (`Promise.all`).
-- A `countMap` is built from `shop_categories.category_id` — O(n) aggregation in JS.
-- Each category object is extended with `shopCount: number`.
-- A new "Shops" column added to the categories table (hidden on mobile with `hidden sm:table-cell`).
-- Count displayed as a small badge: primary-tinted pill showing the number, e.g. `12`.
-- Categories with 0 shops show a muted "0" badge.
-
----
-
-## Verified Unchanged — Still True
-
-| Claim | Status |
+| Feature | Status |
 |---|---|
 | Phone normalization + WhatsApp wa.me links | ✅ unchanged |
 | Duplicate phone detection dialog | ✅ unchanged |
 | Inactive shop 🔒 guard in ShopDetail | ✅ unchanged |
-| Open Now filter behavior on Shops + CategoryPage | ✅ unchanged |
+| Filter bottom sheet (area, availability, category) | ✅ unchanged |
 | Auto-refresh every 60s | ✅ unchanged |
 | Category delete safety dialog with linked shop names | ✅ unchanged |
 | Admin search: name, area, phone, address | ✅ unchanged |
 | Public search: name, area, address + numeric phone | ✅ unchanged |
 | Engagement logging (call/whatsapp) in ShopDetail | ✅ unchanged |
-| Analytics tab | ✅ unchanged |
 | Hero gradient, trust strip, Marathi placeholder, FAB | ✅ unchanged |
+| Admin shops/categories tabs | ✅ unchanged |
+
+---
+
+## Phase 3 — Intentionally Not Added Yet
+
+- CSV export of engagement data
+- Custom calendar date picker (ISO cutoff chips are sufficient)
+- Per-shop engagement detail page / drill-down
+- Trend lines / time-series charts
+- Notification system
+- Public shop submission flow
+- Multi-city support
