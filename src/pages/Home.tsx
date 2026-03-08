@@ -4,6 +4,7 @@ import { Search, MapPin, TrendingUp, Store, Star, Phone } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { isShopOpen } from '@/lib/shopUtils';
+import { RequestListingModal } from '@/components/RequestListingModal';
 
 function CategorySkeleton() {
   return (
