@@ -816,7 +816,14 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
     if (!form.name.trim()) errs.name = 'Shop name is required';
-    if (!form.phone.trim()) errs.phone = 'Phone number is required';
+    if (!form.phone.trim()) {
+      errs.phone = 'Phone number is required';
+    } else if (!isValidPhone(form.phone)) {
+      errs.phone = 'Enter a valid phone number (at least 10 digits)';
+    }
+    if (form.whatsapp.trim() && !isValidPhone(form.whatsapp)) {
+      errs.whatsapp = 'Enter a valid WhatsApp number (at least 10 digits)';
+    }
     if (!form.area.trim() && !form.address.trim()) errs.area = 'Area or address is required';
     if (form.latitude) {
       const lat = parseFloat(form.latitude);
