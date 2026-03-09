@@ -2838,6 +2838,40 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
                   </div>
                 ) : null
               )}
+
+              {/* Location row — clickable Maps link */}
+              {(viewRequest.latitude && viewRequest.longitude) ? (
+                <div className="flex items-start gap-3">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide w-20 shrink-0 pt-0.5">Location</span>
+                  <div className="flex flex-col gap-0.5">
+                    <a
+                      href={`https://www.google.com/maps?q=${viewRequest.latitude},${viewRequest.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                    >
+                      <MapPin className="w-3.5 h-3.5 shrink-0" />
+                      Open in Maps ↗
+                    </a>
+                    <span className="text-xs text-muted-foreground font-mono">
+                      {viewRequest.latitude.toFixed(5)}, {viewRequest.longitude.toFixed(5)}
+                    </span>
+                  </div>
+                </div>
+              ) : viewRequest.maps_link ? (
+                <div className="flex items-start gap-3">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide w-20 shrink-0 pt-0.5">Location</span>
+                  <a
+                    href={viewRequest.maps_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                  >
+                    <MapPin className="w-3.5 h-3.5 shrink-0" />
+                    Open in Maps ↗
+                  </a>
+                </div>
+              ) : null}
             </div>
 
             {viewRequest.status === 'pending' && (
