@@ -78,9 +78,15 @@ export default function CategoryPage() {
         .select('shops(*, shop_categories(categories(name, icon, is_active)))')
         .eq('category_id', id!);
       if (error) throw error;
+      const seen = new Set<string>();
       return data
         .map((r: any) => r.shops)
-        .filter((s: any) => s && s.is_active);
+        .filter((s: any) => {
+          if (!s || !s.is_active) return false;
+          if (seen.has(s.id)) return false;
+          seen.add(s.id);
+          return true;
+        });
     },
     enabled: !!id,
   });
