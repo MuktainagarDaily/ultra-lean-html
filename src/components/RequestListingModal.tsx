@@ -27,8 +27,6 @@ function normalizeArea(s: string): string {
   return s.trim().replace(/(^|[\s,])([a-z])/g, (_, sep, c) => sep + c.toUpperCase());
 }
 
-/**
- * Extract lat/lng from a full Google Maps URL.
 
 const MAX_IMAGE_MB = 5;
 
