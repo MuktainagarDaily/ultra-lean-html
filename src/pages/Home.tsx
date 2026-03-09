@@ -274,7 +274,7 @@ export default function Home() {
 
           {/* Stats Row */}
           {shops.length > 0 && (
-            <div className="flex items-center justify-center gap-2 flex-wrap">
+            <div className="flex items-center justify-center gap-1.5 flex-wrap">
               <StatPill icon={<Store className="w-3 h-3" />} label={`${shops.length} Shops`} />
               <StatPill
                 icon={<span className="w-1.5 h-1.5 rounded-full animate-pulse-open shrink-0" style={{ background: 'hsl(var(--success))' }} />}
@@ -290,9 +290,9 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Trust Strip */}
+      {/* Trust Strip — scroll-fade-right hints there's more content */}
       <div
-        className="py-2.5 px-4 flex items-center justify-start sm:justify-center gap-3 sm:gap-4 border-b border-border text-xs font-medium text-muted-foreground overflow-x-auto scrollbar-none"
+        className="py-2.5 px-4 flex items-center justify-start sm:justify-center gap-3 sm:gap-4 border-b border-border text-xs font-medium text-muted-foreground overflow-x-auto scrollbar-none scroll-fade-right sm:scroll-fade-right-none"
         style={{ background: 'hsl(var(--primary) / 0.03)' }}
       >
         <span className="flex items-center gap-1.5 shrink-0">

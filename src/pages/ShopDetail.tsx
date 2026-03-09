@@ -158,7 +158,7 @@ export default function ShopDetail() {
             <img
               src={shop.image_url}
               alt={shop.name}
-              className="w-full h-52 object-cover"
+              className="w-full h-40 sm:h-52 object-cover"
               loading="lazy"
               onError={() => setImgError(true)}
             />
@@ -214,12 +214,18 @@ export default function ShopDetail() {
 
         {/* Details */}
         <div className="bg-card rounded-xl border border-border divide-y divide-border">
-          {shop.address && (
+          {/* Merge address + area into one row when both exist */}
+          {shop.address && shop.area ? (
+            <DetailRow
+              icon={<MapPin className="w-5 h-5 text-primary" />}
+              label="Location"
+              value={`${shop.address}, ${shop.area}`}
+            />
+          ) : shop.address ? (
             <DetailRow icon={<MapPin className="w-5 h-5 text-primary" />} label="Address" value={shop.address} />
-          )}
-          {shop.area && (
+          ) : shop.area ? (
             <DetailRow icon={<MapPin className="w-5 h-5 text-primary" />} label="Area" value={shop.area} />
-          )}
+          ) : null}
           {(shop.opening_time || shop.closing_time) && (
             <DetailRow
               icon={<Clock className="w-5 h-5 text-primary" />}
@@ -234,13 +240,7 @@ export default function ShopDetail() {
               value={allCats.map((c) => `${c.icon} ${c.name}`).join('  •  ')}
             />
           )}
-          {hasCoords && (
-            <DetailRow
-              icon={<Navigation className="w-5 h-5 text-primary" />}
-              label="Coordinates"
-              value={`${Number(shop.latitude).toFixed(5)}, ${Number(shop.longitude).toFixed(5)}`}
-            />
-          )}
+          {/* Coordinates row removed — Maps button below handles navigation */}
         </div>
 
         {/* Action Buttons */}
@@ -283,7 +283,8 @@ export default function ShopDetail() {
           )}
           <button
             onClick={handleShare}
-            className="flex items-center justify-center gap-2 sm:gap-3 w-full py-3.5 sm:py-4 rounded-xl font-bold text-sm sm:text-base active:scale-95 transition-all border border-border text-foreground hover:bg-muted min-h-[52px]"
+            className="flex items-center justify-center gap-2 sm:gap-3 w-full py-3.5 sm:py-4 rounded-xl font-bold text-sm sm:text-base active:scale-95 transition-all min-h-[52px]"
+            style={{ background: 'hsl(var(--secondary) / 0.12)', border: '1px solid hsl(var(--secondary) / 0.3)', color: 'hsl(var(--foreground))' }}
           >
             <Share2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
             Share this shop

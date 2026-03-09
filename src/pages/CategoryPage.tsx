@@ -157,7 +157,7 @@ export default function CategoryPage() {
           </div>
 
           {/* Filter bar */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none">
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none scroll-fade-right">
             {/* Filter button */}
             <button
               onClick={() => setFilterOpen(true)}
@@ -210,6 +210,7 @@ export default function CategoryPage() {
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <AlertCircle className="w-10 h-10 text-destructive/60" />
             <p className="font-semibold text-foreground">Failed to load shops</p>
+            <p className="text-sm text-muted-foreground">Check your connection and try again</p>
             <button
               onClick={() => refetch()}
               className="mt-2 bg-primary text-primary-foreground px-6 py-2 rounded-lg text-sm font-semibold"

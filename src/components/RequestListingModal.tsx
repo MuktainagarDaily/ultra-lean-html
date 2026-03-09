@@ -352,6 +352,12 @@ export function RequestListingModal({ onClose }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* ── Section: Shop Info ─────────────────────────────── */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Shop Info</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
           {/* Shop Name */}
           <Field label="Shop Name *">
             <input
@@ -422,6 +428,12 @@ export function RequestListingModal({ onClose }: Props) {
             </datalist>
             {errors.area && <p className="text-xs text-destructive mt-1">{errors.area}</p>}
           </Field>
+
+          {/* ── Section: Location ─────────────────────────────── */}
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Location *</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
 
           {/* ── Location section ──────────────────────────────────── */}
           <div
@@ -545,12 +557,19 @@ export function RequestListingModal({ onClose }: Props) {
               </div>
             )}
           </div>
-          {/* ── End location section ──────────────────────────────── */}
+          {/* Location section error */}
           {errors.location && (
-            <p className="text-xs text-destructive -mt-2 flex items-center gap-1">
+            <p className="text-xs text-destructive mt-1.5 flex items-center gap-1">
               <MapPin className="w-3 h-3 shrink-0" /> {errors.location}
             </p>
           )}
+
+
+          {/* ── Section: Schedule ─────────────────────────────── */}
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Schedule</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
 
           {/* Category */}
           <Field label="Category (optional)">
@@ -576,8 +595,8 @@ export function RequestListingModal({ onClose }: Props) {
             )}
           </Field>
 
-          {/* Times */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Times — stacked on mobile for better iOS time picker UX */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Opening Time (optional)">
               <input
                 type="time"
@@ -603,19 +622,32 @@ export function RequestListingModal({ onClose }: Props) {
             </Field>
           </div>
 
+          {/* ── Section: Photo & Submitter ────────────────────── */}
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Photo & Contact</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
           {/* Shop image */}
           <Field label={`Shop Photo (optional, max ${MAX_IMAGE_MB} MB)`}>
             {imageUrl && (
               <img src={imageUrl} alt="Preview" className="w-full h-32 object-cover rounded-lg mb-2 border border-border" />
             )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              disabled={uploading}
-              className="text-sm text-muted-foreground"
-            />
-            {uploading && <p className="text-xs text-primary mt-1">Uploading…</p>}
+            <label className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-colors ${uploading ? 'opacity-60 pointer-events-none' : 'hover:border-primary/40'} border-border bg-background`}>
+              <span className="text-xl">📷</span>
+              <span className="text-sm text-foreground font-medium">
+                {uploading ? 'Uploading…' : imageUrl ? 'Change photo' : 'Choose photo'}
+              </span>
+              {uploading && <Loader2 className="w-4 h-4 animate-spin text-primary ml-auto" />}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                disabled={uploading}
+                className="sr-only"
+              />
+            </label>
+            <p className="text-[11px] text-muted-foreground mt-1">JPEG, PNG, or WebP · max {MAX_IMAGE_MB} MB · compressed automatically</p>
           </Field>
 
           {/* Submitter name */}
@@ -630,7 +662,7 @@ export function RequestListingModal({ onClose }: Props) {
           </Field>
 
           {/* Buttons */}
-          <div className="flex flex-col gap-3 pt-2">
+          <div className="flex flex-col gap-3 pt-2 pb-safe">
             <button
               type="submit"
               disabled={saving || uploading}

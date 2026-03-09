@@ -27,8 +27,8 @@ function ShopSkeleton() {
         <div className="h-7 w-16 rounded-full skeleton-shimmer shrink-0" />
       </div>
       <div className="flex gap-2 mt-3">
-        <div className="flex-1 h-10 rounded-lg skeleton-shimmer" />
-        <div className="flex-1 h-10 rounded-lg skeleton-shimmer" />
+        <div className="flex-1 h-11 rounded-lg skeleton-shimmer" />
+        <div className="flex-1 h-11 rounded-lg skeleton-shimmer" />
       </div>
     </div>
   );
@@ -222,12 +222,13 @@ export default function Shops() {
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
               placeholder="Search by name, area, address..."
-              className="w-full pl-9 pr-9 py-2.5 rounded-xl text-foreground bg-card text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
+              className="w-full pl-9 pr-10 py-2.5 rounded-xl text-foreground bg-card text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
             />
             {localSearch && (
               <button
                 onClick={() => setLocalSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-1 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground rounded-lg"
+                aria-label="Clear search"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -235,7 +236,7 @@ export default function Shops() {
           </div>
 
           {/* Filter bar */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none">
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none scroll-fade-right">
             {/* Filter button */}
             <button
               onClick={() => setFilterOpen(true)}
