@@ -2531,6 +2531,9 @@ interface ShopRequest {
   status: RequestStatus;
   admin_notes: string | null;
   created_at: string;
+  latitude: number | null;
+  longitude: number | null;
+  maps_link: string | null;
 }
 
 function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
