@@ -110,6 +110,9 @@ export type Database = {
           created_at: string
           id: string
           image_url: string | null
+          latitude: number | null
+          longitude: number | null
+          maps_link: string | null
           name: string
           opening_time: string | null
           phone: string
@@ -127,6 +130,9 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          maps_link?: string | null
           name: string
           opening_time?: string | null
           phone: string
@@ -144,6 +150,9 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          maps_link?: string | null
           name?: string
           opening_time?: string | null
           phone?: string
