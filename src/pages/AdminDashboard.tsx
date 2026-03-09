@@ -1376,7 +1376,7 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
                         </div>
                         {hasSimilar && (
                           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-600 border border-orange-400/30">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/25">
                               <TriangleAlert className="w-2.5 h-2.5" />
                               similar: {similarPeers.map((p) => `"${p.length > 30 ? p.slice(0, 28) + '…' : p}"`).join(', ')}
                             </span>
