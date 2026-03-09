@@ -14,6 +14,8 @@
 
 ### Real gaps found during audit:
 
+1. App must remain smooth in navigation
+
 **1. Homepage search bar — no inline filter option (user requirement #5)**
 The search bar on Home.tsx only does text search then navigates to `/shops`. There is no way to pre-select a category from the homepage search. The request was specifically "add filter option in homepage search bar." The most useful implementation: add a category chip-strip directly below the search bar on the homepage (no extra modal needed — just a horizontal scrollable row of category pills, clicking one navigates to `/category/:id`). This is fast, usable, and zero-risk.
 
@@ -98,7 +100,7 @@ In `src/components/admin/ShopsTab.tsx`, in the actions column per row, add an `<
 
 In `src/components/admin/RequestsTab.tsx`, inside the view detail modal's field list (lines 319–336), add `admin_notes` to the displayed fields array. It is already in the `ShopRequest` interface and the DB row. Purely additive, 1 line.
 
-REMBER DONT BREAK CODE,APP, destabilizing app
+## REMBER DONT BREAK CODE,APP, destabilizing app  and app remain smooth
 
 ---
 
