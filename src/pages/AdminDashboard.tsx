@@ -156,6 +156,7 @@ export default function AdminDashboard() {
             setShowImport(false);
             qc.invalidateQueries({ queryKey: ['admin-shops'] });
             qc.invalidateQueries({ queryKey: ['admin-stats'] });
+            qc.invalidateQueries({ queryKey: ['shops'] }); // BUG-05: invalidate public queries
           }}
         />
       )}
