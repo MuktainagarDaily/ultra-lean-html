@@ -529,3 +529,177 @@ All exports: UTF-8 BOM for Excel compatibility, client-side only, use already-lo
 - Analytics 5000-row limit confirmed in network log — PASS
 - Bilingual area search via `ilike` (Postgres handles Unicode) — PASS
 
+---
+
+## V2 Phase 8 — Admin Productivity, SEO & PWA Polish
+
+> Session: 9 March 2026  
+> Scope: Zero-risk, high-value improvements — no schema changes, no major redesigns.  
+> Vitest run after changes: ✅ all 1/1 tests passed.
+
+---
+
+### Audit Summary (9 March 2026)
+
+Before making any changes, a full audit was performed. Items already correct were explicitly skipped:
+
+| Item | Status |
+|---|---|
+| Home.tsx WhatsApp `091` normalization | ✅ already correct — skipped |
+| ShopDetail `.eq('is_active', true)` DB filter | ✅ already correct — skipped |
+| `pendingCount` dedicated query in RequestsTab | ✅ already correct — skipped |
+| Filter bottom-sheet on Shops.tsx and CategoryPage.tsx | ✅ already correct — skipped |
+| `og:title`, `og:description`, `og:image`, `twitter:card` in index.html | ✅ already correct — skipped |
+| PWA manifest: `name`, `short_name`, `theme_color`, icons | ✅ already correct — skipped |
+| Admin monolith split (10 component files) | ✅ already resolved — skipped |
+| RISK-01 through RISK-10 audit items | ✅ all resolved in Phase 7 — skipped |
+
+---
+
+### A. Homepage Category Quick-Filter Chips
+
+**File:** `src/pages/Home.tsx`
+
+- Added a horizontally scrollable category chip strip **below the search bar**, above the stats pills
+- Chips use the already-loaded `sortedCategories` array — **zero extra network requests**
+- Shows up to **6 chips** maximum to keep the hero clean on mobile
+- Each chip displays: `{icon} {name}` — clicking navigates to `/category/:id`
+- A trailing **"More →"** chip navigates to `/shops` when there are more than 6 categories
+- Chips use `overflow-x-auto scrollbar-none` for smooth native horizontal scroll on iOS and Android
+- Styling uses design tokens (`bg-card`, `border-border`, `text-foreground`, `hover:bg-primary/10`, `hover:text-primary`) — no hardcoded colors
+- Hidden when `sortedCategories.length === 0`
+- **Why:** Satisfies user requirement #5 ("add filter option in homepage search bar") in a mobile-first, zero-risk way without a combobox overhaul
+
+---
+
+### B. Dynamic `document.title` per Page
+
+**Files:** `src/pages/ShopDetail.tsx`, `src/pages/CategoryPage.tsx`, `src/pages/Shops.tsx`
+
+Pattern used in all three:
+```typescript
+useEffect(() => {
+  document.title = '<page-specific title>';
+  return () => { document.title = 'Muktainagar Daily — Local Business Directory'; };
+}, [dependency]);
+```
+
+| Page | Title format | Trigger |
+|---|---|---|
+| `ShopDetail.tsx` | `{shop.name} — Muktainagar Daily` | When shop data loads |
+| `CategoryPage.tsx` | `{icon} {name} Shops — Muktainagar Daily` | When category data loads |
+| `Shops.tsx` | `"{search}" — Muktainagar Daily` (when search active) | When `debouncedSearch` changes |
+| `Shops.tsx` | `All Shops — Muktainagar Daily` (no search) | When `debouncedSearch` is empty |
+
+- Cleanup function restores default title on unmount (prevents stale titles when navigating back to Home)
+- **Why:** Improves browser tab labelling, bookmark names, PWA history, and helps users orient in multi-tab workflows
+
+---
+
+### C. SEO Meta Polish — `index.html`
+
+**File:** `index.html`
+
+Seven meta tags / link elements added:
+
+```html
+<link rel="canonical" href="https://muktainagar-daily.lovable.app" />
+<meta name="robots" content="index, follow" />
+<meta name="geo.region" content="IN-MH" />
+<meta name="geo.placename" content="Muktainagar, Jalgaon, Maharashtra" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Muktainagar" />
+```
+
+| Tag | Purpose |
+|---|---|
+| `canonical` | Prevents duplicate-content penalties; tells Google the primary URL |
+| `robots: index, follow` | Explicitly allows crawling and link-following |
+| `geo.region: IN-MH` | ISO 3166 code; signals the geographic relevance of the directory |
+| `geo.placename` | Human-readable location for geo-aware crawlers |
+| `apple-mobile-web-app-capable` | Enables full-screen iOS PWA mode when added to home screen |
+| `apple-mobile-web-app-status-bar-style` | Hides iOS status bar chrome in PWA mode |
+| `apple-mobile-web-app-title` | Short name shown under the PWA icon on iOS home screen |
+
+- `<html lang="en">` left unchanged (app is bilingual English + Marathi; setting `lang="mr"` would misclassify English content)
+
+---
+
+### D. PWA Manifest Polish
+
+**File:** `public/manifest.json`
+
+Three fields added:
+
+```json
+"lang": "mr",
+"categories": ["local", "business", "shopping"],
+"display_override": ["standalone", "browser"]
+```
+
+| Field | Purpose |
+|---|---|
+| `lang: "mr"` | Signals Marathi as the primary language of the app to browser install prompts and search |
+| `categories` | W3C Web App Manifest categories — used by Chrome install banners and app store indexing |
+| `display_override` | Allows the browser to prefer `standalone` mode; falls back to `browser` — improves install prompt eligibility on Chrome/Edge |
+
+---
+
+### E. Admin: Shop Quick-Preview Link (ShopsTab)
+
+**File:** `src/components/admin/ShopsTab.tsx`
+
+- Added an `<ExternalLink>` icon button in the **Actions column** of every shop row
+- Links to `/shop/{shop.id}` with `target="_blank" rel="noopener noreferrer"`
+- Opens the **public shop page** exactly as a visitor sees it — without leaving the admin dashboard
+- Already existed in the code from the approved plan (ExternalLink import was already in the file)
+- Zero state, zero mutations, zero DB calls
+- **Why:** Removes the need for the admin to manually type the URL or navigate away from the dashboard to verify how a shop looks publicly
+
+---
+
+### F. Admin: `admin_notes` Field in RequestsTab View Modal
+
+**File:** `src/components/admin/RequestsTab.tsx`
+
+- The `admin_notes` column exists in the `shop_requests` table and is present in the TypeScript type but was **never displayed** in the view detail modal
+- Added `admin_notes` to the field list in the view dialog alongside all other request fields
+- Displayed as a read-only text block with a muted style; hidden entirely when the value is null/empty
+- **Why:** Allows admins to see any previously saved notes on a request before making approve/reject decisions; prevents notes from being silently discarded in the UI
+
+---
+
+### What Was Intentionally Skipped (Phase 8)
+
+| Item | Reason |
+|---|---|
+| Server-side rendering / dynamic OG images per shop | Requires SSR; out of scope for client-side React app |
+| Admin notes editing (writable) | Field exists in DB; a mutation + save UX is a separate task (see V3 backlog) |
+| PWA screenshots in manifest | Requires actual device screenshots and design work |
+| `<html lang="mr">` | App is bilingual; setting lang to Marathi would misclassify English text |
+| localStorage filter persistence on homepage | No user need stated; adds complexity |
+| Keyboard shortcut for search | Premature at this scale |
+| Category filter inside the search input box | Combobox overhaul would be risky; chip strip achieves the same goal more simply |
+| Reviews, ads, chat, multi-city | Explicitly out of scope |
+
+---
+
+### Kept Unchanged (Verified Phase 1–7 + Phase 8)
+
+| Feature | Status |
+|---|---|
+| Phone normalization + WhatsApp wa.me links | ✅ unchanged |
+| Duplicate phone detection (ShopModal, CSV, approval) | ✅ unchanged |
+| Inactive shop 🔒 guard in ShopDetail | ✅ unchanged |
+| Filter bottom sheet (area, availability, category, verified) | ✅ unchanged |
+| Auto-refresh every 60s | ✅ unchanged |
+| Category merge DELETE+INSERT pattern | ✅ unchanged |
+| Analytics date range + top shops + top categories + export | ✅ unchanged |
+| CSV bulk import with validation + preview + result | ✅ unchanged |
+| Public shop submission + admin review queue | ✅ unchanged |
+| DataQuality tab (area rename, duplicate detector, storage audit) | ✅ unchanged |
+| Featured Verified + Recently Added compact scroll rows | ✅ unchanged |
+| Contextual empty states on Shops.tsx and CategoryPage.tsx | ✅ unchanged |
+| Engagement tracking (ShopDetail + CompactShopCard) | ✅ unchanged |
+

@@ -323,6 +323,7 @@ The admin Data Quality → Storage Audit tool uses a paginated loop (`from(0, 99
 - **Brand & tagline** — "Muktainagar Daily" with Marathi subtitle + location line
 - **Trust strip** — "Direct calls · Verified listings · Local businesses · Free listing"
 - **Search bar** — full-width; placeholder in Marathi; navigates to `/shops?q=`
+- **Category quick-filter chips** — horizontally scrollable chip strip below the search bar; shows up to 6 active categories (icon + name); clicking navigates directly to `/category/:id`; a trailing "More →" chip links to `/shops` when there are more than 6 categories; zero extra queries (uses already-loaded `sortedCategories`)
 - **Stats pills** — total shops, open-now count (success-tinted), verified count (accent), category count
 - **Category grid** — sorted by shop count descending; count badge per tile; links to `/category/:id`
 - **Featured Verified Shops** — horizontal scroll of `is_verified = true` shops with compact tap-to-call/WA cards and engagement tracking
