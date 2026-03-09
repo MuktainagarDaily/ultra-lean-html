@@ -1201,6 +1201,43 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
       .sort((a, b) => b.count - a.count);
   }, [shops]);
 
+  /** Normalize area name to a comparable key: lowercase, strip Devanagari, strip punctuation */
+  const areaCompareKey = (area: string): string =>
+    area
+      .toLowerCase()
+      .replace(/[\u0900-\u097F]+/g, '')   // strip Devanagari (Marathi) characters
+      .replace(/[^a-z0-9\s]/g, '')        // strip punctuation/commas
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const hasDevanagari = (s: string) => /[\u0900-\u097F]/.test(s);
+
+  /** Map: normalized key → list of original area strings that share it */
+  const similarAreaGroups = useMemo(() => {
+    const map = new Map<string, string[]>();
+    areaSummary.forEach(({ area }) => {
+      const key = areaCompareKey(area);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(area);
+    });
+    // Only keep groups with >1 area (actual near-duplicates)
+    const result = new Map<string, string[]>();
+    map.forEach((areas, key) => { if (areas.length > 1) result.set(key, areas); });
+    return result;
+  }, [areaSummary]);
+
+  /** Pick the "best" canonical area name from a list of near-duplicate areas */
+  const pickBestArea = (areas: string[]): string => {
+    const withCounts = areas.map((area) => ({
+      area,
+      count: areaSummary.find((s) => s.area === area)?.count ?? 0,
+    }));
+    withCounts.sort((a, b) =>
+      b.count - a.count || (hasDevanagari(b.area) ? 1 : -1)
+    );
+    return withCounts[0].area;
+  };
+
   /** Flag suspicious area names */
   const isSuspiciousArea = (area: string) => {
     const t = area.trim();
