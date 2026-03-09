@@ -1030,6 +1030,26 @@ function AnalyticsTab() {
             </button>
           ))}
         </div>
+        {sortedShops.length > 0 && (
+          <button
+            onClick={() => {
+              const headers = ['Shop Name', 'Area', 'Calls', 'WhatsApp', 'Total'];
+              const rows = sortedShops.map((r: any) => [r.name, r.area ?? '', r.call, r.whatsapp, r.total]);
+              const csv = [headers, ...rows].map((row) => row.map((v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+              const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `muktainagar-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Export CSV</span>
+          </button>
+        )}
       </div>
 
       {/* Summary Cards */}
