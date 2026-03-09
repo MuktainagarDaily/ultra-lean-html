@@ -637,7 +637,7 @@ export function RequestListingModal({ onClose }: Props) {
           </Field>
 
           {/* Buttons */}
-          <div className="flex flex-col gap-3 pt-2">
+          <div className="flex flex-col gap-3 pt-2 pb-safe">
             <button
               type="submit"
               disabled={saving || uploading}
