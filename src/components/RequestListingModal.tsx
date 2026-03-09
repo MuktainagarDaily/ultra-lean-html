@@ -211,12 +211,13 @@ export function RequestListingModal({ onClose }: Props) {
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        set('latitude', pos.coords.latitude.toFixed(6));
+      set('latitude', pos.coords.latitude.toFixed(6));
         set('longitude', pos.coords.longitude.toFixed(6));
         setMapsLink('');
         setParsedPreview(null);
         setMapsLinkInput('');
         setLocating(false);
+        setErrors((err) => ({ ...err, location: '' }));
         toast.success('Location captured!');
       },
       (err) => {
