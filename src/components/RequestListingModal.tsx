@@ -124,26 +124,6 @@ export function RequestListingModal({ onClose }: Props) {
     return Object.keys(errs).length === 0;
   };
 
-  const compressImage = (file: File, maxWidth = 800, quality = 0.75): Promise<Blob> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        const scale = Math.min(1, maxWidth / img.width);
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-        // R2: guard against canvas.toBlob returning null (unsupported format/browser)
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-          else resolve(new Blob([], { type: 'image/webp' })); // empty blob fallback
-        }, 'image/webp', quality);
-      };
-      img.src = url;
-    });
-  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
