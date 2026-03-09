@@ -1420,7 +1420,7 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
                             {isNotBest && (
                               <button
                                 onClick={() => { setAreaRenameTarget(area); setAreaRenameValue(bestCandidate!); }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-orange-600 hover:bg-orange-500/10 transition-colors border border-orange-400/30"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors border border-destructive/25"
                                 title={`Merge into "${bestCandidate}"`}
                               >
                                 <ArrowRight className="w-3 h-3" /> Merge
