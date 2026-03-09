@@ -43,8 +43,11 @@ const DrawerContent = React.forwardRef<
 ));
 DrawerContent.displayName = "DrawerContent";
 
-const DrawerHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("grid gap-1.5 p-4 text-center sm:text-left", className)} {...props} />
+// Bug 4 fix: wrap with forwardRef — vaul passes a ref through DrawerHeader as a composition child
+const DrawerHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn("grid gap-1.5 p-4 text-center sm:text-left", className)} {...props} />
+  )
 );
 DrawerHeader.displayName = "DrawerHeader";
 
