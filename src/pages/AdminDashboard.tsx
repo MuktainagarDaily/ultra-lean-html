@@ -156,6 +156,7 @@ export default function AdminDashboard() {
             setShowImport(false);
             qc.invalidateQueries({ queryKey: ['admin-shops'] });
             qc.invalidateQueries({ queryKey: ['admin-stats'] });
+            qc.invalidateQueries({ queryKey: ['shops'] }); // BUG-05: invalidate public queries
           }}
         />
       )}
@@ -811,7 +812,7 @@ function CategoryMergeModal({
               Merge {source.icon} {source.name}
             </DialogTitle>
             <DialogDescription>
-              Reassign all {source.shopCount} shop{source.shopCount !== 1 ? 's' : ''} from this category into another category.
+              Reassign shops from this category into another. The exact count will be confirmed from the live database during merge.
             </DialogDescription>
           </DialogHeader>
 
@@ -929,7 +930,8 @@ function AnalyticsTab() {
       let query = supabase
         .from('shop_engagement')
         .select('shop_id, event_type, created_at, shops(name, area, shop_categories(categories(id, name, icon)))')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(5000); // R7: raise above default 1000-row cap
       if (cutoff) query = query.gte('created_at', cutoff);
       const { data, error } = await query;
       if (error) throw error;
@@ -1572,13 +1574,23 @@ function StorageAuditSection() {
     setOrphans([]);
     setSelected(new Set());
     try {
-      // 1. List all files in the bucket (paginate up to 1000)
-      const { data: files, error: listErr } = await supabase.storage
-        .from('shop-images')
-        .list('', { limit: 1000, offset: 0 });
-      if (listErr) throw listErr;
+      // 1. List all files in the bucket — paginate to avoid 1000-file hard cap (BUG-06)
+      type StorageFile = { name: string; id: string; metadata?: { size?: number }; created_at?: string };
+      let pagedFiles: StorageFile[] = [];
+      let offset = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data: page, error: listErr } = await supabase.storage
+          .from('shop-images')
+          .list('', { limit: PAGE, offset });
+        if (listErr) throw listErr;
+        const valid = (page || []).filter((f) => f.name && f.id) as StorageFile[];
+        pagedFiles = pagedFiles.concat(valid);
+        if (!page || page.length < PAGE) break;
+        offset += PAGE;
+      }
 
-      const allFiles = (files || []).filter((f) => f.name && f.id); // exclude folders
+      const allFiles = pagedFiles; // exclude folders already filtered above
 
       if (allFiles.length === 0) {
         setOrphans([]);
@@ -2052,7 +2064,11 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => resolve(blob!), 'image/webp', quality);
+        // R2: guard against canvas.toBlob returning null (unsupported format/browser)
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else resolve(new Blob([], { type: 'image/webp' }));
+        }, 'image/webp', quality);
       };
       img.src = url;
     });
@@ -2084,7 +2100,9 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
     setSaving(true);
 
     // Capitalize first letter of each word in area for consistency
-    const normalizeArea = (s: string) => s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+    // BUG-04: use bilingual-safe regex (handles English words after Devanagari)
+    const normalizeArea = (s: string) =>
+      s.trim().replace(/(^|[\s,])([a-z])/g, (_m, pre, ch) => pre + ch.toUpperCase());
 
     const payload: any = {
       name: form.name.trim(),
@@ -2652,20 +2670,20 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
   const handleApprove = async (req: ShopRequest) => {
     setActionLoading(req.id);
 
-    // Duplicate phone check
+    // BUG-01: Duplicate phone check — fetch ALL phones and normalize both sides to avoid
+    // silent mismatches when stored phones have +91 prefix or spaces.
     const normalizePhone = (phone: string) => {
       let n = phone.replace(/[\s\-().+]/g, '');
       if (n.startsWith('91') && n.length === 12) n = n.slice(2);
       return n;
     };
     const normPhone = normalizePhone(req.phone);
-    const { data: existing } = await supabase
-      .from('shops')
-      .select('id, name')
-      .eq('phone', normPhone);
-
-    if (existing && existing.length > 0) {
-      toast.error(`Phone ${req.phone} is already registered to "${existing[0].name}". Resolve before approving.`);
+    const { data: allShops } = await supabase.from('shops').select('id, name, phone');
+    const dupeShop = (allShops || []).find(
+      (s) => s.phone && normalizePhone(s.phone) === normPhone
+    );
+    if (dupeShop) {
+      toast.error(`Phone ${req.phone} is already registered to "${dupeShop.name}". Resolve before approving.`);
       setActionLoading(null);
       return;
     }
@@ -2683,7 +2701,9 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
     }
 
     // Normalize area (title case)
-    const normalizeArea = (s: string) => s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+    // BUG-04: bilingual-safe title-case
+    const normalizeArea = (s: string) =>
+      s.trim().replace(/(^|[\s,])([a-z])/g, (_m, pre, ch) => pre + ch.toUpperCase());
 
     // Insert shop
     const { data: inserted, error: insertError } = await supabase
@@ -2726,6 +2746,7 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
     toast.success(`"${req.name}" has been approved and added to the shop directory.`);
     qc.invalidateQueries({ queryKey: ['admin-requests'] });
     qc.invalidateQueries({ queryKey: ['admin-stats'] });
+    qc.invalidateQueries({ queryKey: ['shops'] }); // BUG-09: invalidate public queries
     onShopCreated();
     setViewRequest(null);
     setActionLoading(null);
@@ -3254,7 +3275,9 @@ function CsvImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
   const dupeRows = rows.filter((r) => r.status === 'duplicate');
   const errorRows = rows.filter((r) => r.status === 'error');
 
-  const normalizeArea = (s: string) => s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+  // BUG-04: bilingual-safe title-case regex
+  const normalizeArea = (s: string) =>
+    s.trim().replace(/(^|[\s,])([a-z])/g, (_m, pre, ch) => pre + ch.toUpperCase());
 
   const handleImport = async () => {
     setImporting(true);

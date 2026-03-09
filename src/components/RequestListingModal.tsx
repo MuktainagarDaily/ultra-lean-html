@@ -154,11 +154,17 @@ export function RequestListingModal({ onClose }: Props) {
     if (!form.area.trim()) {
       errs.area = 'Area / Locality is required';
     }
-    if (!form.latitude || !form.longitude) {
-      errs.location = 'Shop location is required — paste a Google Maps link or use GPS';
-    }
-    if (form.opening_time && form.closing_time && form.closing_time <= form.opening_time) {
-      errs.closing_time = 'Closing time must be after opening time';
+    // BUG-02: location is optional — admin can add it during approval
+    // BUG-10: allow overnight hours (closing < opening means next-day close)
+    if (form.opening_time && form.closing_time) {
+      const [oh, om] = form.opening_time.split(':').map(Number);
+      const [ch, cm] = form.closing_time.split(':').map(Number);
+      const openMins = oh * 60 + om;
+      const closeMins = ch * 60 + cm;
+      // Only reject same-time; overnight (close < open) is valid
+      if (closeMins === openMins) {
+        errs.closing_time = 'Closing time must differ from opening time';
+      }
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -175,7 +181,11 @@ export function RequestListingModal({ onClose }: Props) {
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => resolve(blob!), 'image/webp', quality);
+        // R2: guard against canvas.toBlob returning null (unsupported format/browser)
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else resolve(new Blob([], { type: 'image/webp' })); // empty blob fallback
+        }, 'image/webp', quality);
       };
       img.src = url;
     });

@@ -16,8 +16,9 @@ interface Shop {
   longitude?: number | null;
   address?: string | null;
   image_url?: string | null;
-  shop_categories?: { categories: { name: string; icon: string } | null }[];
-  categories?: { name: string; icon: string } | null;
+  // BUG-07: include is_active on category so the runtime cast has type backing
+  shop_categories?: { categories: { name: string; icon: string; is_active?: boolean } | null }[];
+  categories?: { name: string; icon: string; is_active?: boolean } | null;
 }
 
 export function ShopCard({ shop }: { shop: Shop }) {

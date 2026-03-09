@@ -22,6 +22,11 @@ function CompactShopCard({ shop }: { shop: any }) {
   const navigate = useNavigate();
   const open = isShopOpen(shop);
 
+  // BUG-08: fire-and-forget engagement logging (mirrors ShopDetail behaviour)
+  const logEngagement = async (type: 'call' | 'whatsapp') => {
+    await supabase.from('shop_engagement').insert({ shop_id: shop.id, event_type: type });
+  };
+
   const waNumber = useMemo(() => {
     const raw = (shop.whatsapp || shop.phone || '').replace(/\D/g, '');
     return raw.length === 10 ? `91${raw}` : raw;
@@ -79,7 +84,7 @@ function CompactShopCard({ shop }: { shop: any }) {
         {shop.phone && (
           <a
             href={`tel:${shop.phone}`}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); logEngagement('call'); }}
             className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors"
             style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
           >
@@ -91,7 +96,7 @@ function CompactShopCard({ shop }: { shop: any }) {
             href={`https://wa.me/${waNumber}`}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); logEngagement('whatsapp'); }}
             className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors"
             style={{ background: 'hsl(142 70% 45% / 0.12)', color: 'hsl(142 70% 35%)' }}
           >
