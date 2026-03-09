@@ -154,6 +154,9 @@ export function RequestListingModal({ onClose }: Props) {
     if (!form.area.trim()) {
       errs.area = 'Area / Locality is required';
     }
+    if (!form.latitude || !form.longitude) {
+      errs.location = 'Shop location is required — paste a Google Maps link or use GPS';
+    }
     if (form.opening_time && form.closing_time && form.closing_time <= form.opening_time) {
       errs.closing_time = 'Closing time must be after opening time';
     }
