@@ -1839,6 +1839,70 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
   // Pending save payload for after dupe confirmation
   const [pendingSave, setPendingSave] = useState<(() => Promise<void>) | null>(null);
 
+  // Location state for Maps link + GPS
+  const [mapsLinkInput, setMapsLinkInput] = useState('');
+  const [mapsLinkError, setMapsLinkError] = useState('');
+  const [parsedPreview, setParsedPreview] = useState<{ lat: number; lng: number; rawUrl: string } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [mapsLink, setMapsLink] = useState('');
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) { toast.error('Your browser does not support location access'); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm((f) => ({ ...f, latitude: pos.coords.latitude.toFixed(6), longitude: pos.coords.longitude.toFixed(6) }));
+        setMapsLink('');
+        setParsedPreview(null);
+        setMapsLinkInput('');
+        setLocating(false);
+        toast.success('Location captured!');
+      },
+      (err) => {
+        setLocating(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          toast.error('Location permission denied. Please allow location access.');
+        } else {
+          toast.error('Could not get location. Try again or paste a Maps link.');
+        }
+      },
+      { timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
+  const handleExtractFromLink = () => {
+    const trimmed = mapsLinkInput.trim();
+    if (!trimmed) { setMapsLinkError('Please paste a Google Maps link first'); return; }
+    if (trimmed.includes('maps.app.goo.gl') || trimmed.includes('goo.gl/maps')) {
+      setMapsLinkError('This is a short link. Open it in your browser, copy the full URL from the address bar, then paste it here.');
+      return;
+    }
+    const coords = parseGoogleMapsLink(trimmed);
+    if (!coords) {
+      setMapsLinkError('Could not find coordinates in this link. Use a full Google Maps URL (e.g. google.com/maps/place/...).');
+      return;
+    }
+    setMapsLinkError('');
+    setParsedPreview({ lat: coords.lat, lng: coords.lng, rawUrl: trimmed });
+  };
+
+  const confirmLocation = () => {
+    if (!parsedPreview) return;
+    setForm((f) => ({ ...f, latitude: parsedPreview.lat.toFixed(6), longitude: parsedPreview.lng.toFixed(6) }));
+    setMapsLink(parsedPreview.rawUrl);
+    setParsedPreview(null);
+    setMapsLinkInput('');
+    setMapsLinkError('');
+  };
+
+  const clearLocation = () => {
+    setForm((f) => ({ ...f, latitude: '', longitude: '' }));
+    setMapsLink('');
+    setParsedPreview(null);
+    setMapsLinkInput('');
+    setMapsLinkError('');
+  };
+
   const { data: categories = [] } = useQuery({
     queryKey: ['admin-categories'],
     queryFn: async () => {
