@@ -1574,10 +1574,22 @@ function StorageAuditSection() {
     setOrphans([]);
     setSelected(new Set());
     try {
-      // 1. List all files in the bucket (paginate up to 1000)
-      const { data: files, error: listErr } = await supabase.storage
-        .from('shop-images')
-        .list('', { limit: 1000, offset: 0 });
+      // 1. List all files in the bucket — paginate to avoid 1000-file hard cap (BUG-06)
+      let allFiles: { name: string; id: string }[] = [];
+      let offset = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data: page, error: listErr } = await supabase.storage
+          .from('shop-images')
+          .list('', { limit: PAGE, offset });
+        if (listErr) throw listErr;
+        const valid = (page || []).filter((f) => f.name && f.id);
+        allFiles = allFiles.concat(valid as { name: string; id: string }[]);
+        if (!page || page.length < PAGE) break;
+        offset += PAGE;
+      }
+      // shadow the old variable name so the rest of the code continues to work
+      const files = allFiles;
       if (listErr) throw listErr;
 
       const allFiles = (files || []).filter((f) => f.name && f.id); // exclude folders
