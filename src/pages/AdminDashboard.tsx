@@ -812,7 +812,7 @@ function CategoryMergeModal({
               Merge {source.icon} {source.name}
             </DialogTitle>
             <DialogDescription>
-              Reassign all {source.shopCount} shop{source.shopCount !== 1 ? 's' : ''} from this category into another category.
+              Reassign shops from this category into another. The exact count will be confirmed from the live database during merge.
             </DialogDescription>
           </DialogHeader>
 
