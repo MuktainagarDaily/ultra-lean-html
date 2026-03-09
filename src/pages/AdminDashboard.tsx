@@ -1257,7 +1257,7 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
   const qc = useQueryClient();
 
   const { data: shops = [], isLoading } = useQuery({
-    queryKey: ['admin-shops'],
+    queryKey: ['admin-shops-quality'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shops')
