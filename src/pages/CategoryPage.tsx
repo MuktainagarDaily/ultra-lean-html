@@ -60,13 +60,6 @@ export default function CategoryPage() {
     qc.invalidateQueries({ queryKey: ['shops', 'category', id] });
   }, [qc, id]), 60_000);
 
-  useEffect(() => {
-    if (category?.name) {
-      document.title = `${category.icon ? category.icon + ' ' : ''}${category.name} Shops — Muktainagar Daily`;
-      return () => { document.title = 'Muktainagar Daily — Local Business Directory'; };
-    }
-  }, [category?.name, category?.icon]);
-
   const { data: category } = useQuery({
     queryKey: ['category', id],
     queryFn: async () => {
@@ -76,6 +69,13 @@ export default function CategoryPage() {
     },
     enabled: !!id,
   });
+
+  useEffect(() => {
+    if (category?.name) {
+      document.title = `${category.icon ? category.icon + ' ' : ''}${category.name} Shops — Muktainagar Daily`;
+      return () => { document.title = 'Muktainagar Daily — Local Business Directory'; };
+    }
+  }, [category?.name, category?.icon]);
 
   const { data: shops = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['shops', 'category', id],
