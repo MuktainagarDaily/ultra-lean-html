@@ -148,8 +148,8 @@ export function RequestListingModal({ onClose }: Props) {
     if (form.whatsapp.trim() && !isValidIndianPhone(form.whatsapp)) {
       errs.whatsapp = 'Enter a valid 10-digit Indian mobile number';
     }
-    if (!form.area.trim() && !form.address.trim()) {
-      errs.area = 'Area or address is required';
+    if (!form.address.trim()) {
+      errs.address = 'Address is required';
     }
     if (form.opening_time && form.closing_time && form.closing_time <= form.opening_time) {
       errs.closing_time = 'Closing time must be after opening time';
@@ -383,14 +383,15 @@ export function RequestListingModal({ onClose }: Props) {
           </div>
 
           {/* Address */}
-          <Field label="Address (Street / Landmark)">
+          <Field label="Address (Street / Landmark) *">
             <input
               value={form.address}
-              onChange={(e) => { set('address', e.target.value); setErrors((err) => ({ ...err, area: '' })); }}
-              className={inputCls}
+              onChange={(e) => { set('address', e.target.value); setErrors((err) => ({ ...err, address: '' })); }}
+              className={inputCls + (errors.address ? ' border-destructive' : '')}
               placeholder="e.g. Near Bus Stand, Station Road"
               maxLength={250}
             />
+            {errors.address && <p className="text-xs text-destructive mt-1">{errors.address}</p>}
           </Field>
 
           {/* Area */}
