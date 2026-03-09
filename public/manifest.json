@@ -2,11 +2,14 @@
   "name": "Muktainagar Daily",
   "short_name": "Muktainagar",
   "description": "Hyperlocal business directory for Muktainagar",
+  "lang": "mr",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["standalone", "browser"],
   "background_color": "#f8f6f0",
   "theme_color": "#1d6db0",
   "orientation": "portrait",
+  "categories": ["local", "business", "shopping"],
   "icons": [
     {
       "src": "/icons/icon-192.png",

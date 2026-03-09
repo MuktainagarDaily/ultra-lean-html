@@ -280,6 +280,32 @@ export default function Home() {
             </button>
           </form>
 
+          {/* Category Quick-Filter Chips */}
+          {!catsLoading && sortedCategories.length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none -mx-1 px-1 pb-1 mb-2">
+              {sortedCategories.slice(0, 6).map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => navigate(`/category/${cat.id}`)}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95 whitespace-nowrap"
+                  style={{ background: 'hsl(var(--primary-foreground) / 0.18)', color: 'hsl(var(--primary-foreground))' }}
+                >
+                  <span>{cat.icon}</span>
+                  <span>{cat.name}</span>
+                </button>
+              ))}
+              {sortedCategories.length > 6 && (
+                <button
+                  onClick={() => navigate('/shops')}
+                  className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95 whitespace-nowrap"
+                  style={{ background: 'hsl(var(--primary-foreground) / 0.1)', color: 'hsl(var(--primary-foreground) / 0.75)' }}
+                >
+                  More →
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Stats Row */}
           {shops.length > 0 && (
             <div className="flex items-center justify-center gap-1.5 flex-wrap">

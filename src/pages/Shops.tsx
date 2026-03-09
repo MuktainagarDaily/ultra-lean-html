@@ -60,6 +60,15 @@ export default function Shops() {
     return () => clearTimeout(t);
   }, [localSearch]);
 
+  useEffect(() => {
+    if (debouncedSearch) {
+      document.title = `"${debouncedSearch}" — Muktainagar Daily`;
+    } else {
+      document.title = 'All Shops — Muktainagar Daily';
+    }
+    return () => { document.title = 'Muktainagar Daily — Local Business Directory'; };
+  }, [debouncedSearch]);
+
   // Sync sheet state when drawer opens
   useEffect(() => {
     if (filterOpen) {

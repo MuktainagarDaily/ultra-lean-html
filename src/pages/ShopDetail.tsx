@@ -86,6 +86,13 @@ export default function ShopDetail() {
     );
   }
 
+  useEffect(() => {
+    if (shop?.name) {
+      document.title = `${shop.name} — Muktainagar Daily`;
+      return () => { document.title = 'Muktainagar Daily — Local Business Directory'; };
+    }
+  }, [shop?.name]);
+
   const open = isShopOpen(shop);
 
   const allCats: { name: string; icon: string }[] = (shop as any).shop_categories
