@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatTime, normalizePhone } from '@/lib/shopUtils';
+import { compressImage } from '@/lib/imageUtils';
+import { parseGoogleMapsLink } from '@/lib/mapsUtils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1897,44 +1899,6 @@ function isValidPhone(phone: string): boolean {
   return phone.replace(/\D/g, '').length >= 10;
 }
 
-/**
- * Extract lat/lng from a full Google Maps URL.
- * Handles: @lat,lng  |  ?q=lat,lng  |  ll=lat,lng  |  !3d<lat>!4d<lng>
- */
-function parseGoogleMapsLink(url: string): { lat: number; lng: number } | null {
-  const valid = (lat: number, lng: number) =>
-    lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
-
-  const atMatch = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-  if (atMatch) {
-    const lat = parseFloat(atMatch[1]);
-    const lng = parseFloat(atMatch[2]);
-    if (valid(lat, lng)) return { lat, lng };
-  }
-
-  const qMatch = url.match(/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-  if (qMatch) {
-    const lat = parseFloat(qMatch[1]);
-    const lng = parseFloat(qMatch[2]);
-    if (valid(lat, lng)) return { lat, lng };
-  }
-
-  const llMatch = url.match(/[?&]ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-  if (llMatch) {
-    const lat = parseFloat(llMatch[1]);
-    const lng = parseFloat(llMatch[2]);
-    if (valid(lat, lng)) return { lat, lng };
-  }
-
-  const dataMatch = url.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/);
-  if (dataMatch) {
-    const lat = parseFloat(dataMatch[1]);
-    const lng = parseFloat(dataMatch[2]);
-    if (valid(lat, lng)) return { lat, lng };
-  }
-
-  return null;
-}
 
 type DupeShopInfo = {
   id: string;
@@ -2095,26 +2059,6 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
     return Object.keys(errs).length === 0;
   };
 
-  const compressImage = (file: File, maxWidth = 800, quality = 0.75): Promise<Blob> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        const scale = Math.min(1, maxWidth / img.width);
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-        // R2: guard against canvas.toBlob returning null (unsupported format/browser)
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-          else resolve(new Blob([], { type: 'image/webp' }));
-        }, 'image/webp', quality);
-      };
-      img.src = url;
-    });
-  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
