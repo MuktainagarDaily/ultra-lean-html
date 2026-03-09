@@ -2,6 +2,16 @@
  * Shared utilities for shop display logic
  */
 
+/**
+ * Normalize a phone string for duplicate detection and wa.me links.
+ * Strips spaces, dashes, parens, dots, +; strips leading 91 country code (12-digit → 10-digit).
+ */
+export function normalizePhone(phone: string): string {
+  let n = phone.replace(/[\s\-().+]/g, '');
+  if (n.startsWith('91') && n.length === 12) n = n.slice(2);
+  return n;
+}
+
 /** Format HH:MM (24h) → 12-hour AM/PM */
 export function formatTime(time: string | null | undefined): string {
   if (!time) return '';
