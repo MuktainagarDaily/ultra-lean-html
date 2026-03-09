@@ -151,6 +151,9 @@ export function RequestListingModal({ onClose }: Props) {
     if (!form.address.trim()) {
       errs.address = 'Address is required';
     }
+    if (!form.area.trim()) {
+      errs.area = 'Area / Locality is required';
+    }
     if (form.opening_time && form.closing_time && form.closing_time <= form.opening_time) {
       errs.closing_time = 'Closing time must be after opening time';
     }
