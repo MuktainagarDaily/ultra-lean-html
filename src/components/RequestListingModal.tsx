@@ -272,7 +272,8 @@ export function RequestListingModal({ onClose }: Props) {
     e.preventDefault();
     if (!validate()) return;
     setSaving(true);
-    const { error } = await supabase.from('shop_requests').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('shop_requests') as any).insert({
       name: form.name.trim(),
       phone: normalizePhone(form.phone),
       whatsapp: form.whatsapp.trim() ? normalizeWhatsApp(form.whatsapp) : null,
@@ -287,7 +288,7 @@ export function RequestListingModal({ onClose }: Props) {
       latitude: form.latitude ? parseFloat(form.latitude) : null,
       longitude: form.longitude ? parseFloat(form.longitude) : null,
       maps_link: mapsLink || null,
-    } as Parameters<typeof supabase.from<'shop_requests'>>[0] extends never ? never : any);
+    });
     setSaving(false);
     if (error) { toast.error('Submission failed. Please try again.'); return; }
     setDone(true);
