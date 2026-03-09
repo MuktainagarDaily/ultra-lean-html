@@ -564,8 +564,6 @@ export function RequestListingModal({ onClose }: Props) {
             </p>
           )}
 
-          {/* Category */}
-          <Field label="Category (optional)">
 
           {/* ── Section: Schedule ─────────────────────────────── */}
           <div className="flex items-center gap-2 pt-1">
