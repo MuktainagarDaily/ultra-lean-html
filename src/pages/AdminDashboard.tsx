@@ -1177,6 +1177,8 @@ function AnalyticsTab() {
 
 /** Normalize area name to a comparable key: lowercase, strip Devanagari & punctuation */
 function dqAreaCompareKey(area: string): string {
+  // Bug 6 fix: guard against empty/whitespace-only strings
+  if (!area?.trim()) return '__empty__';
   return area
     .toLowerCase()
     .replace(/[\u0900-\u097F]+/g, '')  // strip Devanagari (Marathi) characters
@@ -1189,11 +1191,12 @@ function dqAreaCompareKey(area: string): string {
 const dqHasDevanagari = (s: string) => /[\u0900-\u097F]/.test(s);
 
 /**
- * Title-case ASCII words; leave Devanagari words unchanged
- * (Devanagari has no concept of case — don't touch them).
+ * Title-case ASCII words; leave Devanagari words unchanged.
+ * Bug 2 fix: use lookbehind (^|[\s,]) instead of \b — JS \b is ASCII-only
+ * and does not fire between a Devanagari char and a lowercase ASCII letter.
  */
 function dqNormalizeAreaValue(s: string): string {
-  return s.trim().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+  return s.trim().replace(/(^|[\s,])([a-z])/g, (_, sep, c) => sep + c.toUpperCase());
 }
 
 /** Flag suspicious area names (too short, numeric-only, or ALL-CAPS ASCII) */
