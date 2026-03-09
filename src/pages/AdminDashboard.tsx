@@ -2892,7 +2892,7 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
           <Download className="w-4 h-4" />
           <span className="hidden sm:inline">Export CSV</span>
         </button>
-        </div>
+      </div>
       </div>
 
       {isLoading ? (
