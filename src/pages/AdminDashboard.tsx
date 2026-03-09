@@ -1400,9 +1400,12 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
                         </div>
                         {hasSimilar && (
                           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/25">
-                              <TriangleAlert className="w-2.5 h-2.5" />
-                              similar: {similarPeers.map((p) => `"${p.length > 30 ? p.slice(0, 28) + '…' : p}"`).join(', ')}
+                           <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/25">
+                               <TriangleAlert className="w-2.5 h-2.5" />
+                               {/* Bug 3 fix: 45-char threshold + title tooltip for full name on hover */}
+                               similar: {similarPeers.map((p) => (
+                                 <span key={p} title={p}>{`"${p.length > 45 ? p.slice(0, 43) + '…' : p}"`}</span>
+                               ))}
                             </span>
                           </div>
                         )}
