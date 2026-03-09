@@ -148,8 +148,8 @@ export function RequestListingModal({ onClose }: Props) {
     if (form.whatsapp.trim() && !isValidIndianPhone(form.whatsapp)) {
       errs.whatsapp = 'Enter a valid 10-digit Indian mobile number';
     }
-    if (!form.area.trim() && !form.address.trim()) {
-      errs.area = 'Area or address is required';
+    if (!form.address.trim()) {
+      errs.address = 'Address is required';
     }
     if (form.opening_time && form.closing_time && form.closing_time <= form.opening_time) {
       errs.closing_time = 'Closing time must be after opening time';
