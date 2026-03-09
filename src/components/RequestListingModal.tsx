@@ -154,11 +154,17 @@ export function RequestListingModal({ onClose }: Props) {
     if (!form.area.trim()) {
       errs.area = 'Area / Locality is required';
     }
-    if (!form.latitude || !form.longitude) {
-      errs.location = 'Shop location is required — paste a Google Maps link or use GPS';
-    }
-    if (form.opening_time && form.closing_time && form.closing_time <= form.opening_time) {
-      errs.closing_time = 'Closing time must be after opening time';
+    // BUG-02: location is optional — admin can add it during approval
+    // BUG-10: allow overnight hours (closing < opening means next-day close)
+    if (form.opening_time && form.closing_time) {
+      const [oh, om] = form.opening_time.split(':').map(Number);
+      const [ch, cm] = form.closing_time.split(':').map(Number);
+      const openMins = oh * 60 + om;
+      const closeMins = ch * 60 + cm;
+      // Only reject same-time; overnight (close < open) is valid
+      if (closeMins === openMins) {
+        errs.closing_time = 'Closing time must differ from opening time';
+      }
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
