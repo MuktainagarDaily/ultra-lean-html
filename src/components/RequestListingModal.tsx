@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { formatTime, normalizePhone } from '@/lib/shopUtils';
+import { compressImage } from '@/lib/imageUtils';
+import { parseGoogleMapsLink } from '@/lib/mapsUtils';
 
 /* ── helpers ────────────────────────────────────────────────────── */
 

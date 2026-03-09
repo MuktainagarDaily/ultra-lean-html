@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatTime, normalizePhone } from '@/lib/shopUtils';
+import { compressImage } from '@/lib/imageUtils';
+import { parseGoogleMapsLink } from '@/lib/mapsUtils';
 import {
   AlertDialog,
   AlertDialogAction,
