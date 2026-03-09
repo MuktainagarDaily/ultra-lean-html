@@ -1335,7 +1335,7 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
       toast.success(`Area renamed: "${oldArea}" → "${newArea}"`);
       setAreaRenameTarget(null);
       setAreaRenameValue('');
-      qc.invalidateQueries({ queryKey: ['admin-shops'] });
+      qc.invalidateQueries({ queryKey: ['admin-shops-quality'] });
     }
     setAreaRenaming(false);
   };
