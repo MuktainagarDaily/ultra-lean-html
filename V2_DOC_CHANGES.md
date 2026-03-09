@@ -1,6 +1,7 @@
 # V2_DOC_CHANGES.md — V2 Changes Log
 
-> Generated: March 2026
+> Generated: March 2026  
+> Last updated: 9 March 2026  
 > Tracks all changes made during V2 phases.
 
 ---

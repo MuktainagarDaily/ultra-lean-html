@@ -1,8 +1,8 @@
 # Muktainagar Daily — Project Documentation
 
-> **Version:** V2  
+> **Version:** V2.8  
 > **Domain:** muktainagardaily.in  
-> **Last Updated:** March 2026  
+> **Last Updated:** 9 March 2026  
 > **Purpose:** Hyperlocal business directory for Muktainagar, Jalgaon District, Maharashtra
 
 ---
