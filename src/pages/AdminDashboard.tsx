@@ -716,6 +716,8 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
             setMergeCatTarget(null);
             qc.invalidateQueries({ queryKey: ['admin-categories'] });
             qc.invalidateQueries({ queryKey: ['admin-shops'] });
+            qc.invalidateQueries({ queryKey: ['admin-stats'] });
+            qc.invalidateQueries({ queryKey: ['shops'] });
           }}
         />
       )}
