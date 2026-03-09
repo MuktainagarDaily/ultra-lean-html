@@ -769,24 +769,23 @@ function CategoryMergeModal({
       const toReassign = (sourceLinks || []).filter((r: any) => !alreadyHasTarget.has(r.shop_id));
       const toDelete = (sourceLinks || []).filter((r: any) => alreadyHasTarget.has(r.shop_id));
 
-      // Delete duplicate source links (shop already has target category)
-      if (toDelete.length > 0) {
-        const deleteIds = toDelete.map((r: any) => r.id);
+      // Step 1: Delete ALL source links (both shops needing reassignment and duplicates)
+      const allSourceIds = [...toReassign, ...toDelete].map((r: any) => r.id);
+      if (allSourceIds.length > 0) {
         const { error: delErr } = await supabase
           .from('shop_categories')
           .delete()
-          .in('id', deleteIds);
+          .in('id', allSourceIds);
         if (delErr) throw delErr;
       }
 
-      // Reassign remaining source links to target
+      // Step 2: Insert new target links only for shops not already linked to target
       if (toReassign.length > 0) {
-        const reassignIds = toReassign.map((r: any) => r.id);
-        const { error: updateErr } = await supabase
+        const newLinks = toReassign.map((r: any) => ({ shop_id: r.shop_id, category_id: targetId }));
+        const { error: insertErr } = await supabase
           .from('shop_categories')
-          .update({ category_id: targetId })
-          .in('id', reassignIds);
-        if (updateErr) throw updateErr;
+          .insert(newLinks);
+        if (insertErr) throw insertErr;
       }
 
       // Optionally disable source category
