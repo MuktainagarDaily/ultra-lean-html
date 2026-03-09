@@ -1,8 +1,8 @@
 # Muktainagar Daily — Project Documentation
 
-> **Version:** V2  
+> **Version:** V2.8  
 > **Domain:** muktainagardaily.in  
-> **Last Updated:** March 2026  
+> **Last Updated:** 9 March 2026  
 > **Purpose:** Hyperlocal business directory for Muktainagar, Jalgaon District, Maharashtra
 
 ---
@@ -323,6 +323,7 @@ The admin Data Quality → Storage Audit tool uses a paginated loop (`from(0, 99
 - **Brand & tagline** — "Muktainagar Daily" with Marathi subtitle + location line
 - **Trust strip** — "Direct calls · Verified listings · Local businesses · Free listing"
 - **Search bar** — full-width; placeholder in Marathi; navigates to `/shops?q=`
+- **Category quick-filter chips** — horizontally scrollable chip strip below the search bar; shows up to 6 active categories (icon + name); clicking navigates directly to `/category/:id`; a trailing "More →" chip links to `/shops` when there are more than 6 categories; zero extra queries (uses already-loaded `sortedCategories`)
 - **Stats pills** — total shops, open-now count (success-tinted), verified count (accent), category count
 - **Category grid** — sorted by shop count descending; count badge per tile; links to `/category/:id`
 - **Featured Verified Shops** — horizontal scroll of `is_verified = true` shops with compact tap-to-call/WA cards and engagement tracking
@@ -362,6 +363,7 @@ The admin Data Quality → Storage Audit tool uses a paginated loop (`from(0, 99
 - Add / Edit / Delete shops with full form (`ShopModal`)
 - **Search** (client-side: name, area, address, phone) + **Category filter** dropdown
 - Activate/deactivate toggle; Verified toggle
+- **Quick-preview link** — `ExternalLink` icon per row opens `/shop/:id` in a new tab (shows exactly what a public visitor sees)
 - **CSV Export** — downloads filtered shop list (name, phone, WhatsApp, area, address, pipe-separated categories, active, verified); UTF-8 BOM for Excel
 - **CSV Import** — upload, preview with per-row validation/duplicate detection, import with result summary
 - **Safe delete** — `AlertDialog` with shop name; loading state
@@ -385,7 +387,7 @@ The admin Data Quality → Storage Audit tool uses a paginated loop (`from(0, 99
 - **Approve** — duplicate phone check → creates shop (copies all fields, uploads image if present) → marks request `approved` → invalidates public shops cache
 - **Reject** — marks request `rejected`
 - **Delete** — deletes request record + its storage image (if any)
-- **View detail** — dialog showing all submitted fields
+- **View detail** — dialog showing all submitted fields including `admin_notes` (when present)
 - **CSV Export** — downloads current filtered list (all fields including submitter, status, timestamps)
 
 #### Data Quality Tab
@@ -497,7 +499,7 @@ This ensures public pages reflect changes immediately without requiring a browse
 | Area autocomplete | Small dataset; plain text is fine |
 | Pagination / infinite scroll | Shop count is small enough for single page |
 | Bulk approve / reject requests | V2.5 — high value, not yet built |
-| Admin notes on approval/rejection | `admin_notes` column exists; UI not yet built |
+| Admin notes editing (writable) | `admin_notes` column exists and is now **displayed** in view modal; making it editable requires a mutation UX — deferred |
 | Engagement drill-down per shop | All-time + date range only; per-tap log not shown in UI |
 | Password reset flow | Admin can reset via auth settings for now |
 | RLS-level inactive shop filtering | Currently filtered at app layer; could add DB-level policy |
@@ -507,3 +509,6 @@ This ensures public pages reflect changes immediately without requiring a browse
 | PWA push notifications | V3 |
 | AI recommendations | V3+ |
 | Verified badge on category page cards | Shown on ShopDetail + ShopCard; category page uses same ShopCard so it's there |
+| Dynamic OG images per shop | Requires SSR; client-side React cannot generate per-URL meta at crawl time |
+| PWA screenshots in manifest | Requires actual device screenshots + design work |
+
