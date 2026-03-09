@@ -425,13 +425,13 @@ export function RequestListingModal({ onClose }: Props) {
 
           {/* ── Location section ──────────────────────────────────── */}
           <div
-            className="rounded-xl border"
-            style={{ background: 'hsl(var(--muted) / 0.5)', borderColor: 'hsl(var(--border))' }}
+            className={`rounded-xl border ${errors.location ? 'border-destructive' : 'border-border'}`}
+            style={{ background: 'hsl(var(--muted) / 0.5)' }}
           >
             {/* Section header */}
             <div className="flex items-center gap-1.5 px-4 pt-3 pb-2">
-              <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-              <p className="text-xs font-semibold text-foreground">Shop Location (optional)</p>
+              <MapPin className={`w-3.5 h-3.5 shrink-0 ${errors.location ? 'text-destructive' : 'text-primary'}`} />
+              <p className={`text-xs font-semibold ${errors.location ? 'text-destructive' : 'text-foreground'}`}>Shop Location *</p>
             </div>
 
             {/* Confirmed coords badge */}
