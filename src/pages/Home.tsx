@@ -84,7 +84,7 @@ function CompactShopCard({ shop }: { shop: any }) {
         {shop.phone && (
           <a
             href={`tel:${shop.phone}`}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); logEngagement('call'); }}
             className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors"
             style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
           >
@@ -96,7 +96,7 @@ function CompactShopCard({ shop }: { shop: any }) {
             href={`https://wa.me/${waNumber}`}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); logEngagement('whatsapp'); }}
             className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors"
             style={{ background: 'hsl(142 70% 45% / 0.12)', color: 'hsl(142 70% 35%)' }}
           >
