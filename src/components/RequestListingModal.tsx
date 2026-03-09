@@ -546,6 +546,11 @@ export function RequestListingModal({ onClose }: Props) {
             )}
           </div>
           {/* ── End location section ──────────────────────────────── */}
+          {errors.location && (
+            <p className="text-xs text-destructive -mt-2 flex items-center gap-1">
+              <MapPin className="w-3 h-3 shrink-0" /> {errors.location}
+            </p>
+          )}
 
           {/* Category */}
           <Field label="Category (optional)">
