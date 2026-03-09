@@ -27,8 +27,8 @@ function ShopSkeleton() {
         <div className="h-7 w-16 rounded-full skeleton-shimmer shrink-0" />
       </div>
       <div className="flex gap-2 mt-3">
-        <div className="flex-1 h-10 rounded-lg skeleton-shimmer" />
-        <div className="flex-1 h-10 rounded-lg skeleton-shimmer" />
+        <div className="flex-1 h-11 rounded-lg skeleton-shimmer" />
+        <div className="flex-1 h-11 rounded-lg skeleton-shimmer" />
       </div>
     </div>
   );
