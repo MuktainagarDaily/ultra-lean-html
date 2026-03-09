@@ -2893,6 +2893,7 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
           <span className="hidden sm:inline">Export CSV</span>
         </button>
       </div>
+    </div>
       </div>
 
       {isLoading ? (
