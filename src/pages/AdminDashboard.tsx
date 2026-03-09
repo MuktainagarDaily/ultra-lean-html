@@ -7,7 +7,7 @@ import {
   Plus, Pencil, Trash2, LogOut, Store, Tag, Eye, EyeOff, MapPin, X, Check, Search, Home, ShieldCheck, ShieldOff, Filter, Loader2, AlertTriangle, BarChart2, Phone, MessageCircle, TrendingUp, Upload, Download, CheckCircle2, AlertCircle, SkipForward, Inbox, ThumbsUp, ThumbsDown, Wrench, GitMerge, TriangleAlert, Users, RefreshCw, HardDrive, PackageX, Navigation, Link2, ExternalLink, ArrowRight
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatTime } from '@/lib/shopUtils';
+import { formatTime, normalizePhone } from '@/lib/shopUtils';
 import {
   AlertDialog,
   AlertDialogAction,
