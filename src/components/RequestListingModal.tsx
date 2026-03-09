@@ -608,14 +608,21 @@ export function RequestListingModal({ onClose }: Props) {
             {imageUrl && (
               <img src={imageUrl} alt="Preview" className="w-full h-32 object-cover rounded-lg mb-2 border border-border" />
             )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              disabled={uploading}
-              className="text-sm text-muted-foreground"
-            />
-            {uploading && <p className="text-xs text-primary mt-1">Uploading…</p>}
+            <label className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-colors ${uploading ? 'opacity-60 pointer-events-none' : 'hover:border-primary/40'} border-border bg-background`}>
+              <span className="text-xl">📷</span>
+              <span className="text-sm text-foreground font-medium">
+                {uploading ? 'Uploading…' : imageUrl ? 'Change photo' : 'Choose photo'}
+              </span>
+              {uploading && <Loader2 className="w-4 h-4 animate-spin text-primary ml-auto" />}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                disabled={uploading}
+                className="sr-only"
+              />
+            </label>
+            <p className="text-[11px] text-muted-foreground mt-1">JPEG, PNG, or WebP · max {MAX_IMAGE_MB} MB · compressed automatically</p>
           </Field>
 
           {/* Submitter name */}
