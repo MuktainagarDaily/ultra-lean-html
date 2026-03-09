@@ -499,7 +499,7 @@ This ensures public pages reflect changes immediately without requiring a browse
 | Area autocomplete | Small dataset; plain text is fine |
 | Pagination / infinite scroll | Shop count is small enough for single page |
 | Bulk approve / reject requests | V2.5 — high value, not yet built |
-| Admin notes on approval/rejection | `admin_notes` column exists; UI not yet built |
+| Admin notes editing (writable) | `admin_notes` column exists and is now **displayed** in view modal; making it editable requires a mutation UX — deferred |
 | Engagement drill-down per shop | All-time + date range only; per-tap log not shown in UI |
 | Password reset flow | Admin can reset via auth settings for now |
 | RLS-level inactive shop filtering | Currently filtered at app layer; could add DB-level policy |
@@ -509,3 +509,6 @@ This ensures public pages reflect changes immediately without requiring a browse
 | PWA push notifications | V3 |
 | AI recommendations | V3+ |
 | Verified badge on category page cards | Shown on ShopDetail + ShopCard; category page uses same ShopCard so it's there |
+| Dynamic OG images per shop | Requires SSR; client-side React cannot generate per-URL meta at crawl time |
+| PWA screenshots in manifest | Requires actual device screenshots + design work |
+
