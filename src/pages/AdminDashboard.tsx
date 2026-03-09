@@ -1364,7 +1364,7 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
                   const bestCandidate = hasSimilar ? pickBestArea(similarGroup!) : null;
                   const isNotBest = hasSimilar && bestCandidate !== area;
                   return (
-                    <tr key={area} className={`border-b border-border last:border-0 hover:bg-muted/30 transition-colors ${hasSimilar ? 'bg-orange-500/5' : ''}`}>
+                    <tr key={area} className={`border-b border-border last:border-0 hover:bg-muted/30 transition-colors ${hasSimilar ? 'bg-destructive/5' : ''}`}>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-foreground">{area}</span>
