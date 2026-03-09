@@ -597,8 +597,8 @@ export function RequestListingModal({ onClose }: Props) {
             )}
           </Field>
 
-          {/* Times */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Times — stacked on mobile for better iOS time picker UX */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Opening Time (optional)">
               <input
                 type="time"
