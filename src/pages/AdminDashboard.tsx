@@ -2705,13 +2705,7 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
   const handleApprove = async (req: ShopRequest) => {
     setActionLoading(req.id);
 
-    // BUG-01: Duplicate phone check — fetch ALL phones and normalize both sides to avoid
-    // silent mismatches when stored phones have +91 prefix or spaces.
-    const normalizePhone = (phone: string) => {
-      let n = phone.replace(/[\s\-().+]/g, '');
-      if (n.startsWith('91') && n.length === 12) n = n.slice(2);
-      return n;
-    };
+    // BUG-01: Duplicate phone check — normalize both sides using shared utility.
     const normPhone = normalizePhone(req.phone);
     const { data: allShops } = await supabase.from('shops').select('id, name, phone');
     const dupeShop = (allShops || []).find(
