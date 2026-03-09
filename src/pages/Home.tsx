@@ -22,6 +22,11 @@ function CompactShopCard({ shop }: { shop: any }) {
   const navigate = useNavigate();
   const open = isShopOpen(shop);
 
+  // BUG-08: fire-and-forget engagement logging (mirrors ShopDetail behaviour)
+  const logEngagement = async (type: 'call' | 'whatsapp') => {
+    await supabase.from('shop_engagement').insert({ shop_id: shop.id, event_type: type });
+  };
+
   const waNumber = useMemo(() => {
     const raw = (shop.whatsapp || shop.phone || '').replace(/\D/g, '');
     return raw.length === 10 ? `91${raw}` : raw;
