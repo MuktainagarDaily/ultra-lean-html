@@ -630,28 +630,23 @@ export function RequestListingModal({ onClose }: Props) {
           </Field>
 
           {/* Buttons */}
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 border border-border rounded-xl font-semibold text-foreground hover:bg-muted transition-colors"
-            >
-              Cancel
-            </button>
+          <div className="flex flex-col gap-3 pt-2">
             <button
               type="submit"
               disabled={saving || uploading}
-              className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-bold text-base shadow-lg hover:bg-primary/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {saving ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Submitting…</>
               ) : (
-                'Submit Request'
+                <><Send className="w-4 h-4" /> Submit Request</>
               )}
             </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-2.5 rounded-xl font-semibold text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              Cancel
+            </button>
           </div>
-        </form>
-      </div>
-    </div>
-  );
-}
