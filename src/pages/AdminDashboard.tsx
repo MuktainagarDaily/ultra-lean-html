@@ -1257,7 +1257,7 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
   const qc = useQueryClient();
 
   const { data: shops = [], isLoading } = useQuery({
-    queryKey: ['admin-shops'],
+    queryKey: ['admin-shops-quality'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shops')
@@ -1335,7 +1335,7 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
       toast.success(`Area renamed: "${oldArea}" → "${newArea}"`);
       setAreaRenameTarget(null);
       setAreaRenameValue('');
-      qc.invalidateQueries({ queryKey: ['admin-shops'] });
+      qc.invalidateQueries({ queryKey: ['admin-shops-quality'] });
     }
     setAreaRenaming(false);
   };
@@ -1530,7 +1530,7 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
             </span>
           )}
           <button
-            onClick={() => qc.invalidateQueries({ queryKey: ['admin-shops'] })}
+            onClick={() => qc.invalidateQueries({ queryKey: ['admin-shops-quality'] })}
             className="ml-auto p-1 text-muted-foreground hover:text-foreground rounded transition-colors"
             title="Refresh"
           >
