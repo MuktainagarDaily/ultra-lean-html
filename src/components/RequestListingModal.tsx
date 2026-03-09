@@ -3,15 +3,9 @@ import { X, Loader2, CheckCircle2, Store, MapPin, Navigation, Link2, ExternalLin
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { formatTime } from '@/lib/shopUtils';
+import { formatTime, normalizePhone } from '@/lib/shopUtils';
 
 /* ── helpers ────────────────────────────────────────────────────── */
-
-function normalizePhone(phone: string): string {
-  let n = phone.replace(/\D/g, '');
-  if (n.startsWith('91') && n.length === 12) n = n.slice(2);
-  return n;
-}
 
 function isValidIndianPhone(raw: string): boolean {
   const digits = raw.replace(/\D/g, '');

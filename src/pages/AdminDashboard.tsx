@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,7 +7,7 @@ import {
   Plus, Pencil, Trash2, LogOut, Store, Tag, Eye, EyeOff, MapPin, X, Check, Search, Home, ShieldCheck, ShieldOff, Filter, Loader2, AlertTriangle, BarChart2, Phone, MessageCircle, TrendingUp, Upload, Download, CheckCircle2, AlertCircle, SkipForward, Inbox, ThumbsUp, ThumbsDown, Wrench, GitMerge, TriangleAlert, Users, RefreshCw, HardDrive, PackageX, Navigation, Link2, ExternalLink, ArrowRight
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatTime } from '@/lib/shopUtils';
+import { formatTime, normalizePhone } from '@/lib/shopUtils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1881,14 +1881,6 @@ function extractStoragePath(publicUrl: string): string | null {
   }
 }
 
-/** Normalize phone for duplicate detection and wa.me links:
- *  strips spaces, dashes, parens, dots, +;
- *  strips leading 91 country code (12-digit → 10-digit) */
-function normalizePhone(phone: string): string {
-  let n = phone.replace(/[\s\-().+]/g, '');
-  if (n.startsWith('91') && n.length === 12) n = n.slice(2);
-  return n;
-}
 
 /** Normalize a WhatsApp number for a wa.me link (digits-only, with 91 prefix) */
 function normalizeWhatsApp(wa: string): string {
@@ -2053,7 +2045,7 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
     },
   });
 
-  useQuery({
+  const { data: shopCategoryData } = useQuery({
     queryKey: ['shop-categories', shop.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -2061,16 +2053,23 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
         .select('category_id')
         .eq('shop_id', shop.id);
       if (error) throw error;
-      if (data.length > 0) {
-        setSelectedCategoryIds(data.map((r: any) => r.category_id));
-      } else if (shop.category_id) {
-        // BUG-A fix: fall back to legacy category_id FK if no join rows exist yet
-        setSelectedCategoryIds([shop.category_id]);
-      }
       return data;
     },
     enabled: !!shop.id,
   });
+
+  // FIX-A: Move setState out of queryFn to prevent background refetch
+  // silently resetting admin's in-progress category selection.
+  useEffect(() => {
+    if (shopCategoryData === undefined) return;
+    if (shopCategoryData.length > 0) {
+      setSelectedCategoryIds(shopCategoryData.map((r: any) => r.category_id));
+    } else if (shop.category_id) {
+      // BUG-A fix: fall back to legacy category_id FK if no join rows exist yet
+      setSelectedCategoryIds([shop.category_id]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopCategoryData]);
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
@@ -2713,13 +2712,7 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
   const handleApprove = async (req: ShopRequest) => {
     setActionLoading(req.id);
 
-    // BUG-01: Duplicate phone check — fetch ALL phones and normalize both sides to avoid
-    // silent mismatches when stored phones have +91 prefix or spaces.
-    const normalizePhone = (phone: string) => {
-      let n = phone.replace(/[\s\-().+]/g, '');
-      if (n.startsWith('91') && n.length === 12) n = n.slice(2);
-      return n;
-    };
+    // BUG-01: Duplicate phone check — normalize both sides using shared utility.
     const normPhone = normalizePhone(req.phone);
     const { data: allShops } = await supabase.from('shops').select('id, name, phone');
     const dupeShop = (allShops || []).find(
