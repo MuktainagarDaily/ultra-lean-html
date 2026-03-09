@@ -1374,14 +1374,15 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
               </thead>
               <tbody>
                 {areaSummary.map(({ area, count }) => {
-                  const suspicious = isSuspiciousArea(area);
-                  const isEditing = areaRenameTarget === area;
-                  const similarKey = areaCompareKey(area);
-                  const similarGroup = similarAreaGroups.get(similarKey);
-                  const similarPeers = similarGroup ? similarGroup.filter((a) => a !== area) : [];
-                  const hasSimilar = similarPeers.length > 0;
-                  const bestCandidate = hasSimilar ? pickBestArea(similarGroup!) : null;
-                  const isNotBest = hasSimilar && bestCandidate !== area;
+                   const suspicious = dqIsSuspiciousArea(area);
+                   const isEditing = areaRenameTarget === area;
+                   const similarKey = dqAreaCompareKey(area);
+                   const similarGroup = similarAreaGroups.get(similarKey);
+                   const similarPeers = similarGroup ? similarGroup.filter((a) => a !== area) : [];
+                   const hasSimilar = similarPeers.length > 0;
+                   // Use precomputed map — null means "this IS the best candidate"
+                   const bestCandidate = bestCandidateMap.get(area) ?? null;
+                   const isNotBest = hasSimilar && bestCandidate !== null;
                   return (
                     <tr key={area} className={`border-b border-border last:border-0 hover:bg-muted/30 transition-colors ${hasSimilar ? 'bg-destructive/5' : ''}`}>
                       <td className="px-4 py-3">
