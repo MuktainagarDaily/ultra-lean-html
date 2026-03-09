@@ -2098,7 +2098,9 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
     setSaving(true);
 
     // Capitalize first letter of each word in area for consistency
-    const normalizeArea = (s: string) => s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+    // BUG-04: use bilingual-safe regex (handles English words after Devanagari)
+    const normalizeArea = (s: string) =>
+      s.trim().replace(/(^|[\s,])([a-z])/g, (_m, pre, ch) => pre + ch.toUpperCase());
 
     const payload: any = {
       name: form.name.trim(),
