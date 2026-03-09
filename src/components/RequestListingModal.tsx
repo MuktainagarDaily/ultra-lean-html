@@ -181,7 +181,11 @@ export function RequestListingModal({ onClose }: Props) {
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => resolve(blob!), 'image/webp', quality);
+        // R2: guard against canvas.toBlob returning null (unsupported format/browser)
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else resolve(new Blob([], { type: 'image/webp' })); // empty blob fallback
+        }, 'image/webp', quality);
       };
       img.src = url;
     });
