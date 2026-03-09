@@ -2744,6 +2744,7 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
     toast.success(`"${req.name}" has been approved and added to the shop directory.`);
     qc.invalidateQueries({ queryKey: ['admin-requests'] });
     qc.invalidateQueries({ queryKey: ['admin-stats'] });
+    qc.invalidateQueries({ queryKey: ['shops'] }); // BUG-09: invalidate public queries
     onShopCreated();
     setViewRequest(null);
     setActionLoading(null);
