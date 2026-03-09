@@ -1173,6 +1173,39 @@ function AnalyticsTab() {
   );
 }
 
+/* ─── DATA QUALITY HELPERS (module-level, pure — no re-creation on render) ─ */
+
+/** Normalize area name to a comparable key: lowercase, strip Devanagari & punctuation */
+function dqAreaCompareKey(area: string): string {
+  return area
+    .toLowerCase()
+    .replace(/[\u0900-\u097F]+/g, '')  // strip Devanagari (Marathi) characters
+    .replace(/[^a-z0-9\s]/g, '')       // strip punctuation/commas
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** True if the string contains at least one Devanagari character */
+const dqHasDevanagari = (s: string) => /[\u0900-\u097F]/.test(s);
+
+/**
+ * Title-case ASCII words; leave Devanagari words unchanged
+ * (Devanagari has no concept of case — don't touch them).
+ */
+function dqNormalizeAreaValue(s: string): string {
+  return s.trim().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+}
+
+/** Flag suspicious area names (too short, numeric-only, or ALL-CAPS ASCII) */
+function dqIsSuspiciousArea(area: string): boolean {
+  const t = area.trim();
+  if (t.length < 3) return true;
+  if (/^\d+$/.test(t)) return true; // numeric only
+  // All-caps ASCII check — ignore if it contains Devanagari (might be bilingual)
+  if (!dqHasDevanagari(t) && t === t.toUpperCase() && /[A-Z]{3,}/.test(t)) return true;
+  return false;
+}
+
 /* ─── DATA QUALITY TAB ───────────────────────────────────────── */
 function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
   const qc = useQueryClient();
@@ -1201,22 +1234,11 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
       .sort((a, b) => b.count - a.count);
   }, [shops]);
 
-  /** Normalize area name to a comparable key: lowercase, strip Devanagari, strip punctuation */
-  const areaCompareKey = (area: string): string =>
-    area
-      .toLowerCase()
-      .replace(/[\u0900-\u097F]+/g, '')   // strip Devanagari (Marathi) characters
-      .replace(/[^a-z0-9\s]/g, '')        // strip punctuation/commas
-      .replace(/\s+/g, ' ')
-      .trim();
-
-  const hasDevanagari = (s: string) => /[\u0900-\u097F]/.test(s);
-
   /** Map: normalized key → list of original area strings that share it */
   const similarAreaGroups = useMemo(() => {
     const map = new Map<string, string[]>();
     areaSummary.forEach(({ area }) => {
-      const key = areaCompareKey(area);
+      const key = dqAreaCompareKey(area);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(area);
     });
@@ -1226,38 +1248,35 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
     return result;
   }, [areaSummary]);
 
-  /** Pick the "best" canonical area name from a list of near-duplicate areas */
-  const pickBestArea = (areas: string[]): string => {
-    const withCounts = areas.map((area) => ({
-      area,
-      count: areaSummary.find((s) => s.area === area)?.count ?? 0,
-    }));
-    withCounts.sort((a, b) =>
-      b.count - a.count || (hasDevanagari(b.area) ? 1 : -1)
-    );
-    return withCounts[0].area;
-  };
-
-  /** Flag suspicious area names */
-  const isSuspiciousArea = (area: string) => {
-    const t = area.trim();
-    if (t.length < 3) return true;
-    if (t === t.toUpperCase() && /[A-Z]{3,}/.test(t)) return true; // ALL_CAPS with letters
-    if (/^\d+$/.test(t)) return true; // numeric only
-    return false;
-  };
+  /**
+   * Precomputed map: area → best canonical candidate (or null if this area IS the best).
+   * Avoids calling areaSummary.find() O(n) on every table row render.
+   */
+  const bestCandidateMap = useMemo(() => {
+    const countMap = new Map<string, number>(areaSummary.map(({ area, count }) => [area, count]));
+    const result = new Map<string, string | null>();
+    similarAreaGroups.forEach((areas) => {
+      // Pick best: highest count wins; tie-break: prefer the one with Devanagari (bilingual)
+      const sorted = [...areas].sort((a, b) =>
+        (countMap.get(b) ?? 0) - (countMap.get(a) ?? 0) ||
+        (dqHasDevanagari(b) ? 1 : -1)
+      );
+      const best = sorted[0];
+      areas.forEach((area) => {
+        result.set(area, area === best ? null : best);
+      });
+    });
+    return result;
+  }, [similarAreaGroups, areaSummary]);
 
   const [areaRenameTarget, setAreaRenameTarget] = useState<string | null>(null);
   const [areaRenameValue, setAreaRenameValue] = useState('');
   const [areaRenaming, setAreaRenaming] = useState(false);
 
-  const normalizeAreaValue = (s: string) =>
-    s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
-
   const handleAreaRename = async (oldArea: string) => {
     if (!areaRenameValue.trim()) return;
-    const newArea = normalizeAreaValue(areaRenameValue);
-    if (newArea === oldArea) { setAreaRenameTarget(null); return; }
+    const newArea = dqNormalizeAreaValue(areaRenameValue);
+    if (newArea === oldArea) { setAreaRenameTarget(null); setAreaRenameValue(''); return; }
     setAreaRenaming(true);
     const { error } = await supabase
       .from('shops')
@@ -1355,14 +1374,15 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
               </thead>
               <tbody>
                 {areaSummary.map(({ area, count }) => {
-                  const suspicious = isSuspiciousArea(area);
-                  const isEditing = areaRenameTarget === area;
-                  const similarKey = areaCompareKey(area);
-                  const similarGroup = similarAreaGroups.get(similarKey);
-                  const similarPeers = similarGroup ? similarGroup.filter((a) => a !== area) : [];
-                  const hasSimilar = similarPeers.length > 0;
-                  const bestCandidate = hasSimilar ? pickBestArea(similarGroup!) : null;
-                  const isNotBest = hasSimilar && bestCandidate !== area;
+                   const suspicious = dqIsSuspiciousArea(area);
+                   const isEditing = areaRenameTarget === area;
+                   const similarKey = dqAreaCompareKey(area);
+                   const similarGroup = similarAreaGroups.get(similarKey);
+                   const similarPeers = similarGroup ? similarGroup.filter((a) => a !== area) : [];
+                   const hasSimilar = similarPeers.length > 0;
+                   // Use precomputed map — null means "this IS the best candidate"
+                   const bestCandidate = bestCandidateMap.get(area) ?? null;
+                   const isNotBest = hasSimilar && bestCandidate !== null;
                   return (
                     <tr key={area} className={`border-b border-border last:border-0 hover:bg-muted/30 transition-colors ${hasSimilar ? 'bg-destructive/5' : ''}`}>
                       <td className="px-4 py-3">
