@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Plus, Pencil, Trash2, Eye, EyeOff, Search, Filter, Loader2, ShieldCheck, ShieldOff, Upload, Download,
+  Plus, Pencil, Trash2, Eye, EyeOff, Search, Filter, Loader2, ShieldCheck, ShieldOff, Upload, Download, ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -235,7 +235,16 @@ export function ShopsTab({ onEdit, onImport }: ShopsTabProps) {
                         </button>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-1">
+                          <a
+                            href={`/shop/${shop.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                            title="Preview public page"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
                           <button onClick={() => onEdit(shop)} className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors">
                             <Pencil className="w-4 h-4" />
                           </button>

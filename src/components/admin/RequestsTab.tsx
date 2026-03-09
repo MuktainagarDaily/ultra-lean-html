@@ -326,6 +326,7 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
                 { label: 'Closing', value: viewRequest.closing_time ? formatTime(viewRequest.closing_time) : null },
                 { label: 'Submitted by', value: viewRequest.submitter_name },
                 { label: 'Submitted on', value: new Date(viewRequest.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) },
+                { label: 'Admin Notes', value: viewRequest.admin_notes },
               ].map(({ label, value }) =>
                 value ? (
                   <div key={label} className="flex items-start gap-3">
