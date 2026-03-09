@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Loader2, CheckCircle2, Store, MapPin, Navigation, Link2, ExternalLink } from 'lucide-react';
+import { X, Loader2, CheckCircle2, Store, MapPin, Navigation, Link2, ExternalLink, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
