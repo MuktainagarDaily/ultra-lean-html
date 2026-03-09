@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Loader2, CheckCircle2, Store, MapPin, Navigation } from 'lucide-react';
+import { X, Loader2, CheckCircle2, Store, MapPin, Navigation, Link2, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -7,29 +7,20 @@ import { formatTime } from '@/lib/shopUtils';
 
 /* ── helpers ────────────────────────────────────────────────────── */
 
-/** Strip all non-digit chars, remove leading 91 country code if 12 digits */
 function normalizePhone(phone: string): string {
   let n = phone.replace(/\D/g, '');
   if (n.startsWith('91') && n.length === 12) n = n.slice(2);
   return n;
 }
 
-/**
- * Valid Indian mobile: exactly 10 digits, starting with 6–9.
- * Also accepts 11 digits starting with 0 (STD prefix) or 12 digits with 91.
- */
 function isValidIndianPhone(raw: string): boolean {
   const digits = raw.replace(/\D/g, '');
-  // 10-digit mobile
   if (digits.length === 10 && /^[6-9]/.test(digits)) return true;
-  // 0XXXXXXXXXX (11 digits with STD 0)
   if (digits.length === 11 && digits.startsWith('0') && /^[6-9]/.test(digits.slice(1))) return true;
-  // 91XXXXXXXXXX (12 digits with country code)
   if (digits.length === 12 && digits.startsWith('91') && /^[6-9]/.test(digits.slice(2))) return true;
   return false;
 }
 
-/** Normalize to wa.me-ready format: always 10-digit core prefixed with 91 */
 function normalizeWhatsApp(raw: string): string {
   const normalized = normalizePhone(raw);
   if (normalized.length === 10) return `91${normalized}`;
@@ -38,6 +29,49 @@ function normalizeWhatsApp(raw: string): string {
 
 function normalizeArea(s: string): string {
   return s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Extract lat/lng from a full Google Maps URL.
+ * Handles: @lat,lng  |  ?q=lat,lng  |  ll=lat,lng  |  !3d<lat>!4d<lng>
+ */
+function parseGoogleMapsLink(url: string): { lat: number; lng: number } | null {
+  const valid = (lat: number, lng: number) =>
+    lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+
+  // @lat,lng (place URLs)
+  const atMatch = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (atMatch) {
+    const lat = parseFloat(atMatch[1]);
+    const lng = parseFloat(atMatch[2]);
+    if (valid(lat, lng)) return { lat, lng };
+  }
+
+  // ?q=lat,lng or &q=lat,lng
+  const qMatch = url.match(/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (qMatch) {
+    const lat = parseFloat(qMatch[1]);
+    const lng = parseFloat(qMatch[2]);
+    if (valid(lat, lng)) return { lat, lng };
+  }
+
+  // ll=lat,lng
+  const llMatch = url.match(/[?&]ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (llMatch) {
+    const lat = parseFloat(llMatch[1]);
+    const lng = parseFloat(llMatch[2]);
+    if (valid(lat, lng)) return { lat, lng };
+  }
+
+  // !3d<lat>!4d<lng>  (data parameter)
+  const dataMatch = url.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/);
+  if (dataMatch) {
+    const lat = parseFloat(dataMatch[1]);
+    const lng = parseFloat(dataMatch[2]);
+    if (valid(lat, lng)) return { lat, lng };
+  }
+
+  return null;
 }
 
 const MAX_IMAGE_MB = 5;
@@ -73,6 +107,13 @@ export function RequestListingModal({ onClose }: Props) {
     latitude: '',
     longitude: '',
   });
+
+  // Location state
+  const [mapsLink, setMapsLink] = useState('');            // confirmed link to store
+  const [mapsLinkInput, setMapsLinkInput] = useState('');  // raw paste field value
+  const [mapsLinkError, setMapsLinkError] = useState('');
+  const [parsedPreview, setParsedPreview] = useState<{ lat: number; lng: number; rawUrl: string } | null>(null);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -98,28 +139,21 @@ export function RequestListingModal({ onClose }: Props) {
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
-
     if (!form.name.trim()) errs.name = 'Shop name is required';
-
     if (!form.phone.trim()) {
       errs.phone = 'Phone number is required';
     } else if (!isValidIndianPhone(form.phone)) {
       errs.phone = 'Enter a valid 10-digit Indian mobile number (e.g. 9876543210)';
     }
-
     if (form.whatsapp.trim() && !isValidIndianPhone(form.whatsapp)) {
       errs.whatsapp = 'Enter a valid 10-digit Indian mobile number';
     }
-
     if (!form.area.trim() && !form.address.trim()) {
       errs.area = 'Area or address is required';
     }
-
-    // Time validation: closing must be after opening if both provided
     if (form.opening_time && form.closing_time && form.closing_time <= form.opening_time) {
       errs.closing_time = 'Closing time must be after opening time';
     }
-
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -144,10 +178,7 @@ export function RequestListingModal({ onClose }: Props) {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
+    if (!file.type.startsWith('image/')) { toast.error('Please select an image file'); return; }
     const fileMB = file.size / (1024 * 1024);
     if (fileMB > MAX_IMAGE_MB) {
       toast.error(`Image too large (${fileMB.toFixed(1)} MB). Maximum size is ${MAX_IMAGE_MB} MB.`);
@@ -170,17 +201,15 @@ export function RequestListingModal({ onClose }: Props) {
   };
 
   const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error('Your browser does not support location access');
-      return;
-    }
+    if (!navigator.geolocation) { toast.error('Your browser does not support location access'); return; }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const lat = pos.coords.latitude.toFixed(6);
-        const lng = pos.coords.longitude.toFixed(6);
-        set('latitude', lat);
-        set('longitude', lng);
+        set('latitude', pos.coords.latitude.toFixed(6));
+        set('longitude', pos.coords.longitude.toFixed(6));
+        setMapsLink('');
+        setParsedPreview(null);
+        setMapsLinkInput('');
         setLocating(false);
         toast.success('Location captured!');
       },
@@ -196,12 +225,55 @@ export function RequestListingModal({ onClose }: Props) {
     );
   };
 
+  const handleExtractFromLink = () => {
+    const trimmed = mapsLinkInput.trim();
+    if (!trimmed) { setMapsLinkError('Please paste a Google Maps link first'); return; }
+
+    // Short link — can't parse client-side
+    if (trimmed.includes('maps.app.goo.gl') || trimmed.includes('goo.gl/maps')) {
+      setMapsLinkError(
+        'This is a short link. Open it in your browser, wait for the page to load fully, then copy the full URL from the address bar and paste it here.'
+      );
+      return;
+    }
+
+    const coords = parseGoogleMapsLink(trimmed);
+    if (!coords) {
+      setMapsLinkError(
+        'Could not find coordinates in this link. Make sure it is a full Google Maps URL (e.g. google.com/maps/place/...).'
+      );
+      return;
+    }
+
+    setMapsLinkError('');
+    setParsedPreview({ lat: coords.lat, lng: coords.lng, rawUrl: trimmed });
+  };
+
+  const confirmLocation = () => {
+    if (!parsedPreview) return;
+    set('latitude', parsedPreview.lat.toFixed(6));
+    set('longitude', parsedPreview.lng.toFixed(6));
+    setMapsLink(parsedPreview.rawUrl);
+    setParsedPreview(null);
+    setMapsLinkInput('');
+    setMapsLinkError('');
+  };
+
+  const clearLocation = () => {
+    set('latitude', '');
+    set('longitude', '');
+    setMapsLink('');
+    setParsedPreview(null);
+    setMapsLinkInput('');
+    setMapsLinkError('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-
     setSaving(true);
-    const { error } = await supabase.from('shop_requests').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('shop_requests') as any).insert({
       name: form.name.trim(),
       phone: normalizePhone(form.phone),
       whatsapp: form.whatsapp.trim() ? normalizeWhatsApp(form.whatsapp) : null,
@@ -213,17 +285,16 @@ export function RequestListingModal({ onClose }: Props) {
       image_url: imageUrl || null,
       submitter_name: form.submitter_name.trim() || null,
       status: 'pending',
+      latitude: form.latitude ? parseFloat(form.latitude) : null,
+      longitude: form.longitude ? parseFloat(form.longitude) : null,
+      maps_link: mapsLink || null,
     });
-
     setSaving(false);
-    if (error) {
-      toast.error('Submission failed. Please try again.');
-      return;
-    }
+    if (error) { toast.error('Submission failed. Please try again.'); return; }
     setDone(true);
   };
 
-  /* ── Success screen ───────────────────────────────────────────── */
+  /* ── Success screen ─────────────────────────────────────────── */
   if (done) {
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
@@ -236,16 +307,15 @@ export function RequestListingModal({ onClose }: Props) {
           <p className="text-sm text-muted-foreground mb-6">
             Our team will review the details and your shop will appear on Muktainagar Daily once approved — usually within 1–2 business days.
           </p>
-          <button
-            onClick={onClose}
-            className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors"
-          >
+          <button onClick={onClose} className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors">
             Done
           </button>
         </div>
       </div>
     );
   }
+
+  const hasCoords = !!(form.latitude && form.longitude);
 
   /* ── Form ─────────────────────────────────────────────────────── */
   return (
@@ -287,7 +357,7 @@ export function RequestListingModal({ onClose }: Props) {
           </Field>
 
           {/* Phone + WhatsApp */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Phone Number *">
               <input
                 value={form.phone}
@@ -344,67 +414,129 @@ export function RequestListingModal({ onClose }: Props) {
             {errors.area && <p className="text-xs text-destructive mt-1">{errors.area}</p>}
           </Field>
 
-          {/* Location helper */}
+          {/* ── Location section ──────────────────────────────────── */}
           <div
-            className="rounded-xl px-4 py-3 border"
+            className="rounded-xl border"
             style={{ background: 'hsl(var(--muted) / 0.5)', borderColor: 'hsl(var(--border))' }}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-foreground flex items-center gap-1.5 mb-0.5">
-                  <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                  Shop Location (optional)
-                </p>
-                {form.latitude && form.longitude ? (
-                  <p className="text-[11px] text-muted-foreground font-mono truncate">
-                    {form.latitude}, {form.longitude}
+            {/* Section header */}
+            <div className="flex items-center gap-1.5 px-4 pt-3 pb-2">
+              <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+              <p className="text-xs font-semibold text-foreground">Shop Location (optional)</p>
+            </div>
+
+            {/* Confirmed coords badge */}
+            {hasCoords && (
+              <div
+                className="mx-4 mb-3 px-3 py-2 rounded-lg flex items-center justify-between gap-2"
+                style={{ background: 'hsl(var(--primary) / 0.08)', border: '1px solid hsl(var(--primary) / 0.2)' }}
+              >
+                <span className="text-[11px] font-mono text-foreground truncate">
+                  📍 {form.latitude}, {form.longitude}
+                </span>
+                <button type="button" onClick={clearLocation} className="shrink-0 text-xs text-destructive font-semibold hover:opacity-70">
+                  Clear
+                </button>
+              </div>
+            )}
+
+            {/* Input options — shown only when no coords confirmed */}
+            {!hasCoords && (
+              <div className="px-4 pb-4 space-y-3">
+
+                {/* Maps link paste */}
+                <div>
+                  <p className="text-[11px] font-semibold text-foreground mb-1 flex items-center gap-1">
+                    <Link2 className="w-3 h-3" />
+                    Paste Google Maps link
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">
+                    Open Google Maps → find your shop → tap <strong>Share</strong> → <strong>Copy link</strong> → paste below.{' '}
+                    <span>If you get a short link, open it first and copy the full URL from the address bar.</span>
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      value={mapsLinkInput}
+                      onChange={(e) => { setMapsLinkInput(e.target.value); setMapsLinkError(''); setParsedPreview(null); }}
+                      className={inputCls + ' text-xs flex-1' + (mapsLinkError ? ' border-destructive' : '')}
+                      placeholder="https://www.google.com/maps/place/..."
+                    />
                     <button
                       type="button"
-                      onClick={() => { set('latitude', ''); set('longitude', ''); }}
-                      className="ml-2 text-destructive hover:opacity-70 font-sans font-semibold"
+                      onClick={handleExtractFromLink}
+                      disabled={!mapsLinkInput.trim()}
+                      className="shrink-0 px-3 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                      style={{ background: 'hsl(var(--primary) / 0.12)', color: 'hsl(var(--primary))' }}
                     >
-                      ✕ Clear
+                      Extract
                     </button>
-                  </p>
-                ) : (
-                  <p className="text-[11px] text-muted-foreground">Helps customers find you on maps</p>
+                  </div>
+                  {mapsLinkError && (
+                    <p className="text-[11px] text-destructive mt-1.5 leading-relaxed">{mapsLinkError}</p>
+                  )}
+                </div>
+
+                {/* Confirmation preview card */}
+                {parsedPreview && (
+                  <div
+                    className="rounded-lg px-3 py-2.5 space-y-2"
+                    style={{ background: 'hsl(var(--primary) / 0.08)', border: '1px solid hsl(var(--primary) / 0.25)' }}
+                  >
+                    <p className="text-xs font-semibold text-foreground">
+                      📍 Found: {parsedPreview.lat.toFixed(6)}, {parsedPreview.lng.toFixed(6)}
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <a
+                        href={`https://www.google.com/maps?q=${parsedPreview.lat},${parsedPreview.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        Verify on Maps
+                      </a>
+                      <span className="text-muted-foreground text-[11px]">·</span>
+                      <button
+                        type="button"
+                        onClick={confirmLocation}
+                        className="text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors"
+                        style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}
+                      >
+                        ✓ Use this location
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setParsedPreview(null); setMapsLinkError(''); }}
+                        className="text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
                 )}
-              </div>
-              <button
-                type="button"
-                onClick={handleGetLocation}
-                disabled={locating}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-60"
-                style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
-              >
-                {locating ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Navigation className="w-3.5 h-3.5" />
-                )}
-                {locating ? 'Locating…' : 'Use my location'}
-              </button>
-            </div>
-            {/* Manual override */}
-            {(form.latitude || form.longitude) && (
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <input
-                  value={form.latitude}
-                  onChange={(e) => set('latitude', e.target.value)}
-                  className={inputCls + ' text-xs'}
-                  placeholder="Latitude"
-                  inputMode="decimal"
-                />
-                <input
-                  value={form.longitude}
-                  onChange={(e) => set('longitude', e.target.value)}
-                  className={inputCls + ' text-xs'}
-                  placeholder="Longitude"
-                  inputMode="decimal"
-                />
+
+                {/* Divider */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-[10px] text-muted-foreground font-medium">or use GPS</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+
+                {/* GPS button */}
+                <button
+                  type="button"
+                  onClick={handleGetLocation}
+                  disabled={locating}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-60 border border-border"
+                  style={{ background: 'hsl(var(--muted))', color: 'hsl(var(--foreground))' }}
+                >
+                  {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className="w-3.5 h-3.5 text-primary" />}
+                  {locating ? 'Getting GPS location…' : 'Use my GPS location'}
+                </button>
               </div>
             )}
           </div>
+          {/* ── End location section ──────────────────────────────── */}
 
           {/* Category */}
           <Field label="Category (optional)">
