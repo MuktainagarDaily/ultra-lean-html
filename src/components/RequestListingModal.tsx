@@ -264,6 +264,7 @@ export function RequestListingModal({ onClose }: Props) {
     setParsedPreview(null);
     setMapsLinkInput('');
     setMapsLinkError('');
+    setErrors((err) => ({ ...err, location: '' }));
   };
 
   const clearLocation = () => {
