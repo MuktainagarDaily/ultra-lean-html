@@ -569,6 +569,24 @@ function CategoriesTab({ onEdit }: { onEdit: (cat: any) => void }) {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold text-foreground">Categories ({categories.length})</h2>
         <button
+          onClick={() => {
+            const headers = ['Name', 'Icon', 'Active'];
+            const rows = (categories as any[]).map((c) => [c.name, c.icon, c.is_active ? 'Yes' : 'No']);
+            const csv = [headers, ...rows].map((r) => r.map((v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `muktainagar-categories-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          className="flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
+        >
+          <Download className="w-4 h-4" />
+          <span className="hidden sm:inline">Export CSV</span>
+        </button>
+        <button
           onClick={() => onEdit({})}
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-primary/90"
         >
@@ -1012,6 +1030,26 @@ function AnalyticsTab() {
             </button>
           ))}
         </div>
+        {sortedShops.length > 0 && (
+          <button
+            onClick={() => {
+              const headers = ['Shop Name', 'Area', 'Calls', 'WhatsApp', 'Total'];
+              const rows = sortedShops.map((r: any) => [r.name, r.area ?? '', r.call, r.whatsapp, r.total]);
+              const csv = [headers, ...rows].map((row) => row.map((v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+              const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `muktainagar-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Export CSV</span>
+          </button>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -2814,21 +2852,48 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
             <p className="text-sm text-muted-foreground mt-0.5">{pendingCount} pending review</p>
           )}
         </div>
-        {/* Status filter */}
-        <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-1 self-start sm:self-auto">
-          {(['pending', 'approved', 'rejected', 'all'] as (RequestStatus | 'all')[]).map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setStatusFilter(opt)}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all capitalize ${
-                statusFilter === opt
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {opt}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+          {/* Status filter */}
+          <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-1">
+            {(['pending', 'approved', 'rejected', 'all'] as (RequestStatus | 'all')[]).map((opt) => (
+              <button
+                key={opt}
+                onClick={() => setStatusFilter(opt)}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all capitalize ${
+                  statusFilter === opt
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+          {/* Export CSV */}
+          <button
+            onClick={() => {
+              const headers = ['Name', 'Phone', 'WhatsApp', 'Area', 'Address', 'Category', 'Status', 'Submitter', 'Opening Time', 'Closing Time', 'Has Image', 'Submitted At'];
+              const rows = (requests as any[]).map((req) => [
+                req.name, req.phone, req.whatsapp ?? '', req.area ?? '', req.address ?? '',
+                req.category_text ?? '', req.status, req.submitter_name ?? '',
+                req.opening_time ?? '', req.closing_time ?? '',
+                req.image_url ? 'Yes' : 'No',
+                new Date(req.created_at).toLocaleDateString('en-IN'),
+              ]);
+              const csv = [headers, ...rows].map((r) => r.map((v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+              const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `muktainagar-requests-${new Date().toISOString().slice(0, 10)}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Export CSV</span>
+          </button>
         </div>
       </div>
 

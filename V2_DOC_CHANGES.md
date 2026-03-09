@@ -454,3 +454,77 @@ Replaced single generic empty state with scenario-specific messages:
 - Reviews or ratings
 - Ads, public accounts, chat, notifications
 
+---
+
+## V2 Phase 7 — Bug Fixes, QA Hardening & Data Migrations
+
+> Session: March 2026 | Retested all V2 features; fixed remaining issues
+
+### Bug Fixes
+
+| ID | Area | Fix |
+|---|---|---|
+| BUG-01 | Request approval — duplicate phone | `handleApprove` now uses same `normalizePhone()` (strips `+`, spaces, dashes, strips leading `91` from 12-digit) as ShopModal and CSV import |
+| BUG-02 | Public request form — location optional | GPS coordinates, Google Maps link, and address are all optional in `RequestListingModal`; form submits without them |
+| BUG-04 / BUG-C | Bilingual area normalisation | All four call sites (`ShopModal executeSave`, `handleApprove`, CSV `normalizeArea`, `RequestListingModal`) now use bilingual-safe regex `/(^|[\s,])([a-z])/g` instead of `\b\w` which breaks on Devanagari |
+| BUG-05 / BUG-09 | Cache invalidation for public queries | `qc.invalidateQueries({ queryKey: ['shops'] })` added to CSV import `onDone` callback and to `handleApprove` so public pages reflect new shops immediately |
+| BUG-06 | Storage audit pagination | Storage scan now loops with `from(offset, offset+999)` per page instead of a single call, so buckets with >1000 files are fully audited |
+| BUG-07 | ShopCard type safety | `is_active` check on category uses `!== false` instead of boolean cast to handle `undefined` safely |
+| BUG-08 | CompactShopCard engagement tracking | `logEngagement` added to Call and WhatsApp onClick handlers in `Home.tsx` compact shop cards; was missing despite being present on `ShopDetail` |
+| BUG-10 | Overnight time validation | `RequestListingModal` time validation now only blocks identical open/close times, not close-before-open (overnight shops like 22:00–06:00 are valid) |
+| R2 | Canvas image compression null guard | `canvas.toBlob()` callback guards against null blob before upload |
+| R7 | Analytics query row limit | `shop_engagement` query raised to `.limit(5000)` to exceed Supabase default 1000-row cap |
+
+### Category Merge RLS Fix
+- The `shop_categories` table has no UPDATE RLS policy (by design — no UPDATE policy was ever created)
+- Category merge previously attempted `.update()` on `shop_categories`, which silently failed
+- Fixed: merge now uses **DELETE** (remove old links for source category) + **INSERT** (create new links for target category), bypassing the missing UPDATE policy entirely
+- Duplicate prevention: target's existing links are fetched first; only missing links are inserted
+
+### Data Migrations
+
+**BUG-A — Backfill `shop_categories` from legacy `category_id`:**
+Some pre-V2 shops had `category_id` set on the `shops` table but no corresponding row in the `shop_categories` junction table. These shops appeared uncategorised on public pages and were not filterable by category. Migration:
+```sql
+INSERT INTO public.shop_categories (shop_id, category_id)
+SELECT s.id, s.category_id
+FROM public.shops s
+WHERE s.category_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM public.shop_categories sc WHERE sc.shop_id = s.id
+  );
+```
+Also fixed in code: `ShopModal` now falls back to `shop.category_id` to pre-fill `selectedCategoryIds` when `shop_categories` is empty, so legacy shops are correctly handled on the next admin save.
+
+**BUG-B — Delete orphaned `shop_categories` pointing to inactive categories:**
+After a category merge with `disableSource=true`, some historical `shop_categories` rows still pointed to the now-inactive source category. These orphaned rows meant shops showed no category chip on their card (because `is_active=false` categories are filtered out at render time). Migration:
+```sql
+DELETE FROM public.shop_categories sc
+USING public.categories c
+WHERE sc.category_id = c.id
+  AND c.is_active = false;
+```
+
+### Export Tools Added
+Three new admin CSV export buttons added (same pattern as the existing Shops tab export):
+
+| Tab | Button | Columns | Filename |
+|---|---|---|---|
+| Categories | Export CSV | Name, Icon, Active | `muktainagar-categories-YYYY-MM-DD.csv` |
+| Requests | Export CSV | Name, Phone, WhatsApp, Area, Address, Category, Status, Submitter, Opening/Closing Time, Has Image, Submitted At | `muktainagar-requests-YYYY-MM-DD.csv` |
+| Analytics | Export CSV (only shown when data exists) | Shop Name, Area, Calls, WhatsApp, Total | `muktainagar-analytics-YYYY-MM-DD.csv` |
+
+All exports: UTF-8 BOM for Excel compatibility, client-side only, use already-loaded in-memory data (no extra queries).
+
+### Retest Summary (all items verified clean)
+- Duplicate phone detection: ShopModal add/edit, CSV import, request approval — PASS
+- CSV import → public visibility: cache invalidation confirmed — PASS  
+- Request approval → public visibility: cache invalidation confirmed — PASS
+- Storage cleanup on request delete — PASS
+- Storage cleanup on shop image replace — PASS
+- Merged/deactivated categories: ShopCard, ShopDetail, filter UI — PASS
+- CompactShopCard engagement tracking — PASS (BUG-08 fix)
+- Overnight timings: `isShopOpen` logic, request form validation — PASS
+- Analytics 5000-row limit confirmed in network log — PASS
+- Bilingual area search via `ilike` (Postgres handles Unicode) — PASS
+
