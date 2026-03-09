@@ -352,6 +352,12 @@ export function RequestListingModal({ onClose }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* ── Section: Shop Info ─────────────────────────────── */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Shop Info</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
           {/* Shop Name */}
           <Field label="Shop Name *">
             <input
