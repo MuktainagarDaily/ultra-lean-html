@@ -88,6 +88,26 @@
     border-color: hsl(var(--success));
   }
 
+  /* Cross-browser scrollbar-none */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Horizontal scroll fade-right hint */
+  .scroll-fade-right {
+    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  }
+
+  /* iOS safe-area bottom padding */
+  .pb-safe {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+
   /* Pulsing open dot */
   @keyframes pulse-open {
     0%, 100% { opacity: 1; transform: scale(1); }
