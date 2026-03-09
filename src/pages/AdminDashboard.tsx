@@ -1575,7 +1575,8 @@ function StorageAuditSection() {
     setSelected(new Set());
     try {
       // 1. List all files in the bucket — paginate to avoid 1000-file hard cap (BUG-06)
-      let allFiles: { name: string; id: string }[] = [];
+      type StorageFile = { name: string; id: string; metadata?: { size?: number }; created_at?: string };
+      let pagedFiles: StorageFile[] = [];
       let offset = 0;
       const PAGE = 1000;
       while (true) {
@@ -1583,16 +1584,13 @@ function StorageAuditSection() {
           .from('shop-images')
           .list('', { limit: PAGE, offset });
         if (listErr) throw listErr;
-        const valid = (page || []).filter((f) => f.name && f.id);
-        allFiles = allFiles.concat(valid as { name: string; id: string }[]);
+        const valid = (page || []).filter((f) => f.name && f.id) as StorageFile[];
+        pagedFiles = pagedFiles.concat(valid);
         if (!page || page.length < PAGE) break;
         offset += PAGE;
       }
-      // shadow the old variable name so the rest of the code continues to work
-      const files = allFiles;
-      if (listErr) throw listErr;
 
-      const allFiles = (files || []).filter((f) => f.name && f.id); // exclude folders
+      const allFiles = pagedFiles; // exclude folders already filtered above
 
       if (allFiles.length === 0) {
         setOrphans([]);
