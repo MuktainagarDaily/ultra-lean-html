@@ -566,6 +566,15 @@ export function RequestListingModal({ onClose }: Props) {
 
           {/* Category */}
           <Field label="Category (optional)">
+
+          {/* ── Section: Schedule ─────────────────────────────── */}
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Schedule</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
+          {/* Category */}
+          <Field label="Category (optional)">
             {categories.length > 0 ? (
               <select
                 value={form.category_text}
