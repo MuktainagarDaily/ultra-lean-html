@@ -383,14 +383,15 @@ export function RequestListingModal({ onClose }: Props) {
           </div>
 
           {/* Address */}
-          <Field label="Address (Street / Landmark)">
+          <Field label="Address (Street / Landmark) *">
             <input
               value={form.address}
-              onChange={(e) => { set('address', e.target.value); setErrors((err) => ({ ...err, area: '' })); }}
-              className={inputCls}
+              onChange={(e) => { set('address', e.target.value); setErrors((err) => ({ ...err, address: '' })); }}
+              className={inputCls + (errors.address ? ' border-destructive' : '')}
               placeholder="e.g. Near Bus Stand, Station Road"
               maxLength={250}
             />
+            {errors.address && <p className="text-xs text-destructive mt-1">{errors.address}</p>}
           </Field>
 
           {/* Area */}
