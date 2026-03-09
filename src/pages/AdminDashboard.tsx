@@ -2606,6 +2606,8 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
         opening_time: req.opening_time || null,
         closing_time: req.closing_time || null,
         image_url: req.image_url || null,
+        latitude: req.latitude || null,
+        longitude: req.longitude || null,
         is_active: true,
         is_open: true,
         is_verified: false,
