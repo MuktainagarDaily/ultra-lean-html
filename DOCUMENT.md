@@ -363,6 +363,7 @@ The admin Data Quality → Storage Audit tool uses a paginated loop (`from(0, 99
 - Add / Edit / Delete shops with full form (`ShopModal`)
 - **Search** (client-side: name, area, address, phone) + **Category filter** dropdown
 - Activate/deactivate toggle; Verified toggle
+- **Quick-preview link** — `ExternalLink` icon per row opens `/shop/:id` in a new tab (shows exactly what a public visitor sees)
 - **CSV Export** — downloads filtered shop list (name, phone, WhatsApp, area, address, pipe-separated categories, active, verified); UTF-8 BOM for Excel
 - **CSV Import** — upload, preview with per-row validation/duplicate detection, import with result summary
 - **Safe delete** — `AlertDialog` with shop name; loading state
@@ -386,7 +387,7 @@ The admin Data Quality → Storage Audit tool uses a paginated loop (`from(0, 99
 - **Approve** — duplicate phone check → creates shop (copies all fields, uploads image if present) → marks request `approved` → invalidates public shops cache
 - **Reject** — marks request `rejected`
 - **Delete** — deletes request record + its storage image (if any)
-- **View detail** — dialog showing all submitted fields
+- **View detail** — dialog showing all submitted fields including `admin_notes` (when present)
 - **CSV Export** — downloads current filtered list (all fields including submitter, status, timestamps)
 
 #### Data Quality Tab
