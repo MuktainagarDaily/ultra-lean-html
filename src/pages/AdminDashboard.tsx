@@ -1881,14 +1881,6 @@ function extractStoragePath(publicUrl: string): string | null {
   }
 }
 
-/** Normalize phone for duplicate detection and wa.me links:
- *  strips spaces, dashes, parens, dots, +;
- *  strips leading 91 country code (12-digit → 10-digit) */
-function normalizePhone(phone: string): string {
-  let n = phone.replace(/[\s\-().+]/g, '');
-  if (n.startsWith('91') && n.length === 12) n = n.slice(2);
-  return n;
-}
 
 /** Normalize a WhatsApp number for a wa.me link (digits-only, with 91 prefix) */
 function normalizeWhatsApp(wa: string): string {
