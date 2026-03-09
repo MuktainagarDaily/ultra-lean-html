@@ -274,7 +274,7 @@ export default function Home() {
 
           {/* Stats Row */}
           {shops.length > 0 && (
-            <div className="flex items-center justify-center gap-2 flex-wrap">
+            <div className="flex items-center justify-center gap-1.5 flex-wrap">
               <StatPill icon={<Store className="w-3 h-3" />} label={`${shops.length} Shops`} />
               <StatPill
                 icon={<span className="w-1.5 h-1.5 rounded-full animate-pulse-open shrink-0" style={{ background: 'hsl(var(--success))' }} />}
