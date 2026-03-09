@@ -28,7 +28,7 @@ function normalizeWhatsApp(raw: string): string {
 }
 
 function normalizeArea(s: string): string {
-  return s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+  return s.trim().replace(/(^|[\s,])([a-z])/g, (_, sep, c) => sep + c.toUpperCase());
 }
 
 /**
