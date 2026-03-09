@@ -622,6 +622,12 @@ export function RequestListingModal({ onClose }: Props) {
             </Field>
           </div>
 
+          {/* ── Section: Photo & Submitter ────────────────────── */}
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Photo & Contact</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
           {/* Shop image */}
           <Field label={`Shop Photo (optional, max ${MAX_IMAGE_MB} MB)`}>
             {imageUrl && (

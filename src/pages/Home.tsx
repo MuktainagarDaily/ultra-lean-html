@@ -290,9 +290,9 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Trust Strip */}
+      {/* Trust Strip — scroll-fade-right hints there's more content */}
       <div
-        className="py-2.5 px-4 flex items-center justify-start sm:justify-center gap-3 sm:gap-4 border-b border-border text-xs font-medium text-muted-foreground overflow-x-auto scrollbar-none"
+        className="py-2.5 px-4 flex items-center justify-start sm:justify-center gap-3 sm:gap-4 border-b border-border text-xs font-medium text-muted-foreground overflow-x-auto scrollbar-none scroll-fade-right sm:scroll-fade-right-none"
         style={{ background: 'hsl(var(--primary) / 0.03)' }}
       >
         <span className="flex items-center gap-1.5 shrink-0">
