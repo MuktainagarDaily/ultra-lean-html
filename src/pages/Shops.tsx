@@ -222,12 +222,13 @@ export default function Shops() {
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
               placeholder="Search by name, area, address..."
-              className="w-full pl-9 pr-9 py-2.5 rounded-xl text-foreground bg-card text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
+              className="w-full pl-9 pr-10 py-2.5 rounded-xl text-foreground bg-card text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
             />
             {localSearch && (
               <button
                 onClick={() => setLocalSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-1 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground rounded-lg"
+                aria-label="Clear search"
               >
                 <X className="w-4 h-4" />
               </button>
