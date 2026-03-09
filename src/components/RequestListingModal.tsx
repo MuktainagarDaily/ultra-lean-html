@@ -545,9 +545,9 @@ export function RequestListingModal({ onClose }: Props) {
               </div>
             )}
           </div>
-          {/* ── End location section ──────────────────────────────── */}
+          {/* Location section error */}
           {errors.location && (
-            <p className="text-xs text-destructive -mt-2 flex items-center gap-1">
+            <p className="text-xs text-destructive mt-1.5 flex items-center gap-1">
               <MapPin className="w-3 h-3 shrink-0" /> {errors.location}
             </p>
           )}
