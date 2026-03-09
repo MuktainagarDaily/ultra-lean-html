@@ -1173,6 +1173,39 @@ function AnalyticsTab() {
   );
 }
 
+/* ─── DATA QUALITY HELPERS (module-level, pure — no re-creation on render) ─ */
+
+/** Normalize area name to a comparable key: lowercase, strip Devanagari & punctuation */
+function dqAreaCompareKey(area: string): string {
+  return area
+    .toLowerCase()
+    .replace(/[\u0900-\u097F]+/g, '')  // strip Devanagari (Marathi) characters
+    .replace(/[^a-z0-9\s]/g, '')       // strip punctuation/commas
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** True if the string contains at least one Devanagari character */
+const dqHasDevanagari = (s: string) => /[\u0900-\u097F]/.test(s);
+
+/**
+ * Title-case ASCII words; leave Devanagari words unchanged
+ * (Devanagari has no concept of case — don't touch them).
+ */
+function dqNormalizeAreaValue(s: string): string {
+  return s.trim().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+}
+
+/** Flag suspicious area names (too short, numeric-only, or ALL-CAPS ASCII) */
+function dqIsSuspiciousArea(area: string): boolean {
+  const t = area.trim();
+  if (t.length < 3) return true;
+  if (/^\d+$/.test(t)) return true; // numeric only
+  // All-caps ASCII check — ignore if it contains Devanagari (might be bilingual)
+  if (!dqHasDevanagari(t) && t === t.toUpperCase() && /[A-Z]{3,}/.test(t)) return true;
+  return false;
+}
+
 /* ─── DATA QUALITY TAB ───────────────────────────────────────── */
 function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
   const qc = useQueryClient();
