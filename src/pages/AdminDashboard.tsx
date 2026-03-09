@@ -930,7 +930,8 @@ function AnalyticsTab() {
       let query = supabase
         .from('shop_engagement')
         .select('shop_id, event_type, created_at, shops(name, area, shop_categories(categories(id, name, icon)))')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(5000); // R7: raise above default 1000-row cap
       if (cutoff) query = query.gte('created_at', cutoff);
       const { data, error } = await query;
       if (error) throw error;
