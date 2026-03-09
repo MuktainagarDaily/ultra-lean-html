@@ -2045,7 +2045,7 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
     },
   });
 
-  useQuery({
+  const { data: shopCategoryData } = useQuery({
     queryKey: ['shop-categories', shop.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -2053,16 +2053,23 @@ function ShopModal({ shop, onClose, onSaved }: { shop: any; onClose: () => void;
         .select('category_id')
         .eq('shop_id', shop.id);
       if (error) throw error;
-      if (data.length > 0) {
-        setSelectedCategoryIds(data.map((r: any) => r.category_id));
-      } else if (shop.category_id) {
-        // BUG-A fix: fall back to legacy category_id FK if no join rows exist yet
-        setSelectedCategoryIds([shop.category_id]);
-      }
       return data;
     },
     enabled: !!shop.id,
   });
+
+  // FIX-A: Move setState out of queryFn to prevent background refetch
+  // silently resetting admin's in-progress category selection.
+  useEffect(() => {
+    if (shopCategoryData === undefined) return;
+    if (shopCategoryData.length > 0) {
+      setSelectedCategoryIds(shopCategoryData.map((r: any) => r.category_id));
+    } else if (shop.category_id) {
+      // BUG-A fix: fall back to legacy category_id FK if no join rows exist yet
+      setSelectedCategoryIds([shop.category_id]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopCategoryData]);
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
