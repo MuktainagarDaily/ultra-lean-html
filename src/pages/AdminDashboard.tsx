@@ -1260,9 +1260,10 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
     const result = new Map<string, string | null>();
     similarAreaGroups.forEach((areas) => {
       // Pick best: highest count wins; tie-break: prefer the one with Devanagari (bilingual)
+      // Bug 1 fix: proper tie-break — compare both sides, not just b
       const sorted = [...areas].sort((a, b) =>
         (countMap.get(b) ?? 0) - (countMap.get(a) ?? 0) ||
-        (dqHasDevanagari(b) ? 1 : -1)
+        (dqHasDevanagari(b) ? 1 : 0) - (dqHasDevanagari(a) ? 1 : 0)
       );
       const best = sorted[0];
       areas.forEach((area) => {
