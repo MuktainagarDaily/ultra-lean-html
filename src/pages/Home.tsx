@@ -29,7 +29,10 @@ function CompactShopCard({ shop }: { shop: any }) {
 
   const waNumber = useMemo(() => {
     const raw = (shop.whatsapp || shop.phone || '').replace(/\D/g, '');
-    return raw.length === 10 ? `91${raw}` : raw;
+    if (raw.length === 10) return `91${raw}`;
+    if (raw.length === 11 && raw.startsWith('0')) return `91${raw.slice(1)}`;
+    if (raw.startsWith('91') && raw.length === 12) return raw;
+    return raw;
   }, [shop.whatsapp, shop.phone]);
 
   const allCats = useMemo(() => {

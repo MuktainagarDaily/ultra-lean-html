@@ -27,6 +27,7 @@ export default function ShopDetail() {
         .from('shops')
         .select('*, shop_categories(categories(name, icon, is_active))')
         .eq('id', id!)
+        .eq('is_active', true)
         .single();
       if (error) throw error;
       return data;
