@@ -429,6 +429,12 @@ export function RequestListingModal({ onClose }: Props) {
             {errors.area && <p className="text-xs text-destructive mt-1">{errors.area}</p>}
           </Field>
 
+          {/* ── Section: Location ─────────────────────────────── */}
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Location *</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
           {/* ── Location section ──────────────────────────────────── */}
           <div
             className={`rounded-xl border ${errors.location ? 'border-destructive' : 'border-border'}`}
