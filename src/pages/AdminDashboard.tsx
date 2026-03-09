@@ -1445,6 +1445,7 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
         <p className="text-xs text-muted-foreground mt-2">
           Renaming an area updates all shops in that locality at once. Names are auto title-cased on save.
           <span className="inline-flex items-center gap-1 ml-1 text-secondary font-medium"><TriangleAlert className="w-3 h-3" /> suspicious</span> flags very short, all-caps, or numeric-only names.
+          <span className="inline-flex items-center gap-1 ml-1 text-destructive font-medium"><TriangleAlert className="w-3 h-3" /> similar</span> detects near-duplicate names (case/script variants) — click <strong>Merge</strong> to consolidate into the best candidate.
         </p>
       </section>
 
