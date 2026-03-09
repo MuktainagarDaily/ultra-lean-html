@@ -1201,22 +1201,11 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
       .sort((a, b) => b.count - a.count);
   }, [shops]);
 
-  /** Normalize area name to a comparable key: lowercase, strip Devanagari, strip punctuation */
-  const areaCompareKey = (area: string): string =>
-    area
-      .toLowerCase()
-      .replace(/[\u0900-\u097F]+/g, '')   // strip Devanagari (Marathi) characters
-      .replace(/[^a-z0-9\s]/g, '')        // strip punctuation/commas
-      .replace(/\s+/g, ' ')
-      .trim();
-
-  const hasDevanagari = (s: string) => /[\u0900-\u097F]/.test(s);
-
   /** Map: normalized key → list of original area strings that share it */
   const similarAreaGroups = useMemo(() => {
     const map = new Map<string, string[]>();
     areaSummary.forEach(({ area }) => {
-      const key = areaCompareKey(area);
+      const key = dqAreaCompareKey(area);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(area);
     });
@@ -1226,38 +1215,35 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
     return result;
   }, [areaSummary]);
 
-  /** Pick the "best" canonical area name from a list of near-duplicate areas */
-  const pickBestArea = (areas: string[]): string => {
-    const withCounts = areas.map((area) => ({
-      area,
-      count: areaSummary.find((s) => s.area === area)?.count ?? 0,
-    }));
-    withCounts.sort((a, b) =>
-      b.count - a.count || (hasDevanagari(b.area) ? 1 : -1)
-    );
-    return withCounts[0].area;
-  };
-
-  /** Flag suspicious area names */
-  const isSuspiciousArea = (area: string) => {
-    const t = area.trim();
-    if (t.length < 3) return true;
-    if (t === t.toUpperCase() && /[A-Z]{3,}/.test(t)) return true; // ALL_CAPS with letters
-    if (/^\d+$/.test(t)) return true; // numeric only
-    return false;
-  };
+  /**
+   * Precomputed map: area → best canonical candidate (or null if this area IS the best).
+   * Avoids calling areaSummary.find() O(n) on every table row render.
+   */
+  const bestCandidateMap = useMemo(() => {
+    const countMap = new Map<string, number>(areaSummary.map(({ area, count }) => [area, count]));
+    const result = new Map<string, string | null>();
+    similarAreaGroups.forEach((areas) => {
+      // Pick best: highest count wins; tie-break: prefer the one with Devanagari (bilingual)
+      const sorted = [...areas].sort((a, b) =>
+        (countMap.get(b) ?? 0) - (countMap.get(a) ?? 0) ||
+        (dqHasDevanagari(b) ? 1 : -1)
+      );
+      const best = sorted[0];
+      areas.forEach((area) => {
+        result.set(area, area === best ? null : best);
+      });
+    });
+    return result;
+  }, [similarAreaGroups, areaSummary]);
 
   const [areaRenameTarget, setAreaRenameTarget] = useState<string | null>(null);
   const [areaRenameValue, setAreaRenameValue] = useState('');
   const [areaRenaming, setAreaRenaming] = useState(false);
 
-  const normalizeAreaValue = (s: string) =>
-    s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
-
   const handleAreaRename = async (oldArea: string) => {
     if (!areaRenameValue.trim()) return;
-    const newArea = normalizeAreaValue(areaRenameValue);
-    if (newArea === oldArea) { setAreaRenameTarget(null); return; }
+    const newArea = dqNormalizeAreaValue(areaRenameValue);
+    if (newArea === oldArea) { setAreaRenameTarget(null); setAreaRenameValue(''); return; }
     setAreaRenaming(true);
     const { error } = await supabase
       .from('shops')
