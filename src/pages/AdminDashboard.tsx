@@ -1357,10 +1357,16 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
                 {areaSummary.map(({ area, count }) => {
                   const suspicious = isSuspiciousArea(area);
                   const isEditing = areaRenameTarget === area;
+                  const similarKey = areaCompareKey(area);
+                  const similarGroup = similarAreaGroups.get(similarKey);
+                  const similarPeers = similarGroup ? similarGroup.filter((a) => a !== area) : [];
+                  const hasSimilar = similarPeers.length > 0;
+                  const bestCandidate = hasSimilar ? pickBestArea(similarGroup!) : null;
+                  const isNotBest = hasSimilar && bestCandidate !== area;
                   return (
-                    <tr key={area} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                    <tr key={area} className={`border-b border-border last:border-0 hover:bg-muted/30 transition-colors ${hasSimilar ? 'bg-orange-500/5' : ''}`}>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-foreground">{area}</span>
                           {suspicious && (
                             <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-secondary/15 text-secondary border border-secondary/30">
@@ -1368,6 +1374,14 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
                             </span>
                           )}
                         </div>
+                        {hasSimilar && (
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-600 border border-orange-400/30">
+                              <TriangleAlert className="w-2.5 h-2.5" />
+                              similar: {similarPeers.map((p) => `"${p.length > 30 ? p.slice(0, 28) + '…' : p}"`).join(', ')}
+                            </span>
+                          </div>
+                        )}
                         {isEditing && (
                           <div className="flex items-center gap-2 mt-2">
                             <input
@@ -1402,12 +1416,23 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
                       </td>
                       <td className="px-4 py-3 text-right">
                         {!isEditing && (
-                          <button
-                            onClick={() => { setAreaRenameTarget(area); setAreaRenameValue(area); }}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 transition-colors border border-primary/20"
-                          >
-                            <Pencil className="w-3 h-3" /> Rename
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {isNotBest && (
+                              <button
+                                onClick={() => { setAreaRenameTarget(area); setAreaRenameValue(bestCandidate!); }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-orange-600 hover:bg-orange-500/10 transition-colors border border-orange-400/30"
+                                title={`Merge into "${bestCandidate}"`}
+                              >
+                                <ArrowRight className="w-3 h-3" /> Merge
+                              </button>
+                            )}
+                            <button
+                              onClick={() => { setAreaRenameTarget(area); setAreaRenameValue(area); }}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 transition-colors border border-primary/20"
+                            >
+                              <Pencil className="w-3 h-3" /> Rename
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
