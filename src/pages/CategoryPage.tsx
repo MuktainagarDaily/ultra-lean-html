@@ -157,7 +157,7 @@ export default function CategoryPage() {
           </div>
 
           {/* Filter bar */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none">
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none scroll-fade-right">
             {/* Filter button */}
             <button
               onClick={() => setFilterOpen(true)}
