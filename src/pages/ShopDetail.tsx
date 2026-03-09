@@ -27,6 +27,7 @@ export default function ShopDetail() {
         .from('shops')
         .select('*, shop_categories(categories(name, icon, is_active))')
         .eq('id', id!)
+        .eq('is_active', true)
         .single();
       if (error) throw error;
       return data;
@@ -75,23 +76,6 @@ export default function ShopDetail() {
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3 px-4">
         <p className="text-4xl">😕</p>
         <p className="font-semibold text-foreground">Shop not found</p>
-        <button
-          onClick={() => navigate('/')}
-          className="bg-primary text-primary-foreground px-6 py-2 rounded-lg font-semibold"
-        >
-          Go Home
-        </button>
-      </div>
-    );
-  }
-
-  // Block inactive shops from public view — show unavailable state
-  if (!shop.is_active) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3 px-4">
-        <p className="text-4xl">🔒</p>
-        <p className="font-semibold text-foreground">This shop is currently unavailable</p>
-        <p className="text-sm text-muted-foreground">It may have been temporarily deactivated.</p>
         <button
           onClick={() => navigate('/')}
           className="bg-primary text-primary-foreground px-6 py-2 rounded-lg font-semibold"
