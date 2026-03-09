@@ -2699,7 +2699,9 @@ function RequestsTab({ onShopCreated }: { onShopCreated: () => void }) {
     }
 
     // Normalize area (title case)
-    const normalizeArea = (s: string) => s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+    // BUG-04: bilingual-safe title-case
+    const normalizeArea = (s: string) =>
+      s.trim().replace(/(^|[\s,])([a-z])/g, (_m, pre, ch) => pre + ch.toUpperCase());
 
     // Insert shop
     const { data: inserted, error: insertError } = await supabase
