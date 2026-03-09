@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Loader2, CheckCircle2, Store, MapPin, Navigation, Link2, ExternalLink } from 'lucide-react';
+import { X, Loader2, CheckCircle2, Store, MapPin, Navigation, Link2, ExternalLink, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -154,6 +154,9 @@ export function RequestListingModal({ onClose }: Props) {
     if (!form.area.trim()) {
       errs.area = 'Area / Locality is required';
     }
+    if (!form.latitude || !form.longitude) {
+      errs.location = 'Shop location is required — paste a Google Maps link or use GPS';
+    }
     if (form.opening_time && form.closing_time && form.closing_time <= form.opening_time) {
       errs.closing_time = 'Closing time must be after opening time';
     }
@@ -208,12 +211,13 @@ export function RequestListingModal({ onClose }: Props) {
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        set('latitude', pos.coords.latitude.toFixed(6));
+      set('latitude', pos.coords.latitude.toFixed(6));
         set('longitude', pos.coords.longitude.toFixed(6));
         setMapsLink('');
         setParsedPreview(null);
         setMapsLinkInput('');
         setLocating(false);
+        setErrors((err) => ({ ...err, location: '' }));
         toast.success('Location captured!');
       },
       (err) => {
@@ -260,6 +264,7 @@ export function RequestListingModal({ onClose }: Props) {
     setParsedPreview(null);
     setMapsLinkInput('');
     setMapsLinkError('');
+    setErrors((err) => ({ ...err, location: '' }));
   };
 
   const clearLocation = () => {
@@ -420,13 +425,13 @@ export function RequestListingModal({ onClose }: Props) {
 
           {/* ── Location section ──────────────────────────────────── */}
           <div
-            className="rounded-xl border"
-            style={{ background: 'hsl(var(--muted) / 0.5)', borderColor: 'hsl(var(--border))' }}
+            className={`rounded-xl border ${errors.location ? 'border-destructive' : 'border-border'}`}
+            style={{ background: 'hsl(var(--muted) / 0.5)' }}
           >
             {/* Section header */}
             <div className="flex items-center gap-1.5 px-4 pt-3 pb-2">
-              <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-              <p className="text-xs font-semibold text-foreground">Shop Location (optional)</p>
+              <MapPin className={`w-3.5 h-3.5 shrink-0 ${errors.location ? 'text-destructive' : 'text-primary'}`} />
+              <p className={`text-xs font-semibold ${errors.location ? 'text-destructive' : 'text-foreground'}`}>Shop Location *</p>
             </div>
 
             {/* Confirmed coords badge */}
@@ -541,6 +546,11 @@ export function RequestListingModal({ onClose }: Props) {
             )}
           </div>
           {/* ── End location section ──────────────────────────────── */}
+          {errors.location && (
+            <p className="text-xs text-destructive -mt-2 flex items-center gap-1">
+              <MapPin className="w-3 h-3 shrink-0" /> {errors.location}
+            </p>
+          )}
 
           {/* Category */}
           <Field label="Category (optional)">
@@ -620,24 +630,24 @@ export function RequestListingModal({ onClose }: Props) {
           </Field>
 
           {/* Buttons */}
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 border border-border rounded-xl font-semibold text-foreground hover:bg-muted transition-colors"
-            >
-              Cancel
-            </button>
+          <div className="flex flex-col gap-3 pt-2">
             <button
               type="submit"
               disabled={saving || uploading}
-              className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-bold text-base shadow-lg hover:bg-primary/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {saving ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Submitting…</>
               ) : (
-                'Submit Request'
+                <><Send className="w-4 h-4" /> Submit Request</>
               )}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-2.5 rounded-xl font-semibold text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              Cancel
             </button>
           </div>
         </form>
