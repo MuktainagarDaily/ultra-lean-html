@@ -1530,7 +1530,7 @@ function DataQualityTab({ onEditShop }: { onEditShop: (shop: any) => void }) {
             </span>
           )}
           <button
-            onClick={() => qc.invalidateQueries({ queryKey: ['admin-shops'] })}
+            onClick={() => qc.invalidateQueries({ queryKey: ['admin-shops-quality'] })}
             className="ml-auto p-1 text-muted-foreground hover:text-foreground rounded transition-colors"
             title="Refresh"
           >
