@@ -16,7 +16,7 @@ interface ShopsTabProps {
   onSpeedAdd: () => void;
 }
 
-export function ShopsTab({ onEdit, onImport }: ShopsTabProps) {
+export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
   const qc = useQueryClient();
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
