@@ -1,4 +1,4 @@
-# Welcome to your  King's World
+# Welcome to your  King's World.
 
 ## Project info
 
