@@ -23,15 +23,19 @@ jobs:
           
           # 1. Add and Fetch the Target (ultra-lean-html)
           git remote add target https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/ultra-lean-html.git
-          git fetch target main || git fetch target master
+           git fetch target main
           
-          # 2. Merge their code updates into our runner
-          git merge target/main --allow-unrelated-histories -X ours -m "chore: sync code" || echo "No merge needed"
+          # 2. Merge but tell Git to automatically prefer OUR code for any conflicts
+          # This prevents the "Automatic merge failed" error.
+          git merge target/main --allow-unrelated-histories -X ours -m "chore: sync code" || echo "Merge had conflicts, resolving now..."
           
-          # 3. RESET the .github folder to exactly what is on the TARGET repo
-          # This protects their unique workflow files from being changed by us
+          # 3. FORCE the .github folder to match the TARGET exactly
+          # This fixes the "deleted in target/modified in HEAD" error.
           git checkout target/main -- .github || echo "No .github folder on target"
           
-          # 4. Commit the restored workflows and push back to target
-          git commit -m "chore: preserve target workflows" || echo "Workflows already match"
-          git push target HEAD:main
+          # 4. Clean up any remaining "Unmerged" status
+          git add .
+          
+          # 5. Final Commit and Push
+          git commit -m "chore: preserve target workflows and sync code" || echo "Nothing to commit"
+          git push target HEAD:main --force
