@@ -22,6 +22,7 @@ export default function AdminDashboard() {
   const [shopForm, setShopForm] = useState<any>(null);
   const [categoryForm, setCategoryForm] = useState<any>(null);
   const [showImport, setShowImport] = useState(false);
+  const [showSpeedForm, setShowSpeedForm] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
