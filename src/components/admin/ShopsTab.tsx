@@ -160,6 +160,10 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export CSV</span>
           </button>
+          <button onClick={onSpeedAdd} className="flex items-center gap-2 bg-secondary text-secondary-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-secondary/90 shrink-0">
+            <Zap className="w-4 h-4" />
+            <span className="hidden sm:inline">Speed Add</span>
+          </button>
           <button onClick={() => onEdit({})} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-primary/90 shrink-0">
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Add Shop</span>

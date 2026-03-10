@@ -13,6 +13,7 @@ import { DataQualityTab } from '@/components/admin/DataQualityTab';
 import { ShopModal } from '@/components/admin/ShopModal';
 import { CategoryModal } from '@/components/admin/CategoryModal';
 import { CsvImportModal } from '@/components/admin/CsvImportModal';
+import { SpeedShopModal } from '@/components/admin/SpeedShopModal';
 
 type Tab = 'shops' | 'categories' | 'analytics' | 'requests' | 'quality';
 
