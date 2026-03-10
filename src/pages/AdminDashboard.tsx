@@ -107,7 +107,7 @@ export default function AdminDashboard() {
         </div>
 
         {tab === 'shops' && (
-          <ShopsTab onEdit={(shop) => setShopForm(shop)} onImport={() => setShowImport(true)} />
+          <ShopsTab onEdit={(shop) => setShopForm(shop)} onImport={() => setShowImport(true)} onSpeedAdd={() => setShowSpeedForm(true)} />
         )}
         {tab === 'categories' && <CategoriesTab onEdit={(cat) => setCategoryForm(cat)} />}
         {tab === 'analytics' && <AnalyticsTab />}
