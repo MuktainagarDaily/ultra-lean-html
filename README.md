@@ -1,4 +1,4 @@
-# Welcome to your Harsh King's World
+# Welcome to your King's World
 
 ## Project info
 
