@@ -157,6 +157,17 @@ export default function AdminDashboard() {
           }}
         />
       )}
+      {showSpeedForm && (           
+   <SpeedShopModal
+     onClose={() => setShowSpeedForm(false)}
+     onDone={() => {
+       setShowSpeedForm(false);
+       qc.invalidateQueries({ queryKey: ['admin-shops'] });
+       qc.invalidateQueries({ queryKey: ['admin-stats'] });
+       qc.invalidateQueries({ queryKey: ['shops'] });
+     }}
+   />
+ )}
     </div>
   );
 }
