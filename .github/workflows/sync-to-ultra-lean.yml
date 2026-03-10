@@ -33,6 +33,6 @@ jobs:
           
             # 3. Push only the current branch (usually main or master)
           
-                git push origin --all --force
+                git push origin --all
         env:
           GITHUB_TOKEN: ${{ secrets.SYNC_TOKEN }}
