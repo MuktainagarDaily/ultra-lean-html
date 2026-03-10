@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, master ]
     paths-ignore:
-      - '.github/workflows/**'
+      - '.github/**'
   workflow_dispatch:
 
 jobs:
@@ -16,28 +16,22 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.SYNC_TOKEN }}
 
-      - name: Configure Git
+      - name: Sync Code Only
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Push to ultra-lean-html
-        run: |
-          # 1. Create a temporary branch for the "clean" sync
-           git checkout -b temp-sync
           
-          # 2. Remove the .github folder from this temporary branch
-          git rm -rf .github --cached
-          # This removes it from the 'index' (the push) but doesn't delete files locally
+          # 1. Add and Fetch the Target (ultra-lean-html)
+          git remote add target https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/ultra-lean-html.git
+          git fetch target main || git fetch target master
           
-           rm -rf .github
-          # Now it's physically gone for this session
+          # 2. Merge their code updates into our runner
+          git merge target/main --allow-unrelated-histories -X ours -m "chore: sync code" || echo "No merge needed"
           
-          git commit -m "sync: update code excluding workflows"
+          # 3. RESET the .github folder to exactly what is on the TARGET repo
+          # This protects their unique workflow files from being changed by us
+          git checkout target/main -- .github || echo "No .github folder on target"
           
-          # 3. Push to the other repo
-          # Note: We push the local 'temp-sync' branch to the remote 'main'
-          git remote set-url origin https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/ultra-lean-html.git
-          git push origin temp-sync:main
-        env:
-          GITHUB_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          # 4. Commit the restored workflows and push back to target
+          git commit -m "chore: preserve target workflows" || echo "Workflows already match"
+          git push target HEAD:main
