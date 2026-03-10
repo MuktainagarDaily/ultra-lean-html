@@ -24,15 +24,16 @@ jobs:
       - name: Push to ultra-lean-html
         run: |
         
-          #1. Remove the .github directory (including this workflow) from the local sync
-        
-          git rm -rf .github
+           # 1. Remove the workflows from the sync copy
           
-          # 2. Commit the change locally so it's ready to push
-          git commit -m "chore: exclude workflows from sync"
+           git rm -rf .github || true
+           git commit -m "chore: exclude workflows" || echo "Nothing to commit"
+
+           # 2. Use the local variable for the token to prevent URL parsing errors
+            git remote set-url origin "https://${{ secrets.SYNC_TOKEN }}@://github.com"
           
-          # 3. Push the remaining files to the target repo
-          git remote set-url origin https://${{ secrets.SYNC_TOKEN }}@://github.com
-          git push origin --all --force
+            # 3. Push only the current branch (usually main or master)
+          
+              git push origin HEAD --force
         env:
           GITHUB_TOKEN: ${{ secrets.SYNC_TOKEN }}
