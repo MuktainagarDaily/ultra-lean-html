@@ -157,7 +157,7 @@ export default function AdminDashboard() {
           }}
         />
       )}
-      {showSpeedForm && (           
+      {showSpeedForm && (   /* REwired Speed form to admin */         
    <SpeedShopModal
      onClose={() => setShowSpeedForm(false)}
      onDone={() => {
