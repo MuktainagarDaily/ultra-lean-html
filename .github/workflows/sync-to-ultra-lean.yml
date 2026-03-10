@@ -30,10 +30,10 @@ jobs:
            git commit -m "chore: exclude workflows" || echo "Nothing to commit"
 
            # 2. Use the local variable for the token to prevent URL parsing errors
-            git remote set-url origin "https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/ultra-lean-html.git"
+           git remote set-url origin https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/ultra-lean-html.git
           
             # 3. Push only the current branch (usually main or master)
           
-              git push origin HEAD --force
+                git push origin --all --force
         env:
           GITHUB_TOKEN: ${{ secrets.SYNC_TOKEN }}
