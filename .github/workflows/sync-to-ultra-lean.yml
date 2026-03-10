@@ -1,4 +1,4 @@
-name: Sync to ultra-lean-html
+name: Sync to muktainagar-daily
 
 on:
   push:
@@ -21,18 +21,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Push to ultra-lean-html
+      - name: Push to muktainagar-daily
         run: |
-        
-           # 1. hide .git from sync
-          
-             git checkout origin/main -- .github || git checkout origin/master -- .github
-
-           # 2. Use the local variable for the token to prevent URL parsing errors
-           git remote set-url origin https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/ultra-lean-html.git
-          
-            # 3. Push only the current branch (usually main or master)
-          
-                git push origin --all --force
+          git checkout origin/main -- .github || git checkout origin/master -- .github
+          git remote set-url origin https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/muktainagar-daily.git
+          git push origin --all --force
         env:
           GITHUB_TOKEN: ${{ secrets.SYNC_TOKEN }}
