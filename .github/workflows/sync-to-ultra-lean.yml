@@ -24,10 +24,9 @@ jobs:
       - name: Push to ultra-lean-html
         run: |
         
-           # 1. Remove the workflows from the sync copy
+           # 1. hide .git from sync
           
-           git rm -rf .github || true
-           git commit -m "chore: exclude workflows" || echo "Nothing to commit"
+             git checkout origin/main -- .github || git checkout origin/master -- .github
 
            # 2. Use the local variable for the token to prevent URL parsing errors
            git remote set-url origin https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/ultra-lean-html.git
