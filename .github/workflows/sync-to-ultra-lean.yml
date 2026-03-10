@@ -23,7 +23,9 @@ jobs:
 
       - name: Push to ultra-lean-html
         run: |
-          # 1. Remove the .github directory (including this workflow) from the local sync
+        
+          #1. Remove the .github directory (including this workflow) from the local sync
+        
           git rm -rf .github
           
           # 2. Commit the change locally so it's ready to push
