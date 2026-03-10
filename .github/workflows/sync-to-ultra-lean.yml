@@ -1,4 +1,4 @@
-name: Sync to muktainagar-daily
+name: Sync to ultra-lean-html
 
 on:
   push:
@@ -21,10 +21,23 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Push to muktainagar-daily
+      - name: Push to ultra-lean-html
         run: |
-          git checkout origin/main -- .github || git checkout origin/master -- .github
-          git remote set-url origin https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/muktainagar-daily.git
-          git push origin --all --force
+          # 1. Create a temporary branch for the "clean" sync
+           git checkout -b temp-sync
+          
+          # 2. Remove the .github folder from this temporary branch
+          git rm -rf .github --cached
+          # This removes it from the 'index' (the push) but doesn't delete files locally
+          
+           rm -rf .github
+          # Now it's physically gone for this session
+          
+          git commit -m "sync: update code excluding workflows"
+          
+          # 3. Push to the other repo
+          # Note: We push the local 'temp-sync' branch to the remote 'main'
+          git remote set-url origin https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/ultra-lean-html.git
+          git push origin temp-sync:main --force
         env:
           GITHUB_TOKEN: ${{ secrets.SYNC_TOKEN }}
