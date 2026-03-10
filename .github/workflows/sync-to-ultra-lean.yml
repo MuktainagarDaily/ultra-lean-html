@@ -38,6 +38,6 @@ jobs:
           # 3. Push to the other repo
           # Note: We push the local 'temp-sync' branch to the remote 'main'
           git remote set-url origin https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/ultra-lean-html.git
-          git push origin temp-sync:main --force
+          git push origin temp-sync:main
         env:
           GITHUB_TOKEN: ${{ secrets.SYNC_TOKEN }}
