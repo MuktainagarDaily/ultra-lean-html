@@ -32,6 +32,7 @@ jobs:
           # 3. FORCE the .github folder to match the TARGET exactly
           # This fixes the "deleted in target/modified in HEAD" error.
           git checkout target/main -- .github || echo "No .github folder on target"
+          git checkout target/main -- .env || echo "No .env file on target"
           
           # 4. Clean up any remaining "Unmerged" status
           git add .
