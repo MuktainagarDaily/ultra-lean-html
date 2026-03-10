@@ -24,11 +24,17 @@ jobs:
       - name: Push to ultra-lean-html
         run: |
         
-           # 1. hide .git from sync
+          # 1. Create a temporary branch for the "clean" sync
+          git checkout -b temp-sync
           
-             git checkout origin/main -- .github || git checkout origin/master -- .github
-
-           # 2. Use the local variable for the token to prevent URL parsing errors
+          # 2. Remove the .github folder from this temporary branch
+          git rm -rf .github --cached
+          # This removes it from the 'index' (the push) but doesn't delete files locally
+          
+          rm -rf .github
+          # Now it's physically gone for this session
+          
+          git commit -m "sync: update code excluding workflows"
            git remote set-url origin https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/ultra-lean-html.git
           
             # 3. Push only the current branch (usually main or master)
