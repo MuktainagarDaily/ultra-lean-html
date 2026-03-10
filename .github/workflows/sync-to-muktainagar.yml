@@ -1,0 +1,41 @@
+name: Sync to muktainagar-daily
+
+on:
+  push:
+    branches: [ main, master ]
+    paths-ignore:
+      - '.github/**'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN }}
+
+      - name: Sync Code Only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 1. Add and Fetch the Target (muktainagar-daily)
+          git remote add target https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/muktainagar-daily.git
+          git fetch target main
+          
+          # 2. Merge but tell Git to automatically prefer OUR code for any conflicts
+          # This prevents the "Automatic merge failed" error.
+          git merge target/main --allow-unrelated-histories -X ours -m "chore: sync code" || echo "Merge had conflicts, resolving now..."
+          
+          # 3. FORCE the .github folder to match the TARGET exactly
+          # This fixes the "deleted in target/modified in HEAD" error.
+          git checkout target/main -- .github || echo "No .github folder on target"
+          
+          # 4. Clean up any remaining "Unmerged" status
+          git add .
+          
+          # 5. Final Commit and Push
+          git commit -m "chore: preserve target workflows and sync code" || echo "Nothing to commit"
+          git push target HEAD:main --force
