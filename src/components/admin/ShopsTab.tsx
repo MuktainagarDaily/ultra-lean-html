@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Plus, Pencil, Trash2, Eye, EyeOff, Search, Filter, Loader2, ShieldCheck, ShieldOff, Upload, Download, ExternalLink,
+  Plus, Pencil, Trash2, Eye, EyeOff, Search, Filter, Loader2, ShieldCheck, ShieldOff, Upload, Download, ExternalLink, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -13,6 +13,7 @@ import {
 interface ShopsTabProps {
   onEdit: (shop: any) => void;
   onImport: () => void;
+  onSpeedAdd: () => void;
 }
 
 export function ShopsTab({ onEdit, onImport }: ShopsTabProps) {
