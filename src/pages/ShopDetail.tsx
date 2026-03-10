@@ -19,6 +19,7 @@ export default function ShopDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
+  const [showVerifiedInfo, setShowVerifiedInfo] = useState(false);
 
   const { data: shop, isLoading } = useQuery({
     queryKey: ['shop', id],
@@ -163,13 +164,21 @@ export default function ShopDetail() {
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl font-bold text-foreground">{shop.name}</h2>
                 {isVerified && (
-                  <span
-                    className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold"
-                    style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
-                    title="Verified by Muktainagar Daily"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5" /> Verified
-                  </span>
+                  <div className="flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowVerifiedInfo(v => !v)}
+                      className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold w-fit"
+                      style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" /> Verified
+                    </button>
+                    {showVerifiedInfo && (
+                      <p className="text-xs text-muted-foreground px-1 leading-snug">
+                        ✓ This shop is trusted and verified by Muktainagar Daily.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
               {allCats.length > 0 && (
