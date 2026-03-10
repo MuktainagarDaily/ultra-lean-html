@@ -1,8 +1,10 @@
-name: Sync to muktainagar-daily
+name: Sync to ultra-lean-html
 
 on:
   push:
     branches: [ main, master ]
+    paths-ignore:
+      - '.github/workflows/**'
   workflow_dispatch:
 
 jobs:
@@ -19,9 +21,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Push to muktainagar-daily
+      - name: Push to ultra-lean-html
         run: |
-          git remote set-url origin https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/muktainagar-daily.git
+          git remote set-url origin https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/ultra-lean-html.git
           git push origin --all --force
         env:
           GITHUB_TOKEN: ${{ secrets.SYNC_TOKEN }}
