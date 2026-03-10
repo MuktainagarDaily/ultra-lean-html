@@ -1,4 +1,4 @@
-name: Sync to muktainagar-daily
+name: Sync to ultra-lean-html
 
 on:
   push:
@@ -21,9 +21,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Push to muktainagar-daily
+      - name: Push to ultra-lean-html
         run: |
-          git remote set-url origin https://${{ secrets.SYNC_TOKEN }}@github.com/MuktainagarDaily/muktainagar-daily.git
+          # 1. Remove the .github directory (including this workflow) from the local sync
+          git rm -rf .github
+          
+          # 2. Commit the change locally so it's ready to push
+          git commit -m "chore: exclude workflows from sync"
+          
+          # 3. Push the remaining files to the target repo
+          git remote set-url origin https://${{ secrets.SYNC_TOKEN }}@://github.com
           git push origin --all --force
         env:
           GITHUB_TOKEN: ${{ secrets.SYNC_TOKEN }}
