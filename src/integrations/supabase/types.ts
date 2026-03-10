@@ -108,8 +108,10 @@ export type Database = {
           category_text: string | null
           closing_time: string | null
           created_at: string
+          description: string | null
           id: string
           image_url: string | null
+          keywords: string | null
           latitude: number | null
           longitude: number | null
           maps_link: string | null
@@ -117,6 +119,7 @@ export type Database = {
           opening_time: string | null
           phone: string
           status: string
+          sub_area: string | null
           submitter_name: string | null
           updated_at: string
           whatsapp: string | null
@@ -128,8 +131,10 @@ export type Database = {
           category_text?: string | null
           closing_time?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           image_url?: string | null
+          keywords?: string | null
           latitude?: number | null
           longitude?: number | null
           maps_link?: string | null
@@ -137,6 +142,7 @@ export type Database = {
           opening_time?: string | null
           phone: string
           status?: string
+          sub_area?: string | null
           submitter_name?: string | null
           updated_at?: string
           whatsapp?: string | null
@@ -148,8 +154,10 @@ export type Database = {
           category_text?: string | null
           closing_time?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           image_url?: string | null
+          keywords?: string | null
           latitude?: number | null
           longitude?: number | null
           maps_link?: string | null
@@ -157,6 +165,7 @@ export type Database = {
           opening_time?: string | null
           phone?: string
           status?: string
+          sub_area?: string | null
           submitter_name?: string | null
           updated_at?: string
           whatsapp?: string | null
@@ -170,16 +179,19 @@ export type Database = {
           category_id: string | null
           closing_time: string | null
           created_at: string
+          description: string | null
           id: string
           image_url: string | null
           is_active: boolean
           is_open: boolean
           is_verified: boolean
+          keywords: string | null
           latitude: number | null
           longitude: number | null
           name: string
           opening_time: string | null
           phone: string | null
+          sub_area: string | null
           updated_at: string
           whatsapp: string | null
         }
@@ -189,16 +201,19 @@ export type Database = {
           category_id?: string | null
           closing_time?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           is_open?: boolean
           is_verified?: boolean
+          keywords?: string | null
           latitude?: number | null
           longitude?: number | null
           name: string
           opening_time?: string | null
           phone?: string | null
+          sub_area?: string | null
           updated_at?: string
           whatsapp?: string | null
         }
@@ -208,16 +223,19 @@ export type Database = {
           category_id?: string | null
           closing_time?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           is_open?: boolean
           is_verified?: boolean
+          keywords?: string | null
           latitude?: number | null
           longitude?: number | null
           name?: string
           opening_time?: string | null
           phone?: string | null
+          sub_area?: string | null
           updated_at?: string
           whatsapp?: string | null
         }

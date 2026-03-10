@@ -13,6 +13,7 @@ import { DataQualityTab } from '@/components/admin/DataQualityTab';
 import { ShopModal } from '@/components/admin/ShopModal';
 import { CategoryModal } from '@/components/admin/CategoryModal';
 import { CsvImportModal } from '@/components/admin/CsvImportModal';
+import { SpeedShopModal } from '@/components/admin/SpeedShopModal';
 
 type Tab = 'shops' | 'categories' | 'analytics' | 'requests' | 'quality';
 
@@ -21,6 +22,7 @@ export default function AdminDashboard() {
   const [shopForm, setShopForm] = useState<any>(null);
   const [categoryForm, setCategoryForm] = useState<any>(null);
   const [showImport, setShowImport] = useState(false);
+  const [showSpeedForm, setShowSpeedForm] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -105,7 +107,7 @@ export default function AdminDashboard() {
         </div>
 
         {tab === 'shops' && (
-          <ShopsTab onEdit={(shop) => setShopForm(shop)} onImport={() => setShowImport(true)} />
+          <ShopsTab onEdit={(shop) => setShopForm(shop)} onImport={() => setShowImport(true)} onSpeedAdd={() => setShowSpeedForm(true)} />
         )}
         {tab === 'categories' && <CategoriesTab onEdit={(cat) => setCategoryForm(cat)} />}
         {tab === 'analytics' && <AnalyticsTab />}
