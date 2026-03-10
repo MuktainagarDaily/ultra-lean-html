@@ -19,6 +19,7 @@ export default function ShopDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
+  const [showVerifiedInfo, setShowVerifiedInfo] = useState(false);
 
   const { data: shop, isLoading } = useQuery({
     queryKey: ['shop', id],
