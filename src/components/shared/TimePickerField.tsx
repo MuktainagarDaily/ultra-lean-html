@@ -1,9 +1,10 @@
 /**
  * Shared 12-hour AM/PM time picker.
  * - value / onChange use "HH:MM" 24-hour strings (matches DB storage)
- * - User only ever sees/selects 12-hour + AM/PM — no 24-hour confusion
+ * - Internal state keeps hour/minute/ampm independently so selecting
+ *   AM/PM or hour doesn't get overwritten before the parent re-renders.
  */
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface TimePickerFieldProps {
   value: string; // "HH:MM" 24h or ""
@@ -13,18 +14,17 @@ interface TimePickerFieldProps {
   error?: string;
 }
 
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 1); // 1–12
+const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1)); // ["1".."12"]
 const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
 
 function to12h(value: string): { hour: string; minute: string; ampm: 'AM' | 'PM' } {
   if (!value) return { hour: '', minute: '', ampm: 'AM' };
   const [hStr, mStr] = value.split(':');
   let h = parseInt(hStr, 10);
-  const m = parseInt(mStr, 10);
   const ampm: 'AM' | 'PM' = h >= 12 ? 'PM' : 'AM';
   if (h === 0) h = 12;
   else if (h > 12) h = h - 12;
-  return { hour: String(h), minute: String(m).padStart(2, '0'), ampm };
+  return { hour: String(h), minute: String(parseInt(mStr, 10)).padStart(2, '0'), ampm };
 }
 
 function to24h(hour: string, minute: string, ampm: 'AM' | 'PM'): string {
@@ -32,24 +32,58 @@ function to24h(hour: string, minute: string, ampm: 'AM' | 'PM'): string {
   let h = parseInt(hour, 10);
   if (ampm === 'AM' && h === 12) h = 0;
   else if (ampm === 'PM' && h !== 12) h = h + 12;
-  return `${String(h).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  return `${String(h).padStart(2, '0')}:${minute}`;
 }
 
 const selectCls =
   'flex-1 px-2 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer appearance-none text-center';
 
 export function TimePickerField({ value, onChange, label, optional, error }: TimePickerFieldProps) {
-  const { hour, minute, ampm } = to12h(value);
+  // Internal state — independent of parent re-render timing
+  const [hour, setHour]     = useState<string>(() => to12h(value).hour);
+  const [minute, setMinute] = useState<string>(() => to12h(value).minute);
+  const [ampm, setAmpm]     = useState<'AM' | 'PM'>(() => to12h(value).ampm);
 
-  const handleChange = (field: 'hour' | 'minute' | 'ampm', val: string) => {
-    const newHour   = field === 'hour'   ? val : hour;
-    const newMinute = field === 'minute' ? val : minute;
-    const newAmpm   = field === 'ampm'   ? (val as 'AM' | 'PM') : ampm;
-    if (!newHour || !newMinute) { onChange(''); return; }
-    onChange(to24h(newHour, newMinute, newAmpm));
+  // Sync inward when parent resets the value to '' (e.g. user clicks Clear)
+  useEffect(() => {
+    if (!value) {
+      setHour(''); setMinute(''); setAmpm('AM');
+    } else {
+      const parsed = to12h(value);
+      setHour(parsed.hour);
+      setMinute(parsed.minute);
+      setAmpm(parsed.ampm);
+    }
+    // Only sync when the external value changes (don't override internal mid-edit)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const emit = (h: string, m: string, ap: 'AM' | 'PM') => {
+    if (!h || !m) { onChange(''); return; }
+    onChange(to24h(h, m, ap));
   };
 
-  const clear = () => onChange('');
+  const handleHour = (val: string) => {
+    setHour(val);
+    emit(val, minute, ampm);
+  };
+
+  const handleMinute = (val: string) => {
+    setMinute(val);
+    emit(hour, val, ampm);
+  };
+
+  const handleAmpm = (val: 'AM' | 'PM') => {
+    setAmpm(val);
+    emit(hour, minute, val);
+  };
+
+  const clear = () => {
+    setHour(''); setMinute(''); setAmpm('AM');
+    onChange('');
+  };
+
+  const hasValue = !!(hour && minute);
 
   return (
     <div>
@@ -63,13 +97,13 @@ export function TimePickerField({ value, onChange, label, optional, error }: Tim
         {/* Hour */}
         <select
           value={hour}
-          onChange={(e) => handleChange('hour', e.target.value)}
+          onChange={(e) => handleHour(e.target.value)}
           className={selectCls + (error ? ' border-destructive' : '')}
           aria-label="Hour"
         >
           <option value="">Hr</option>
           {HOURS.map((h) => (
-            <option key={h} value={String(h)}>{String(h).padStart(2, '0')}</option>
+            <option key={h} value={h}>{h.padStart(2, '0')}</option>
           ))}
         </select>
 
@@ -78,7 +112,7 @@ export function TimePickerField({ value, onChange, label, optional, error }: Tim
         {/* Minute */}
         <select
           value={minute}
-          onChange={(e) => handleChange('minute', e.target.value)}
+          onChange={(e) => handleMinute(e.target.value)}
           className={selectCls + (error ? ' border-destructive' : '')}
           aria-label="Minute"
         >
@@ -91,7 +125,7 @@ export function TimePickerField({ value, onChange, label, optional, error }: Tim
         {/* AM / PM */}
         <select
           value={ampm}
-          onChange={(e) => handleChange('ampm', e.target.value)}
+          onChange={(e) => handleAmpm(e.target.value as 'AM' | 'PM')}
           className={selectCls + (error ? ' border-destructive' : '') + ' max-w-[64px]'}
           aria-label="AM or PM"
         >
@@ -100,7 +134,7 @@ export function TimePickerField({ value, onChange, label, optional, error }: Tim
         </select>
 
         {/* Clear */}
-        {value && (
+        {hasValue && (
           <button
             type="button"
             onClick={clear}
