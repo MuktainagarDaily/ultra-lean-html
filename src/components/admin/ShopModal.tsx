@@ -244,10 +244,8 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
     }
 
     toast.success(isEdit ? 'Shop updated!' : 'Shop added!');
-    if (isEdit && oldImageUrl.current && oldImageUrl.current !== form.image_url) {
-      const path = extractStoragePath(oldImageUrl.current);
-      if (path) await supabase.storage.from('shop-images').remove([path]);
-    }
+    // Old image is already deleted on crop upload — just update the ref
+    oldImageUrl.current = form.image_url || '';
     onSaved();
     setSaving(false);
   };
