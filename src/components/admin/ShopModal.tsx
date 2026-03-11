@@ -182,18 +182,23 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
     const compressed = await compressImage(blob as unknown as File);
     const path = `shop-${Date.now()}.webp`;
     const { error } = await supabase.storage.from('shop-images').upload(path, compressed, { upsert: true, contentType: 'image/webp' });
-    if (error) { toast.error('Image upload failed'); }
-    else {
-      const { data } = supabase.storage.from('shop-images').getPublicUrl(path);
-      setForm((f) => ({ ...f, image_url: data.publicUrl }));
-      toast.success('Image ready');
+    if (error) { toast.error('Image upload failed'); setUploading(false); return; }
+    const { data } = supabase.storage.from('shop-images').getPublicUrl(path);
+    // Delete the old image if replacing
+    if (oldImageUrl.current && oldImageUrl.current !== data.publicUrl) {
+      const oldPath = extractStoragePath(oldImageUrl.current);
+      if (oldPath) await supabase.storage.from('shop-images').remove([oldPath]);
     }
+    setForm((f) => ({ ...f, image_url: data.publicUrl }));
+    setCropPreview(''); // clear local preview — use the real URL
+    toast.success('Image uploaded ✓');
     setUploading(false);
   };
 
   const handleCropClear = () => {
     setCroppedBlob(null); setCropPreview('');
-    setForm((f) => ({ ...f, image_url: '' }));
+    // Restore original image URL on clear (don't wipe it unless user explicitly cleared)
+    setForm((f) => ({ ...f, image_url: oldImageUrl.current || '' }));
   };
 
   /* ── Save ───────────────────────────────────────────────────── */
