@@ -457,15 +457,12 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
             {/* Image */}
             <Field label="Shop Image">
               <ImageCropPicker
-                previewUrl={form.image_url && !cropPreview ? form.image_url : undefined}
+                previewUrl={form.image_url || undefined}
                 onCropComplete={handleCropComplete}
                 onClear={handleCropClear}
                 uploading={uploading}
                 maxMB={10}
               />
-              {cropPreview && !form.image_url && (
-                <img src={cropPreview} alt="Crop preview" className="mt-2 w-full h-32 object-cover rounded-xl border border-border" />
-              )}
               {uploading && <p className="text-xs text-primary mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Uploading…</p>}
             </Field>
 
