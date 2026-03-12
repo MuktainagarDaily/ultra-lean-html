@@ -65,6 +65,11 @@ export default function Shops() {
     return () => clearTimeout(t);
   }, [localSearch]);
 
+  // Reset page whenever filters or search change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, availability, selectedAreas, selectedCategories, verifiedOnly]);
+
   useEffect(() => {
     if (debouncedSearch) {
       document.title = `"${debouncedSearch}" — Muktainagar Daily`;
