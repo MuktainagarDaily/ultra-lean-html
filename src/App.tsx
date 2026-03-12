@@ -35,6 +35,23 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function CategoryRedirect() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!id) { navigate('/shops', { replace: true }); return; }
+    supabase.from('categories').select('name').eq('id', id).single().then(({ data }) => {
+      if (data?.name) navigate(`/shops?category=${encodeURIComponent(data.name)}`, { replace: true });
+      else navigate('/shops', { replace: true });
+    });
+  }, [id, navigate]);
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground text-sm">
+      Loading…
+    </div>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -45,7 +62,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/shops" element={<Shops />} />
-            <Route path="/category/:id" element={<CategoryPage />} />
+            <Route path="/category/:id" element={<CategoryRedirect />} />
             <Route path="/shop/:id" element={<ShopDetail />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
@@ -56,5 +73,3 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
 );
-
-export default App;
