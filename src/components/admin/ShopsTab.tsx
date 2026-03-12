@@ -101,7 +101,11 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
   });
 
   const exportCsv = useCallback(() => {
-    const headers = ['Name', 'Phone', 'WhatsApp', 'Area', 'Address', 'Categories', 'Active', 'Verified'];
+    const headers = [
+      'name', 'phone', 'whatsapp', 'area', 'sub_area', 'address',
+      'description', 'keywords', 'opening_time', 'closing_time',
+      'latitude', 'longitude', 'category', 'is_active', 'is_verified', 'is_open',
+    ];
     const rows = filtered.map((s: any) => {
       const cats = (s.shop_categories || [])
         .map((sc: any) => sc.categories?.name)
@@ -109,7 +113,13 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
         .join(' | ');
       return [
         s.name ?? '', s.phone ?? '', s.whatsapp ?? '', s.area ?? '',
-        s.address ?? '', cats, s.is_active ? 'Yes' : 'No', s.is_verified ? 'Yes' : 'No',
+        s.sub_area ?? '', s.address ?? '', s.description ?? '', s.keywords ?? '',
+        s.opening_time ?? '', s.closing_time ?? '',
+        s.latitude ?? '', s.longitude ?? '',
+        cats,
+        s.is_active ? 'true' : 'false',
+        s.is_verified ? 'true' : 'false',
+        s.is_open ? 'true' : 'false',
       ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',');
     });
     const csv = [headers.join(','), ...rows].join('\r\n');

@@ -9,6 +9,7 @@ import { normalizeWhatsApp, isValidPhone } from './adminHelpers';
 type ImportRowStatus = 'ready' | 'warning' | 'error' | 'duplicate';
 interface ImportRow {
   name: string; phone: string; whatsapp: string; address: string; area: string;
+  sub_area: string; description: string; keywords: string;
   category: string; opening_time: string; closing_time: string; latitude: string;
   longitude: string; is_active: string; is_verified: string;
   status: ImportRowStatus; messages: string[]; resolvedCategoryId: string | null;
@@ -41,8 +42,8 @@ function parseCsv(text: string): Record<string, string>[] {
     headers.forEach((h, i) => { obj[h] = (vals[i] ?? '').trim(); }); return obj;
   });
 }
-const CSV_TEMPLATE_HEADERS = ['name','phone','whatsapp','address','area','category','opening_time','closing_time','latitude','longitude','is_active','is_verified'];
-const CSV_TEMPLATE_EXAMPLE = ['Sharma General Store','9876543210','9876543210','Near Bus Stand Station Road','Main Road','Grocery','09:00','21:00','21.0325','75.6920','true','false'];
+const CSV_TEMPLATE_HEADERS = ['name','phone','whatsapp','address','area','sub_area','description','keywords','category','opening_time','closing_time','latitude','longitude','is_active','is_verified'];
+const CSV_TEMPLATE_EXAMPLE = ['Sharma General Store','9876543210','9876543210','Near Bus Stand Station Road','Main Road','Main Bazaar','General merchandise and daily needs','grocery store daily needs','Grocery','09:00','21:00','21.0325','75.6920','true','false'];
 function downloadTemplate() {
   const rows = [CSV_TEMPLATE_HEADERS.join(','), CSV_TEMPLATE_EXAMPLE.join(',')].join('\n');
   const blob = new Blob([rows], { type: 'text/csv' });
@@ -76,7 +77,9 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
     const processed: ImportRow[] = rawRows.map((raw) => {
       const name = (raw['name'] || '').trim(); const phone = (raw['phone'] || '').trim();
       const whatsapp = (raw['whatsapp'] || '').trim(); const address = (raw['address'] || '').trim();
-      const area = (raw['area'] || '').trim(); const category = (raw['category'] || '').trim();
+      const area = (raw['area'] || '').trim(); const sub_area = (raw['sub_area'] || '').trim();
+      const description = (raw['description'] || '').trim(); const keywords = (raw['keywords'] || '').trim();
+      const category = (raw['category'] || '').trim();
       const opening_time = (raw['opening_time'] || '').trim(); const closing_time = (raw['closing_time'] || '').trim();
       const latitude = (raw['latitude'] || '').trim(); const longitude = (raw['longitude'] || '').trim();
       const is_active = (raw['is_active'] || '').trim(); const is_verified = (raw['is_verified'] || '').trim();
@@ -100,7 +103,7 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
         if (!resolvedCategoryId && status !== 'error' && status !== 'duplicate') { messages.push(`Category "${category}" not found — will import without category`); status = 'warning'; }
       }
       if (status === 'ready' && messages.length === 0) messages.push('Ready to import');
-      return { name, phone, whatsapp, address, area, category, opening_time, closing_time, latitude, longitude, is_active, is_verified, status, messages, resolvedCategoryId };
+      return { name, phone, whatsapp, address, area, sub_area, description, keywords, category, opening_time, closing_time, latitude, longitude, is_active, is_verified, status, messages, resolvedCategoryId };
     });
     setRows(processed); setParsing(false); setStep('preview');
     if (fileRef.current) fileRef.current.value = '';
@@ -122,7 +125,7 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
   const handleImport = async () => {
     setImporting(true); let imported = 0; let importedWithWarnings = 0; let failedInserts = 0;
     for (const row of importableRows) {
-      const payload: any = { name: row.name, phone: row.phone || null, whatsapp: row.whatsapp ? normalizeWhatsApp(row.whatsapp) : null, address: row.address || null, area: row.area ? normalizeArea(row.area) : null, opening_time: row.opening_time || null, closing_time: row.closing_time || null, latitude: row.latitude ? parseFloat(row.latitude) : null, longitude: row.longitude ? parseFloat(row.longitude) : null, is_active: row.is_active !== '' ? row.is_active.toLowerCase() === 'true' : true, is_verified: row.is_verified !== '' ? row.is_verified.toLowerCase() === 'true' : false, is_open: true };
+      const payload: any = { name: row.name, phone: row.phone || null, whatsapp: row.whatsapp ? normalizeWhatsApp(row.whatsapp) : null, address: row.address || null, area: row.area ? normalizeArea(row.area) : null, sub_area: row.sub_area || null, description: row.description || null, keywords: row.keywords || null, opening_time: row.opening_time || null, closing_time: row.closing_time || null, latitude: row.latitude ? parseFloat(row.latitude) : null, longitude: row.longitude ? parseFloat(row.longitude) : null, is_active: row.is_active !== '' ? row.is_active.toLowerCase() === 'true' : true, is_verified: row.is_verified !== '' ? row.is_verified.toLowerCase() === 'true' : false, is_open: true };
       const { data: inserted, error: insertErr } = await supabase.from('shops').insert(payload).select('id').single();
       if (insertErr || !inserted) { failedInserts++; continue; }
       if (row.resolvedCategoryId) await supabase.from('shop_categories').insert({ shop_id: inserted.id, category_id: row.resolvedCategoryId });

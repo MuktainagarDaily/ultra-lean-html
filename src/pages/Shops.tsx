@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/drawer';
 
 type AvailabilityFilter = 'all' | 'open' | 'closed';
+const PAGE_SIZE = 10;
 
 function ShopSkeleton() {
   return (
@@ -40,14 +41,18 @@ export default function Shops() {
   const qc = useQueryClient();
   const initialSearch = searchParams.get('search') || '';
   const filterParam = searchParams.get('filter');
+  const categoryParam = searchParams.get('category') || '';
   const [localSearch, setLocalSearch] = useState(initialSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
   const [availability, setAvailability] = useState<AvailabilityFilter>(filterParam === 'open' ? 'open' : 'all');
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    categoryParam ? [categoryParam] : []
+  );
   const [verifiedOnly, setVerifiedOnly] = useState(filterParam === 'verified');
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [filterOpen, setFilterOpen] = useState(false);
+  const [page, setPage] = useState(1);
 
   // Temporary state inside the sheet (applied on "Show Results")
   const [sheetAvailability, setSheetAvailability] = useState<AvailabilityFilter>('all');
@@ -59,6 +64,11 @@ export default function Shops() {
     const t = setTimeout(() => setDebouncedSearch(localSearch), 300);
     return () => clearTimeout(t);
   }, [localSearch]);
+
+  // Reset page whenever filters or search change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, availability, selectedAreas, selectedCategories, verifiedOnly]);
 
   useEffect(() => {
     if (debouncedSearch) {
@@ -152,6 +162,10 @@ export default function Shops() {
     [shops, availability, selectedAreas, selectedCategories, verifiedOnly, applyFilters]
   );
 
+  // In-memory pagination — no extra network calls needed
+  const pagedShops = useMemo(() => filteredShops.slice(0, page * PAGE_SIZE), [filteredShops, page]);
+  const hasMore = pagedShops.length < filteredShops.length;
+
   // Preview count while sheet is open
   const sheetPreviewCount = useMemo(() =>
     (shops as any[]).filter((s) => applyFilters(s, sheetAvailability, sheetAreas, sheetCategories, sheetVerifiedOnly)).length,
@@ -211,7 +225,7 @@ export default function Shops() {
             <div className="min-w-0 flex-1">
               <h1 className="font-bold text-lg leading-tight truncate">{title}</h1>
               <p className="text-primary-foreground/70 text-xs">
-                {isLoading ? 'Loading...' : `${filteredShops.length} shops • ${openCount} open now`}
+                {isLoading ? 'Loading...' : `${pagedShops.length} of ${filteredShops.length} shops • ${openCount} open now`}
               </p>
             </div>
             <button
@@ -426,10 +440,24 @@ export default function Shops() {
         ) : (
           <>
             <div className="space-y-3">
-              {filteredShops.map((shop: any) => (
+              {pagedShops.map((shop: any) => (
                 <ShopCard key={shop.id} shop={shop as any} />
               ))}
             </div>
+            {hasMore && (
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                className="w-full mt-4 py-3 rounded-xl border font-semibold text-sm transition-colors active:scale-[0.98]"
+                style={{ borderColor: 'hsl(var(--primary) / 0.3)', color: 'hsl(var(--primary))' }}
+              >
+                Load more ({filteredShops.length - pagedShops.length} remaining)
+              </button>
+            )}
+            {!hasMore && filteredShops.length > PAGE_SIZE && (
+              <p className="text-center text-xs text-muted-foreground mt-4">
+                All {filteredShops.length} shops shown
+              </p>
+            )}
             <p className="text-center text-xs text-muted-foreground mt-6 flex items-center justify-center gap-1">
               <Clock className="w-3 h-3" />
               Open/closed status auto-refreshes every minute

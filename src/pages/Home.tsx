@@ -114,6 +114,8 @@ export default function Home() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [catPage, setCatPage] = useState(1);
+  const CATS_PER_PAGE = 6;
 
   // Applied filter state
   const [availability, setAvailability] = useState<AvailabilityFilter>('all');
@@ -175,6 +177,12 @@ export default function Home() {
     }),
     [categories, catShopCounts]
   );
+
+  const visibleCategories = useMemo(
+    () => sortedCategories.slice(0, catPage * CATS_PER_PAGE),
+    [sortedCategories, catPage, CATS_PER_PAGE]
+  );
+  const hasMoreCats = sortedCategories.length > catPage * CATS_PER_PAGE;
 
   const recentShops = useMemo(
     () =>
@@ -486,36 +494,47 @@ export default function Home() {
           ) : sortedCategories.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">No categories yet.</div>
           ) : (
-            <div className="grid grid-cols-3 gap-2.5">
-              {sortedCategories.map((cat) => {
-                const count = catShopCounts[cat.id] || 0;
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => navigate(`/category/${cat.id}`)}
-                    className="group relative flex flex-col items-center gap-1.5 bg-card rounded-xl p-2.5 sm:p-3 border border-border hover:border-primary hover:shadow-md transition-all active:scale-95"
-                  >
-                    {count > 0 && (
-                      <span
-                        className="absolute top-1.5 right-1.5 text-[9px] sm:text-[10px] font-bold px-1 sm:px-1.5 py-0.5 rounded-full leading-none"
-                        style={{ background: 'hsl(var(--secondary))', color: 'hsl(var(--secondary-foreground))' }}
-                      >
-                        {count}
-                      </span>
-                    )}
-                    <div
-                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl shadow-sm group-hover:scale-110 transition-transform"
-                      style={{ background: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--primary) / 0.06))' }}
+            <>
+              <div className="grid grid-cols-3 gap-2.5">
+                {visibleCategories.map((cat) => {
+                  const count = catShopCounts[cat.id] || 0;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => navigate(`/shops?category=${encodeURIComponent(cat.name)}`)}
+                      className="group relative flex flex-col items-center gap-1.5 bg-card rounded-xl p-2.5 sm:p-3 border border-border hover:border-primary hover:shadow-md transition-all active:scale-95"
                     >
-                      {cat.icon}
-                    </div>
-                    <span className="text-[10px] sm:text-xs font-semibold text-foreground text-center leading-tight line-clamp-2 w-full">
-                      {cat.name}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                      {count > 0 && (
+                        <span
+                          className="absolute top-1.5 right-1.5 text-[9px] sm:text-[10px] font-bold px-1 sm:px-1.5 py-0.5 rounded-full leading-none"
+                          style={{ background: 'hsl(var(--secondary))', color: 'hsl(var(--secondary-foreground))' }}
+                        >
+                          {count}
+                        </span>
+                      )}
+                      <div
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl shadow-sm group-hover:scale-110 transition-transform"
+                        style={{ background: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--primary) / 0.06))' }}
+                      >
+                        {cat.icon}
+                      </div>
+                      <span className="text-[10px] sm:text-xs font-semibold text-foreground text-center leading-tight line-clamp-2 w-full">
+                        {cat.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {hasMoreCats && (
+                <button
+                  onClick={() => setCatPage((p) => p + 1)}
+                  className="w-full mt-3 py-2.5 rounded-xl border font-semibold text-sm transition-colors hover:bg-muted/50 active:scale-[0.98]"
+                  style={{ borderColor: 'hsl(var(--border))', color: 'hsl(var(--primary))' }}
+                >
+                  View more ({sortedCategories.length - visibleCategories.length} more categories)
+                </button>
+              )}
+            </>
           )}
         </section>
 
