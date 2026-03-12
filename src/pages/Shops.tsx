@@ -162,6 +162,10 @@ export default function Shops() {
     [shops, availability, selectedAreas, selectedCategories, verifiedOnly, applyFilters]
   );
 
+  // In-memory pagination — no extra network calls needed
+  const pagedShops = useMemo(() => filteredShops.slice(0, page * PAGE_SIZE), [filteredShops, page]);
+  const hasMore = pagedShops.length < filteredShops.length;
+
   // Preview count while sheet is open
   const sheetPreviewCount = useMemo(() =>
     (shops as any[]).filter((s) => applyFilters(s, sheetAvailability, sheetAreas, sheetCategories, sheetVerifiedOnly)).length,
