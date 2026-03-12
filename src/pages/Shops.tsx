@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/drawer';
 
 type AvailabilityFilter = 'all' | 'open' | 'closed';
+const PAGE_SIZE = 10;
 
 function ShopSkeleton() {
   return (
