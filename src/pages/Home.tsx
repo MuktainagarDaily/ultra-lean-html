@@ -278,10 +278,16 @@ export default function Home() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (search.trim()) {
-      navigate(`/shops?search=${encodeURIComponent(search.trim())}`);
+    const q = search.trim();
+    if (!q) { navigate('/shops'); return; }
+    // If query exactly matches a category name (case-insensitive), filter by category
+    const matchedCat = categories.find(
+      (c) => c.name.toLowerCase() === q.toLowerCase()
+    );
+    if (matchedCat) {
+      navigate(`/shops?category=${encodeURIComponent(matchedCat.name)}`);
     } else {
-      navigate('/shops');
+      navigate(`/shops?search=${encodeURIComponent(q)}`);
     }
   };
 
