@@ -41,14 +41,18 @@ export default function Shops() {
   const qc = useQueryClient();
   const initialSearch = searchParams.get('search') || '';
   const filterParam = searchParams.get('filter');
+  const categoryParam = searchParams.get('category') || '';
   const [localSearch, setLocalSearch] = useState(initialSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
   const [availability, setAvailability] = useState<AvailabilityFilter>(filterParam === 'open' ? 'open' : 'all');
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    categoryParam ? [categoryParam] : []
+  );
   const [verifiedOnly, setVerifiedOnly] = useState(filterParam === 'verified');
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [filterOpen, setFilterOpen] = useState(false);
+  const [page, setPage] = useState(1);
 
   // Temporary state inside the sheet (applied on "Show Results")
   const [sheetAvailability, setSheetAvailability] = useState<AvailabilityFilter>('all');
