@@ -9,6 +9,7 @@ import { normalizeWhatsApp, isValidPhone } from './adminHelpers';
 type ImportRowStatus = 'ready' | 'warning' | 'error' | 'duplicate';
 interface ImportRow {
   name: string; phone: string; whatsapp: string; address: string; area: string;
+  sub_area: string; description: string; keywords: string;
   category: string; opening_time: string; closing_time: string; latitude: string;
   longitude: string; is_active: string; is_verified: string;
   status: ImportRowStatus; messages: string[]; resolvedCategoryId: string | null;
