@@ -114,6 +114,8 @@ export default function Home() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [catPage, setCatPage] = useState(1);
+  const CATS_PER_PAGE = 6;
 
   // Applied filter state
   const [availability, setAvailability] = useState<AvailabilityFilter>('all');
