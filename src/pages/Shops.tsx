@@ -440,10 +440,24 @@ export default function Shops() {
         ) : (
           <>
             <div className="space-y-3">
-              {filteredShops.map((shop: any) => (
+              {pagedShops.map((shop: any) => (
                 <ShopCard key={shop.id} shop={shop as any} />
               ))}
             </div>
+            {hasMore && (
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                className="w-full mt-4 py-3 rounded-xl border font-semibold text-sm transition-colors active:scale-[0.98]"
+                style={{ borderColor: 'hsl(var(--primary) / 0.3)', color: 'hsl(var(--primary))' }}
+              >
+                Load more ({filteredShops.length - pagedShops.length} remaining)
+              </button>
+            )}
+            {!hasMore && filteredShops.length > PAGE_SIZE && (
+              <p className="text-center text-xs text-muted-foreground mt-4">
+                All {filteredShops.length} shops shown
+              </p>
+            )}
             <p className="text-center text-xs text-muted-foreground mt-6 flex items-center justify-center gap-1">
               <Clock className="w-3 h-3" />
               Open/closed status auto-refreshes every minute
