@@ -178,6 +178,12 @@ export default function Home() {
     [categories, catShopCounts]
   );
 
+  const visibleCategories = useMemo(
+    () => sortedCategories.slice(0, catPage * CATS_PER_PAGE),
+    [sortedCategories, catPage, CATS_PER_PAGE]
+  );
+  const hasMoreCats = sortedCategories.length > catPage * CATS_PER_PAGE;
+
   const recentShops = useMemo(
     () =>
       [...(shops as any[])]
