@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, TrendingUp, Store, Star, Phone, Plus, ShieldCheck, SlidersHorizontal, X } from 'lucide-react';
+import { Search, MapPin, TrendingUp, Store, Star, Phone, Plus, ShieldCheck, SlidersHorizontal, X, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { isShopOpen } from '@/lib/shopUtils';
@@ -109,6 +109,34 @@ function CompactShopCard({ shop }: { shop: any }) {
   );
 }
 
+/** Sub-category placeholder row — UI foundation only, no data yet */
+function SubCategoryRow() {
+  const placeholders = ['All', 'Sub A', 'Sub B', 'Sub C'];
+  return (
+    <div className="mt-2 ml-2 pl-3 border-l-2 border-primary/20">
+      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Sub-categories</p>
+      <div className="flex flex-wrap gap-1.5">
+        {placeholders.map((label, i) => (
+          <span
+            key={label}
+            title="Coming soon"
+            className={`px-2.5 py-1 rounded-full text-xs border font-medium select-none cursor-not-allowed opacity-50 ${
+              i === 0
+                ? 'bg-primary/10 border-primary/30 text-primary'
+                : 'bg-muted border-border text-muted-foreground'
+            }`}
+          >
+            {label}
+          </span>
+        ))}
+        <span className="px-2 py-1 rounded-full text-[10px] font-semibold border border-dashed border-muted-foreground/30 text-muted-foreground/60 select-none">
+          + Coming soon
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [search, setSearch] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
@@ -131,6 +159,7 @@ export default function Home() {
 
   const navigate = useNavigate();
   const searchRef = useRef<HTMLInputElement>(null);
+  const categorySectionRef = useRef<HTMLElement>(null);
 
   const { data: categories = [], isLoading: catsLoading } = useQuery({
     queryKey: ['categories'],
@@ -291,6 +320,10 @@ export default function Home() {
     }
   };
 
+  const scrollToCategories = () => {
+    categorySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const availabilityLabel: Record<AvailabilityFilter, string> = {
     all: 'All Shops', open: 'Open Now', closed: 'Closed Now',
   };
@@ -438,18 +471,31 @@ export default function Home() {
             )}
           </div>
 
-          {/* Stats Row */}
+          {/* Stats Row — clickable pills */}
           {shops.length > 0 && (
             <div className="flex items-center justify-center gap-1.5 flex-wrap">
-              <StatPill icon={<Store className="w-3 h-3" />} label={`${shops.length} Shops`} />
+              <StatPill
+                icon={<Store className="w-3 h-3" />}
+                label={`${shops.length} Shops`}
+                onClick={() => navigate('/shops')}
+              />
               <StatPill
                 icon={<span className="w-1.5 h-1.5 rounded-full animate-pulse-open shrink-0" style={{ background: 'hsl(var(--success))' }} />}
                 label={`${openNowCount} Open Now`}
                 highlight
+                onClick={() => navigate('/shops?filter=open')}
               />
-              <StatPill icon={<TrendingUp className="w-3 h-3" />} label={`${categories.length} Categories`} />
+              <StatPill
+                icon={<TrendingUp className="w-3 h-3" />}
+                label={`${categories.length} Categories`}
+                onClick={scrollToCategories}
+              />
               {verifiedCount > 0 && (
-                <StatPill icon={<ShieldCheck className="w-3 h-3" />} label={`${verifiedCount} Verified`} />
+                <StatPill
+                  icon={<ShieldCheck className="w-3 h-3" />}
+                  label={`${verifiedCount} Verified`}
+                  onClick={() => navigate('/shops?filter=verified')}
+                />
               )}
             </div>
           )}
@@ -461,15 +507,23 @@ export default function Home() {
         className="py-2.5 px-4 flex items-center justify-start sm:justify-center gap-3 sm:gap-4 border-b border-border text-xs font-medium text-muted-foreground overflow-x-auto scrollbar-none"
         style={{ background: 'hsl(var(--primary) / 0.03)' }}
       >
-        <span className="flex items-center gap-1.5 shrink-0">
+        <button
+          onClick={() => navigate('/shops')}
+          className="flex items-center gap-1.5 shrink-0 hover:text-primary transition-colors group"
+        >
           <Phone className="w-3 h-3 text-primary shrink-0" />
           Direct calls
-        </span>
+          <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity -ml-0.5" />
+        </button>
         <span className="w-px h-3 bg-border shrink-0" />
-        <span className="flex items-center gap-1.5 shrink-0">
+        <button
+          onClick={() => navigate('/shops?filter=verified')}
+          className="flex items-center gap-1.5 shrink-0 hover:text-primary transition-colors group"
+        >
           <ShieldCheck className="w-3 h-3 text-primary shrink-0" />
           {verifiedCount > 0 ? `${verifiedCount} verified listings` : 'Verified listings'}
-        </span>
+          <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity -ml-0.5" />
+        </button>
         <span className="w-px h-3 bg-border shrink-0" />
         <span className="flex items-center gap-1.5 shrink-0">
           <MapPin className="w-3 h-3 text-primary shrink-0" />
@@ -483,8 +537,23 @@ export default function Home() {
       </div>
 
       <main className="max-w-lg mx-auto px-3 sm:px-4 py-5 pb-28">
-        {/* Categories */}
-        <section>
+        {/* Recently Added — now FIRST */}
+        {recentShops.length >= 3 && (
+          <section className="mb-5">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm leading-none">🆕</span>
+              <h2 className="text-base sm:text-lg font-bold text-foreground">Recently Added</h2>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
+              {recentShops.map((shop) => (
+                <CompactShopCard key={shop.id} shop={shop} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Browse by Category — now SECOND */}
+        <section ref={categorySectionRef}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base sm:text-lg font-bold text-foreground">Browse by Category</h2>
             <button
@@ -543,21 +612,6 @@ export default function Home() {
             </>
           )}
         </section>
-
-        {/* Recently Added */}
-        {recentShops.length >= 3 && (
-          <section className="mt-5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm leading-none">🆕</span>
-              <h2 className="text-base sm:text-lg font-bold text-foreground">Recently Added</h2>
-            </div>
-            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
-              {recentShops.map((shop) => (
-                <CompactShopCard key={shop.id} shop={shop} />
-              ))}
-            </div>
-          </section>
-        )}
 
         {/* All Shops CTA */}
         <section className="mt-5">
@@ -692,7 +746,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* Category */}
+            {/* Category — with sub-category placeholder row */}
             {categoryOptions.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2.5">
@@ -712,17 +766,20 @@ export default function Home() {
                   {categoryOptions.map((cat) => {
                     const active = sheetCategories.includes(cat.name);
                     return (
-                      <button
-                        key={cat.name}
-                        onClick={() => toggleSheetCategory(cat.name)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm border transition-all font-medium ${
-                          active
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'bg-card text-foreground border-border hover:border-primary/40'
-                        }`}
-                      >
-                        {cat.icon} {cat.name}
-                      </button>
+                      <div key={cat.name} className="w-full">
+                        <button
+                          onClick={() => toggleSheetCategory(cat.name)}
+                          className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm border transition-all font-medium ${
+                            active
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-card text-foreground border-border hover:border-primary/40'
+                          }`}
+                        >
+                          {cat.icon} {cat.name}
+                        </button>
+                        {/* Sub-category placeholder — shown when category is selected */}
+                        {active && <SubCategoryRow />}
+                      </div>
                     );
                   })}
                 </div>
@@ -768,11 +825,38 @@ export default function Home() {
   );
 }
 
-function StatPill({ icon, label, highlight }: { icon: React.ReactNode; label: string; highlight?: boolean }) {
+function StatPill({
+  icon,
+  label,
+  highlight,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  highlight?: boolean;
+  onClick?: () => void;
+}) {
+  const base = `flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-semibold shrink-0 transition-all ${
+    highlight
+      ? 'bg-success/20 text-success border border-success/30'
+      : 'bg-primary-foreground/15 text-primary-foreground'
+  }`;
+
+  if (onClick) {
+    return (
+      <button
+        onClick={onClick}
+        className={`${base} hover:bg-primary-foreground/25 active:scale-95 cursor-pointer`}
+      >
+        {icon}
+        <span>{label}</span>
+        <ChevronRight className="w-2.5 h-2.5 opacity-60" />
+      </button>
+    );
+  }
+
   return (
-    <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-semibold shrink-0 ${
-      highlight ? 'bg-success/20 text-success border border-success/30' : 'bg-primary-foreground/15'
-    }`}>
+    <div className={base}>
       {icon}
       <span>{label}</span>
     </div>
