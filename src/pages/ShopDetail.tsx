@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Phone, MessageCircle, ArrowLeft, MapPin, Clock, Tag, Navigation, Share2, ShieldCheck } from 'lucide-react';
+import { Phone, MessageCircle, ArrowLeft, MapPin, Clock, Tag, Share2, ShieldCheck, Navigation } from 'lucide-react';
 import { formatTime, isShopOpen } from '@/lib/shopUtils';
 import { toast } from 'sonner';
 
@@ -19,7 +19,6 @@ export default function ShopDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
-  const [showVerifiedInfo, setShowVerifiedInfo] = useState(false);
 
   const { data: shop, isLoading } = useQuery({
     queryKey: ['shop', id],
@@ -110,7 +109,6 @@ export default function ShopDetail() {
     : null;
 
   // Normalize WhatsApp number for wa.me (digits only, with 91 country code)
-  // Handles: 10-digit → add 91 prefix; 12-digit with 91 already → leave as-is; anything else → use as-is
   const waNumber = shop.whatsapp
     ? (() => {
         let n = shop.whatsapp.replace(/\D/g, '');
@@ -121,6 +119,10 @@ export default function ShopDetail() {
     : null;
 
   const isVerified = (shop as any).is_verified;
+
+  // Count visible action buttons to determine grid columns
+  const actionCount = [shop.phone, waNumber, mapsUrl, true /* share always shown */].filter(Boolean).length;
+  const gridCols = actionCount === 4 ? 'grid-cols-4' : actionCount === 3 ? 'grid-cols-3' : actionCount === 2 ? 'grid-cols-2' : 'grid-cols-1';
 
   return (
     <div className="min-h-screen bg-background">
@@ -143,7 +145,8 @@ export default function ShopDetail() {
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-5 space-y-4 pb-28">
+      {/* Extra bottom padding to clear the sticky action bar */}
+      <main className="max-w-lg mx-auto px-4 py-5 space-y-4 pb-32">
         {/* Shop Image — graceful fallback on broken URL */}
         {shop.image_url && !imgError && (
           <div className="rounded-xl overflow-hidden border border-border shadow-sm">
@@ -163,51 +166,80 @@ export default function ShopDetail() {
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl font-bold text-foreground">{shop.name}</h2>
+
+                {/* Verified badge — CSS tooltip on hover/focus */}
                 {isVerified && (
-                  <div className="flex flex-col gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setShowVerifiedInfo(v => !v)}
-                      className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold w-fit"
+                  <div className="relative group">
+                    <span
+                      className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold cursor-default select-none"
                       style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
                     >
                       <ShieldCheck className="w-3.5 h-3.5" /> Verified
-                    </button>
-                    {showVerifiedInfo && (
-                      <p className="text-xs text-muted-foreground px-1 leading-snug">
-                        ✓ This shop is trusted and verified by Muktainagar Daily.
-                      </p>
-                    )}
+                    </span>
+                    {/* Tooltip */}
+                    <div
+                      className="absolute left-0 top-full mt-1.5 z-20 w-max max-w-[200px] rounded-lg px-2.5 py-1.5 text-xs font-medium shadow-md pointer-events-none
+                                 invisible opacity-0 translate-y-1
+                                 group-hover:visible group-hover:opacity-100 group-hover:translate-y-0
+                                 transition-all duration-150"
+                      style={{
+                        background: 'hsl(var(--primary))',
+                        color: 'hsl(var(--primary-foreground))',
+                      }}
+                    >
+                      ✓ Verified by Muktainagar Daily
+                      {/* Arrow */}
+                      <span
+                        className="absolute -top-1 left-3 w-2 h-2 rotate-45"
+                        style={{ background: 'hsl(var(--primary))' }}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
+
+              {/* Clickable category chips */}
               {allCats.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {allCats.map((c, i) => (
-                    <span
+                    <button
                       key={i}
-                      className="flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium"
+                      type="button"
+                      onClick={() => navigate(`/shops?category=${encodeURIComponent(c.name)}`)}
+                      className="flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium transition-all hover:opacity-80 active:scale-95"
                       style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
                     >
                       <span>{c.icon}</span> {c.name}
-                    </span>
+                    </button>
                   ))}
                 </div>
               )}
             </div>
-            <div className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold border ${
-              open
-                ? 'border-success/30 text-success'
-                : 'border-destructive/20 text-destructive'
-            }`}
+
+            {/* Open / Closed indicator */}
+            <div
+              className={`shrink-0 flex flex-col items-center justify-center px-3 py-1.5 rounded-full text-sm font-bold border min-w-[80px] text-center ${
+                open
+                  ? 'border-success/30 text-success'
+                  : 'border-destructive/20 text-destructive'
+              }`}
               style={{
                 background: open ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--destructive) / 0.08)',
-              }}>
-              <span
-                className={`w-2.5 h-2.5 rounded-full shrink-0 ${open ? 'animate-pulse-open' : ''}`}
-                style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--destructive))' }}
-              />
-              {open ? 'OPEN' : 'CLOSED'}
+              }}
+            >
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${open ? 'animate-pulse-open' : ''}`}
+                  style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--destructive))' }}
+                />
+                <span>{open ? 'OPEN' : 'CLOSED'}</span>
+              </div>
+              {/* Show "Open at HH:MM" when closed and opening time is available */}
+              {!open && shop.opening_time && (
+                <span className="text-[10px] font-medium mt-0.5 opacity-80 whitespace-nowrap">
+                  Open at {formatTime(shop.opening_time)}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -240,20 +272,25 @@ export default function ShopDetail() {
               value={allCats.map((c) => `${c.icon} ${c.name}`).join('  •  ')}
             />
           )}
-          {/* Coordinates row removed — Maps button below handles navigation */}
         </div>
+      </main>
 
-        {/* Action Buttons */}
-        <div className="space-y-2.5">
+      {/* ── Sticky Bottom Action Bar ── */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-20 border-t border-border shadow-2xl"
+        style={{ background: 'hsl(var(--card))' }}
+      >
+        {/* iOS safe-area bottom */}
+        <div className={`max-w-lg mx-auto px-3 py-2.5 grid gap-2 ${gridCols}`}>
           {shop.phone && (
             <a
               href={`tel:${shop.phone}`}
               onClick={() => logEngagement(shop.id, 'call')}
-              className="flex items-center justify-center gap-2 sm:gap-3 w-full py-3.5 sm:py-4 rounded-xl font-bold text-sm sm:text-base active:scale-95 transition-all shadow-sm min-h-[52px]"
-              style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}
+              className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl font-semibold text-[11px] active:scale-95 transition-all"
+              style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
             >
-              <Phone className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-              <span className="truncate">Call {shop.phone}</span>
+              <Phone className="w-5 h-5" />
+              <span>Call</span>
             </a>
           )}
           {waNumber && (
@@ -262,11 +299,11 @@ export default function ShopDetail() {
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => logEngagement(shop.id, 'whatsapp')}
-              className="flex items-center justify-center gap-2 sm:gap-3 w-full text-white py-3.5 sm:py-4 rounded-xl font-bold text-sm sm:text-base active:scale-95 transition-all shadow-sm min-h-[52px]"
-              style={{ background: '#25D366' }}
+              className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl font-semibold text-[11px] active:scale-95 transition-all"
+              style={{ background: 'hsl(142 70% 45% / 0.12)', color: 'hsl(142 70% 35%)' }}
             >
-              <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-              Chat on WhatsApp
+              <MessageCircle className="w-5 h-5" />
+              <span>WhatsApp</span>
             </a>
           )}
           {mapsUrl && (
@@ -274,23 +311,28 @@ export default function ShopDetail() {
               href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 sm:gap-3 w-full text-white py-3.5 sm:py-4 rounded-xl font-bold text-sm sm:text-base active:scale-95 transition-all shadow-sm min-h-[52px]"
-              style={{ background: 'hsl(211 100% 45%)' }}
+              className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl font-semibold text-[11px] active:scale-95 transition-all"
+              style={{ background: 'hsl(211 100% 45% / 0.1)', color: 'hsl(211 100% 40%)' }}
             >
-              <MapPin className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-              Open in Google Maps
+              <Navigation className="w-5 h-5" />
+              <span>Maps</span>
             </a>
           )}
           <button
             onClick={handleShare}
-            className="flex items-center justify-center gap-2 sm:gap-3 w-full py-3.5 sm:py-4 rounded-xl font-bold text-sm sm:text-base active:scale-95 transition-all min-h-[52px]"
-            style={{ background: 'hsl(var(--secondary) / 0.12)', border: '1px solid hsl(var(--secondary) / 0.3)', color: 'hsl(var(--foreground))' }}
+            className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl font-semibold text-[11px] active:scale-95 transition-all"
+            style={{
+              background: 'hsl(var(--muted))',
+              color: 'hsl(var(--muted-foreground))',
+            }}
           >
-            <Share2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-            Share this shop
+            <Share2 className="w-5 h-5" />
+            <span>Share</span>
           </button>
         </div>
-      </main>
+        {/* iOS safe-area spacer */}
+        <div className="pb-safe" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
+      </div>
     </div>
   );
 }
