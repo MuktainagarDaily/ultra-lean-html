@@ -77,7 +77,9 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
     const processed: ImportRow[] = rawRows.map((raw) => {
       const name = (raw['name'] || '').trim(); const phone = (raw['phone'] || '').trim();
       const whatsapp = (raw['whatsapp'] || '').trim(); const address = (raw['address'] || '').trim();
-      const area = (raw['area'] || '').trim(); const category = (raw['category'] || '').trim();
+      const area = (raw['area'] || '').trim(); const sub_area = (raw['sub_area'] || '').trim();
+      const description = (raw['description'] || '').trim(); const keywords = (raw['keywords'] || '').trim();
+      const category = (raw['category'] || '').trim();
       const opening_time = (raw['opening_time'] || '').trim(); const closing_time = (raw['closing_time'] || '').trim();
       const latitude = (raw['latitude'] || '').trim(); const longitude = (raw['longitude'] || '').trim();
       const is_active = (raw['is_active'] || '').trim(); const is_verified = (raw['is_verified'] || '').trim();
@@ -101,7 +103,7 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
         if (!resolvedCategoryId && status !== 'error' && status !== 'duplicate') { messages.push(`Category "${category}" not found — will import without category`); status = 'warning'; }
       }
       if (status === 'ready' && messages.length === 0) messages.push('Ready to import');
-      return { name, phone, whatsapp, address, area, category, opening_time, closing_time, latitude, longitude, is_active, is_verified, status, messages, resolvedCategoryId };
+      return { name, phone, whatsapp, address, area, sub_area, description, keywords, category, opening_time, closing_time, latitude, longitude, is_active, is_verified, status, messages, resolvedCategoryId };
     });
     setRows(processed); setParsing(false); setStep('preview');
     if (fileRef.current) fileRef.current.value = '';
