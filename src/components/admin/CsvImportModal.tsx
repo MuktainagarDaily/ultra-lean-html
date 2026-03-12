@@ -42,8 +42,8 @@ function parseCsv(text: string): Record<string, string>[] {
     headers.forEach((h, i) => { obj[h] = (vals[i] ?? '').trim(); }); return obj;
   });
 }
-const CSV_TEMPLATE_HEADERS = ['name','phone','whatsapp','address','area','category','opening_time','closing_time','latitude','longitude','is_active','is_verified'];
-const CSV_TEMPLATE_EXAMPLE = ['Sharma General Store','9876543210','9876543210','Near Bus Stand Station Road','Main Road','Grocery','09:00','21:00','21.0325','75.6920','true','false'];
+const CSV_TEMPLATE_HEADERS = ['name','phone','whatsapp','address','area','sub_area','description','keywords','category','opening_time','closing_time','latitude','longitude','is_active','is_verified'];
+const CSV_TEMPLATE_EXAMPLE = ['Sharma General Store','9876543210','9876543210','Near Bus Stand Station Road','Main Road','Main Bazaar','General merchandise and daily needs','grocery store daily needs','Grocery','09:00','21:00','21.0325','75.6920','true','false'];
 function downloadTemplate() {
   const rows = [CSV_TEMPLATE_HEADERS.join(','), CSV_TEMPLATE_EXAMPLE.join(',')].join('\n');
   const blob = new Blob([rows], { type: 'text/csv' });
