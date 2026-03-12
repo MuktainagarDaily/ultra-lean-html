@@ -225,7 +225,7 @@ export default function Shops() {
             <div className="min-w-0 flex-1">
               <h1 className="font-bold text-lg leading-tight truncate">{title}</h1>
               <p className="text-primary-foreground/70 text-xs">
-                {isLoading ? 'Loading...' : `${filteredShops.length} shops • ${openCount} open now`}
+                {isLoading ? 'Loading...' : `${pagedShops.length} of ${filteredShops.length} shops • ${openCount} open now`}
               </p>
             </div>
             <button
