@@ -12,6 +12,19 @@ export function normalizePhone(phone: string): string {
   return n;
 }
 
+/**
+ * Convert a shop name to a URL-safe slug (same logic as the DB trigger).
+ * e.g. "Sharma's General Store!" → "sharmas-general-store"
+ */
+export function toSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'shop';
+}
+
 /** Format HH:MM (24h) → 12-hour AM/PM */
 export function formatTime(time: string | null | undefined): string {
   if (!time) return '';

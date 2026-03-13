@@ -5,6 +5,7 @@ import { formatTime, isShopOpen } from '@/lib/shopUtils';
 
 interface Shop {
   id: string;
+  slug?: string | null;
   name: string;
   area?: string | null;
   phone?: string | null;
