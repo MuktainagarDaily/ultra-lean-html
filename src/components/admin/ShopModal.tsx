@@ -177,10 +177,13 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
   const handleCropComplete = async (blob: Blob, previewDataUrl: string) => {
     setCroppedBlob(blob);
     setCropPreview(previewDataUrl);
-    // Upload immediately so it's ready for save
+    // Upload immediately so it's ready for save — name file after shop slug
     setUploading(true);
     const compressed = await compressImage(blob as unknown as File);
-    const path = `shop-${Date.now()}.webp`;
+    const nameSlug = form.name.trim()
+      ? form.name.trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/[\s-]+/g, '-').replace(/^-+|-+$/g, '') || 'shop'
+      : 'shop';
+    const path = `${nameSlug}-${Date.now()}.webp`;
     const { error } = await supabase.storage.from('shop-images').upload(path, compressed, { upsert: true, contentType: 'image/webp' });
     if (error) { toast.error('Image upload failed'); setUploading(false); return; }
     const { data } = supabase.storage.from('shop-images').getPublicUrl(path);
