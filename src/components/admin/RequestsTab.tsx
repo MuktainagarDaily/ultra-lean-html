@@ -86,7 +86,7 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
 
     const { data: inserted, error: insertError } = await supabase
       .from('shops')
-      .insert({
+      .insert([{
         name: req.name.trim(),
         phone: normPhone,
         whatsapp: req.whatsapp?.trim() || null,
@@ -100,7 +100,7 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
         is_active: true,
         is_open: true,
         is_verified: false,
-      })
+      } as any])
       .select('id')
       .single();
 

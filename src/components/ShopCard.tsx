@@ -5,6 +5,7 @@ import { formatTime, isShopOpen } from '@/lib/shopUtils';
 
 interface Shop {
   id: string;
+  slug?: string | null;
   name: string;
   area?: string | null;
   phone?: string | null;
@@ -25,6 +26,7 @@ export function ShopCard({ shop }: { shop: Shop }) {
   const navigate = useNavigate();
   const open = isShopOpen(shop);
   const [imgError, setImgError] = useState(false);
+  const shopPath = shop.slug ? `/shop/${shop.slug}` : `/shop/${shop.id}`;
 
   const allCats: { name: string; icon: string }[] = [];
   if (shop.shop_categories?.length) {
@@ -55,11 +57,11 @@ export function ShopCard({ shop }: { shop: Shop }) {
   return (
     <div
       className="bg-card rounded-xl border border-border hover:shadow-md transition-all cursor-pointer active:scale-[0.99] overflow-hidden"
-      onClick={() => navigate(`/shop/${shop.id}`)}
+      onClick={() => navigate(shopPath)}
     >
-      {/* Shop image */}
+      {/* Shop image — aspect-ratio responsive, gradient overlay for polish */}
       {shop.image_url && !imgError && (
-        <div className="h-32 sm:h-36 overflow-hidden">
+        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
           <img
             src={shop.image_url}
             alt={shop.name}
@@ -67,6 +69,26 @@ export function ShopCard({ shop }: { shop: Shop }) {
             className="w-full h-full object-cover"
             onError={() => setImgError(true)}
           />
+          {/* Subtle bottom gradient so content below reads clearly */}
+          <div
+            className="absolute inset-x-0 bottom-0 h-12 pointer-events-none"
+            style={{ background: 'linear-gradient(to top, hsl(var(--card) / 0.7), transparent)' }}
+          />
+          {/* Open/Closed badge overlaid on image top-right */}
+          <div
+            className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border backdrop-blur-sm ${
+              open ? 'border-success/40 text-success' : 'border-destructive/30 text-destructive'
+            }`}
+            style={{
+              background: open ? 'hsl(var(--card) / 0.85)' : 'hsl(var(--card) / 0.85)',
+            }}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${open ? 'animate-pulse-open' : ''}`}
+              style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--destructive))' }}
+            />
+            {open ? 'OPEN' : 'CLOSED'}
+          </div>
         </div>
       )}
 
@@ -127,21 +149,23 @@ export function ShopCard({ shop }: { shop: Shop }) {
             )}
           </div>
 
-          {/* Open/closed badge */}
-          <div
-            className={`shrink-0 flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold border ${
-              open ? 'border-success/30 text-success' : 'border-destructive/20 text-destructive'
-            }`}
-            style={{
-              background: open ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--destructive) / 0.08)',
-            }}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full shrink-0 ${open ? 'animate-pulse-open' : ''}`}
-              style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--destructive))' }}
-            />
-            {open ? 'OPEN' : 'CLOSED'}
-          </div>
+          {/* Open/closed badge — only shown here when no image (badge is on the image overlay otherwise) */}
+          {(!shop.image_url || imgError) && (
+            <div
+              className={`shrink-0 flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold border ${
+                open ? 'border-success/30 text-success' : 'border-destructive/20 text-destructive'
+              }`}
+              style={{
+                background: open ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--destructive) / 0.08)',
+              }}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${open ? 'animate-pulse-open' : ''}`}
+                style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--destructive))' }}
+              />
+              {open ? 'OPEN' : 'CLOSED'}
+            </div>
+          )}
         </div>
 
         {/* Action buttons — min-h ensures 44px touch target */}

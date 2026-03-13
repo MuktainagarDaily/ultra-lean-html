@@ -191,6 +191,7 @@ export type Database = {
           name: string
           opening_time: string | null
           phone: string | null
+          slug: string
           sub_area: string | null
           updated_at: string
           whatsapp: string | null
@@ -213,6 +214,7 @@ export type Database = {
           name: string
           opening_time?: string | null
           phone?: string | null
+          slug: string
           sub_area?: string | null
           updated_at?: string
           whatsapp?: string | null
@@ -235,6 +237,7 @@ export type Database = {
           name?: string
           opening_time?: string | null
           phone?: string | null
+          slug?: string
           sub_area?: string | null
           updated_at?: string
           whatsapp?: string | null
@@ -254,7 +257,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_shop_slug: {
+        Args: { p_exclude_id?: string; p_name: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

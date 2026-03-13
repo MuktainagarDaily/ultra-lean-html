@@ -29,6 +29,8 @@ function CategorySkeleton() {
 function CompactShopCard({ shop }: { shop: any }) {
   const navigate = useNavigate();
   const open = isShopOpen(shop);
+  const [imgError, setImgError] = useState(false);
+  const shopPath = shop.slug ? `/shop/${shop.slug}` : `/shop/${shop.id}`;
 
   const logEngagement = async (type: 'call' | 'whatsapp') => {
     await supabase.from('shop_engagement').insert({ shop_id: shop.id, event_type: type });
@@ -55,55 +57,79 @@ function CompactShopCard({ shop }: { shop: any }) {
 
   return (
     <button
-      onClick={() => navigate(`/shop/${shop.id}`)}
-      className="flex flex-col gap-2 bg-card rounded-xl p-3 border border-border hover:border-primary hover:shadow-md transition-all active:scale-95 w-[185px] shrink-0 text-left"
+      onClick={() => navigate(shopPath)}
+      className="flex flex-col bg-card rounded-xl border border-border hover:border-primary hover:shadow-md transition-all active:scale-95 w-[185px] shrink-0 text-left overflow-hidden"
     >
-      <div className="flex items-center justify-between gap-1 w-full">
-        <span className="text-xl leading-none">{catIcon}</span>
-        <span
-          className={`w-2 h-2 rounded-full shrink-0 ${open ? 'animate-pulse-open' : 'opacity-40'}`}
-          style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--muted-foreground))' }}
-        />
-      </div>
-      <p className="text-xs font-bold text-foreground leading-tight line-clamp-2 w-full">{shop.name}</p>
-      {shop.area && (
-        <p className="text-[10px] text-muted-foreground leading-tight flex items-center gap-1">
-          <MapPin className="w-2.5 h-2.5 shrink-0" />
-          <span className="truncate">{shop.area}</span>
-        </p>
-      )}
-      {shop.is_verified && (
-        <span
-          className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none w-fit"
-          style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
-        >
-          <ShieldCheck className="w-2.5 h-2.5" />
-          Verified
-        </span>
-      )}
-      <div className="flex gap-1.5 w-full mt-auto pt-1">
-        {shop.phone && (
-          <a
-            href={`tel:${shop.phone}`}
-            onClick={(e) => { e.stopPropagation(); logEngagement('call'); }}
-            className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors"
+      {/* Image thumbnail if available */}
+      {shop.image_url && !imgError ? (
+        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
+          <img
+            src={shop.image_url}
+            alt={shop.name}
+            loading="lazy"
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+          />
+          <div
+            className="absolute inset-x-0 bottom-0 h-8 pointer-events-none"
+            style={{ background: 'linear-gradient(to top, hsl(var(--card) / 0.7), transparent)' }}
+          />
+          <span
+            className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full shrink-0 ${open ? 'animate-pulse-open' : 'opacity-60'}`}
+            style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--muted-foreground))' }}
+          />
+        </div>
+      ) : null}
+      <div className="flex flex-col gap-2 p-3">
+        <div className="flex items-center justify-between gap-1 w-full">
+          <span className="text-xl leading-none">{catIcon}</span>
+          {(!shop.image_url || imgError) && (
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${open ? 'animate-pulse-open' : 'opacity-40'}`}
+              style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--muted-foreground))' }}
+            />
+          )}
+        </div>
+        <p className="text-xs font-bold text-foreground leading-tight line-clamp-2 w-full">{shop.name}</p>
+        {shop.area && (
+          <p className="text-[10px] text-muted-foreground leading-tight flex items-center gap-1">
+            <MapPin className="w-2.5 h-2.5 shrink-0" />
+            <span className="truncate">{shop.area}</span>
+          </p>
+        )}
+        {shop.is_verified && (
+          <span
+            className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none w-fit"
             style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
           >
-            📞 Call
-          </a>
+            <ShieldCheck className="w-2.5 h-2.5" />
+            Verified
+          </span>
         )}
-        {(shop.whatsapp || shop.phone) && (
-          <a
-            href={`https://wa.me/${waNumber}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => { e.stopPropagation(); logEngagement('whatsapp'); }}
-            className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors"
-            style={{ background: 'hsl(142 70% 45% / 0.12)', color: 'hsl(142 70% 35%)' }}
-          >
-            💬 WA
-          </a>
-        )}
+        <div className="flex gap-1.5 w-full mt-auto pt-1">
+          {shop.phone && (
+            <a
+              href={`tel:${shop.phone}`}
+              onClick={(e) => { e.stopPropagation(); logEngagement('call'); }}
+              className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors"
+              style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
+            >
+              📞 Call
+            </a>
+          )}
+          {(shop.whatsapp || shop.phone) && (
+            <a
+              href={`https://wa.me/${waNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => { e.stopPropagation(); logEngagement('whatsapp'); }}
+              className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors"
+              style={{ background: 'hsl(142 70% 45% / 0.12)', color: 'hsl(142 70% 35%)' }}
+            >
+              💬 WA
+            </a>
+          )}
+        </div>
       </div>
     </button>
   );
