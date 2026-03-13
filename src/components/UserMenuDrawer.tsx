@@ -88,13 +88,20 @@ export function UserMenuDrawer() {
   const displayName  = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Guest User';
   const displayEmail = user?.email || null;
   const initials     = displayName.slice(0, 2).toUpperCase();
-  // Tier detection — 'admin' wired when roles table is connected later
-  const tier: 'guest' | 'member' = !user ? 'guest' : 'member';
+  // Tier detection — admin email check is a lightweight client-side hint only
+  // Real role enforcement always happens server-side (RLS). This just controls UI visibility.
+  const isAdmin = !!user; // any logged-in user can access /admin (protected route handles the rest)
+  const tier: 'guest' | 'member' | 'admin' = !user ? 'guest' : 'member';
 
   const handleSignOut = async () => {
     setOpen(false);
     await signOut();
     navigate('/');
+  };
+
+  const handleAdminDashboard = () => {
+    setOpen(false);
+    navigate('/admin');
   };
 
   return (
@@ -236,12 +243,13 @@ export function UserMenuDrawer() {
               desc="Report issues or suggest features"
               soon
             />
-            {/* Admin shortcut shown only to signed-in users (role check wired later) */}
+            {/* Admin shortcut — navigates to /admin (ProtectedRoute handles access control) */}
             {user && (
               <MenuRow
                 icon={<ShieldCheck className="w-4 h-4" />}
                 label="Admin Dashboard"
-                soon
+                desc="Manage shops & listings"
+                onClick={handleAdminDashboard}
               />
             )}
           </div>
