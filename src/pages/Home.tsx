@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, TrendingUp, Store, Star, Phone, Plus, ShieldCheck, SlidersHorizontal, X, ChevronRight } from 'lucide-react';
+import { UserMenuDrawer } from '@/components/UserMenuDrawer';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { isShopOpen } from '@/lib/shopUtils';
@@ -380,8 +381,8 @@ export default function Home() {
         />
 
         <div className="max-w-lg mx-auto relative z-10">
-          {/* Brand Row */}
-          <div className="flex items-center justify-center gap-3 mb-1">
+          {/* Brand Row — logo+title centered, menu button pinned to right */}
+          <div className="relative flex items-center justify-center gap-3 mb-1">
             <div className="shrink-0 drop-shadow-md animate-[logo-enter_0.6s_cubic-bezier(0.34,1.56,0.64,1)_both]">
               <img
                 src={logoIcon}
@@ -397,8 +398,12 @@ export default function Home() {
                 className="text-[10px] sm:text-[11px] font-semibold tracking-widest uppercase leading-none mt-0.5"
                 style={{ color: 'hsl(var(--secondary))' }}
               >
-                Local Business Directory
+              Local Business Directory
               </span>
+            </div>
+            {/* User menu — absolutely pinned to right so it never shifts the centered logo */}
+            <div className="absolute right-0 top-1/2 -translate-y-1/2">
+              <UserMenuDrawer />
             </div>
           </div>
 
