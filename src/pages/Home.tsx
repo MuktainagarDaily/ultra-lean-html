@@ -29,6 +29,8 @@ function CategorySkeleton() {
 function CompactShopCard({ shop }: { shop: any }) {
   const navigate = useNavigate();
   const open = isShopOpen(shop);
+  const [imgError, setImgError] = useState(false);
+  const shopPath = shop.slug ? `/shop/${shop.slug}` : `/shop/${shop.id}`;
 
   const logEngagement = async (type: 'call' | 'whatsapp') => {
     await supabase.from('shop_engagement').insert({ shop_id: shop.id, event_type: type });

@@ -149,21 +149,23 @@ export function ShopCard({ shop }: { shop: Shop }) {
             )}
           </div>
 
-          {/* Open/closed badge */}
-          <div
-            className={`shrink-0 flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold border ${
-              open ? 'border-success/30 text-success' : 'border-destructive/20 text-destructive'
-            }`}
-            style={{
-              background: open ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--destructive) / 0.08)',
-            }}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full shrink-0 ${open ? 'animate-pulse-open' : ''}`}
-              style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--destructive))' }}
-            />
-            {open ? 'OPEN' : 'CLOSED'}
-          </div>
+          {/* Open/closed badge — only shown here when no image (badge is on the image overlay otherwise) */}
+          {(!shop.image_url || imgError) && (
+            <div
+              className={`shrink-0 flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold border ${
+                open ? 'border-success/30 text-success' : 'border-destructive/20 text-destructive'
+              }`}
+              style={{
+                background: open ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--destructive) / 0.08)',
+              }}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${open ? 'animate-pulse-open' : ''}`}
+                style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--destructive))' }}
+              />
+              {open ? 'OPEN' : 'CLOSED'}
+            </div>
+          )}
         </div>
 
         {/* Action buttons — min-h ensures 44px touch target */}

@@ -164,16 +164,43 @@ export default function ShopDetail() {
 
       {/* Extra bottom padding to clear the sticky action bar */}
       <main className="max-w-lg mx-auto px-4 py-5 space-y-4 pb-32">
-        {/* Shop Image — graceful fallback on broken URL */}
+        {/* Shop Image — improved responsive UI with gradient overlay */}
         {shop.image_url && !imgError && (
-          <div className="rounded-xl overflow-hidden border border-border shadow-sm">
-            <img
-              src={shop.image_url}
-              alt={shop.name}
-              className="w-full h-40 sm:h-52 object-cover"
-              loading="lazy"
-              onError={() => setImgError(true)}
-            />
+          <div className="rounded-xl overflow-hidden border border-border shadow-sm relative">
+            <div className="relative w-full" style={{ aspectRatio: '16/9' }}>
+              <img
+                src={shop.image_url}
+                alt={shop.name}
+                className="w-full h-full object-cover"
+                loading="lazy"
+                onError={() => setImgError(true)}
+              />
+              {/* Bottom gradient for visual depth */}
+              <div
+                className="absolute inset-x-0 bottom-0 h-16 pointer-events-none"
+                style={{ background: 'linear-gradient(to top, hsl(var(--card) / 0.65), transparent)' }}
+              />
+              {/* OPEN/CLOSED badge overlaid on image */}
+              <div
+                className={`absolute top-3 right-3 flex flex-col items-center justify-center px-3 py-1.5 rounded-full text-sm font-bold border backdrop-blur-sm min-w-[80px] text-center ${
+                  open ? 'border-success/40 text-success' : 'border-destructive/30 text-destructive'
+                }`}
+                style={{ background: 'hsl(var(--card) / 0.88)' }}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${open ? 'animate-pulse-open' : ''}`}
+                    style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--destructive))' }}
+                  />
+                  <span>{open ? 'OPEN' : 'CLOSED'}</span>
+                </div>
+                {!open && shop.opening_time && (
+                  <span className="text-[10px] font-medium mt-0.5 opacity-80 whitespace-nowrap">
+                    Open at {formatTime(shop.opening_time)}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
