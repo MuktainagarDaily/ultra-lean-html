@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Phone, MessageCircle, ArrowLeft, MapPin, Clock, Tag, Share2, ShieldCheck, Navigation } from 'lucide-react';
+import { UserMenuDrawer } from '@/components/UserMenuDrawer';
 import { formatTime, isShopOpen } from '@/lib/shopUtils';
 import { toast } from 'sonner';
 
@@ -159,6 +160,7 @@ export default function ShopDetail() {
           >
             <Share2 className="w-5 h-5" />
           </button>
+          <UserMenuDrawer />
         </div>
       </header>
 
