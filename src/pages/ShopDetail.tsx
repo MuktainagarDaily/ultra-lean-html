@@ -15,6 +15,8 @@ async function logEngagement(shopId: string, eventType: 'call' | 'whatsapp') {
   }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function ShopDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -23,17 +25,32 @@ export default function ShopDetail() {
   const { data: shop, isLoading } = useQuery({
     queryKey: ['shop', id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const isUuid = UUID_RE.test(id!);
+      // Try slug first; fall back to id for legacy UUID links
+      let query = supabase
         .from('shops')
         .select('*, shop_categories(categories(name, icon, is_active))')
-        .eq('id', id!)
-        .eq('is_active', true)
-        .single();
+        .eq('is_active', true);
+
+      if (isUuid) {
+        query = query.eq('id', id!);
+      } else {
+        query = (query as any).eq('slug', id!);
+      }
+
+      const { data, error } = await (query as any).single();
       if (error) throw error;
-      return data;
+      return data as any;
     },
     enabled: !!id,
   });
+
+  // If loaded by UUID and has a slug, redirect to clean slug URL
+  useEffect(() => {
+    if (shop && UUID_RE.test(id!) && (shop as any).slug) {
+      navigate(`/shop/${(shop as any).slug}`, { replace: true });
+    }
+  }, [shop, id, navigate]);
 
   useEffect(() => {
     if (shop?.name) {

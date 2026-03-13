@@ -26,6 +26,7 @@ export function ShopCard({ shop }: { shop: Shop }) {
   const navigate = useNavigate();
   const open = isShopOpen(shop);
   const [imgError, setImgError] = useState(false);
+  const shopPath = shop.slug ? `/shop/${shop.slug}` : `/shop/${shop.id}`;
 
   const allCats: { name: string; icon: string }[] = [];
   if (shop.shop_categories?.length) {
