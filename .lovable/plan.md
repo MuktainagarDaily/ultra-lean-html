@@ -1,36 +1,80 @@
 
 
-## Autocomplete Suggestions for Search Box
+## Issues to Fix
 
-### What's Being Built
-When the user types in the Home page search box, show a dropdown below it with the top 5 matching shops. Each suggestion displays: **shop name**, **area / sub_area**, and **primary category**. Clicking a suggestion navigates directly to that shop's detail page.
+### 1. Slug URLs cutting letters — making URLs unreadable
 
-### Implementation — Single File: `src/pages/Home.tsx`
+The current slug in the URL `/shop/amarth-igital-hoto-tudio` is missing letters. The PostgreSQL `generate_shop_slug` function has a regex issue: `\s` inside PostgreSQL string literals may not behave consistently as whitespace shorthand depending on configuration. The fix is to use explicit space characters and POSIX character classes instead.
 
-**1. Compute suggestions with `useMemo`**
-- Filter `shops` array by matching the search input (case-insensitive) against `name`, `area`, `sub_area`, and category names
-- Limit to first 5 results
-- Only compute when `search.length >= 2` and input is focused
+**Fix: New migration to replace `generate_shop_slug` function**
 
-**2. Suggestion dropdown UI**
-- Render an absolute-positioned dropdown below the search `<input>` (inside the existing `<form>`)
-- Show when `searchFocused && suggestions.length > 0`
-- Each row: shop name (bold), area + sub_area (muted), primary category chip
-- Click a row → navigate to `/shop/{slug || id}`, close dropdown
-- Use `onMouseDown` (not `onClick`) to fire before `onBlur` clears focus
+```sql
+CREATE OR REPLACE FUNCTION public.generate_shop_slug(p_name TEXT, p_exclude_id UUID DEFAULT NULL)
+RETURNS TEXT LANGUAGE plpgsql SET search_path = public AS $$
+DECLARE
+  base_slug TEXT;
+  candidate TEXT;
+  counter   INT := 0;
+BEGIN
+  base_slug := lower(trim(p_name));
+  -- Use explicit space and POSIX classes instead of \s
+  base_slug := regexp_replace(base_slug, '[^a-z0-9 -]', '', 'g');
+  base_slug := regexp_replace(base_slug, '[ -]+', '-', 'g');
+  base_slug := trim(base_slug, '-');
+  IF base_slug = '' THEN base_slug := 'shop'; END IF;
+  candidate := base_slug;
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM public.shops
+      WHERE slug = candidate
+        AND (p_exclude_id IS NULL OR id <> p_exclude_id)
+    ) THEN RETURN candidate; END IF;
+    counter := counter + 1;
+    candidate := base_slug || '-' || counter;
+  END LOOP;
+END;$$;
+```
 
-**3. Dismiss behavior**
-- `onBlur` hides dropdown (existing `setSearchFocused(false)`)
-- Submitting form hides dropdown and runs existing `handleSearch`
+Then **re-backfill all existing slugs** so they regenerate with the fixed function:
 
-**4. Data available**
-- `shops` already has `name`, `area`, `sub_area`, `shop_categories` with joined `categories(name, icon)` — no new queries needed
+```sql
+UPDATE public.shops SET slug = public.generate_shop_slug(name, id);
+```
 
-### Technical Details
-- Search uses `.toLowerCase().includes()` across name, area, sub_area, category names — simple and fast for the dataset size
-- `useMemo` keyed on `[shops, search, searchFocused]` ensures no unnecessary recomputation
-- Dropdown z-index set high enough to overlay stat pills below
+Also update the client-side `toSlug()` in `src/lib/shopUtils.ts` to use the same explicit pattern (it currently works in JS, but align them for consistency).
 
-### Files Changed
-- `src/pages/Home.tsx` only
+---
+
+### 2. Autocomplete showing only 2 results instead of 5
+
+The logic in `Home.tsx` lines 222-238 is correct (loops until `results.length >= 5`). The likely issue is that `onBlur` fires immediately when the user types, causing `searchFocused` to flicker. But more probably, the search also matches against `shop.address` and `shop.phone` fields that aren't included in the haystack.
+
+**Fix: Expand the search haystack** to include more fields so more shops match:
+
+```ts
+const haystack = [shop.name, shop.area, shop.sub_area, shop.address, shop.description, shop.keywords, ...catNames]
+  .filter(Boolean)
+  .join(' ')
+  .toLowerCase();
+```
+
+Adding `address`, `description`, and `keywords` to the haystack will surface more relevant matches.
+
+Also add a `setTimeout` delay on `onBlur` to prevent the dropdown from disappearing before `onMouseDown` fires on a suggestion (race condition on mobile):
+
+```ts
+onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+```
+
+---
+
+### Files to change
+
+| File | Change |
+|---|---|
+| New migration SQL | Fix `generate_shop_slug` regex + re-backfill all slugs |
+| `src/lib/shopUtils.ts` | Align `toSlug()` regex with DB function (cosmetic) |
+| `src/pages/Home.tsx` | Expand autocomplete haystack to include address/description/keywords; add blur delay |
+
+### No `.env` changes.
 
