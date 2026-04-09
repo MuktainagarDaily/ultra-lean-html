@@ -463,7 +463,7 @@ export default function Home() {
 
             {/* Autocomplete suggestions dropdown */}
             {searchFocused && searchSuggestions.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1 bg-card border border-border rounded-xl shadow-2xl z-50 overflow-hidden">
+              <div className="absolute left-0 right-0 top-full mt-1 bg-card border border-border rounded-xl shadow-2xl z-[999] overflow-hidden max-h-[320px] overflow-y-auto">
                 {searchSuggestions.map((shop: any) => {
                   const catName = shop.shop_categories?.[0]?.categories?.name;
                   const shopPath = shop.slug ? `/shop/${shop.slug}` : `/shop/${shop.id}`;
