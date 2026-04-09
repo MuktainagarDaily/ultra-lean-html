@@ -34,7 +34,9 @@ function CompactShopCard({ shop }: { shop: any }) {
   const shopPath = shop.slug ? `/shop/${shop.slug}` : `/shop/${shop.id}`;
 
   const logEngagement = async (type: 'call' | 'whatsapp') => {
-    await supabase.from('shop_engagement').insert({ shop_id: shop.id, event_type: type });
+    try {
+      await supabase.from('shop_engagement').insert({ shop_id: shop.id, event_type: type });
+    } catch { /* non-critical — don't block user action */ }
   };
 
   const waNumber = useMemo(() => {
@@ -664,21 +666,6 @@ export default function Home() {
           </button>
         </section>
 
-        {/* List Your Shop CTA */}
-        <section className="mt-3">
-          <button
-            onClick={() => setShowRequestModal(true)}
-            className="w-full py-3.5 rounded-xl font-semibold text-sm transition-all active:scale-95 flex items-center justify-center gap-2 border"
-            style={{
-              background: 'hsl(var(--secondary) / 0.1)',
-              borderColor: 'hsl(var(--secondary) / 0.35)',
-              color: 'hsl(var(--foreground))',
-            }}
-          >
-            <Plus className="w-4 h-4 shrink-0" style={{ color: 'hsl(var(--secondary))' }} />
-            <span>List Your Shop — Free</span>
-          </button>
-        </section>
 
         {/* Quick Info */}
         <section

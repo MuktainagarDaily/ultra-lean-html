@@ -6,6 +6,7 @@ import {
   Drawer,
   DrawerContent,
   DrawerHeader,
+  DrawerTitle,
 } from '@/components/ui/drawer';
 
 /* ─── Access tier badge ──────────────────────────────────────────────── */
@@ -144,7 +145,7 @@ export function UserMenuDrawer() {
             }}
           />
 
-          <DrawerHeader className="sr-only">User Menu</DrawerHeader>
+          <DrawerHeader className="sr-only"><DrawerTitle>User Menu</DrawerTitle></DrawerHeader>
 
           {/* User identity section */}
           <div className="px-4 pt-4 pb-3">

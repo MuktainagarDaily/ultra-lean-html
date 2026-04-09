@@ -262,31 +262,32 @@ export default function ShopDetail() {
               )}
             </div>
 
-            {/* Open / Closed indicator */}
-            <div
-              className={`shrink-0 flex flex-col items-center justify-center px-3 py-1.5 rounded-full text-sm font-bold border min-w-[80px] text-center ${
-                open
-                  ? 'border-success/30 text-success'
-                  : 'border-destructive/20 text-destructive'
-              }`}
-              style={{
-                background: open ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--destructive) / 0.08)',
-              }}
-            >
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${open ? 'animate-pulse-open' : ''}`}
-                  style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--destructive))' }}
-                />
-                <span>{open ? 'OPEN' : 'CLOSED'}</span>
+            {/* Open/Closed indicator — only shown when no image (image has its own overlay badge) */}
+            {(!shop.image_url || imgError) && (
+              <div
+                className={`shrink-0 flex flex-col items-center justify-center px-3 py-1.5 rounded-full text-sm font-bold border min-w-[80px] text-center ${
+                  open
+                    ? 'border-success/30 text-success'
+                    : 'border-destructive/20 text-destructive'
+                }`}
+                style={{
+                  background: open ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--destructive) / 0.08)',
+                }}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${open ? 'animate-pulse-open' : ''}`}
+                    style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--destructive))' }}
+                  />
+                  <span>{open ? 'OPEN' : 'CLOSED'}</span>
+                </div>
+                {!open && shop.opening_time && (
+                  <span className="text-[10px] font-medium mt-0.5 opacity-80 whitespace-nowrap">
+                    Open at {formatTime(shop.opening_time)}
+                  </span>
+                )}
               </div>
-              {/* Show "Open at HH:MM" when closed and opening time is available */}
-              {!open && shop.opening_time && (
-                <span className="text-[10px] font-medium mt-0.5 opacity-80 whitespace-nowrap">
-                  Open at {formatTime(shop.opening_time)}
-                </span>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
