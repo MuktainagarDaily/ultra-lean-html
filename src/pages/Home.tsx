@@ -218,6 +218,25 @@ export default function Home() {
   const openNowCount = useMemo(() => shops.filter((s) => isShopOpen(s)).length, [shops]);
   const verifiedCount = useMemo(() => shops.filter((s: any) => s.is_verified).length, [shops]);
 
+  // Autocomplete suggestions — top 5 matching shops
+  const searchSuggestions = useMemo(() => {
+    if (!searchFocused || search.trim().length < 2) return [];
+    const q = search.trim().toLowerCase();
+    const results: any[] = [];
+    for (const shop of shops as any[]) {
+      if (results.length >= 5) break;
+      const catNames = (shop.shop_categories || [])
+        .map((sc: any) => sc.categories?.name || '')
+        .filter(Boolean);
+      const haystack = [shop.name, shop.area, shop.sub_area, ...catNames]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      if (haystack.includes(q)) results.push(shop);
+    }
+    return results;
+  }, [shops, search, searchFocused]);
+
   const catShopCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     shops.forEach((shop) => {
@@ -441,6 +460,35 @@ export default function Home() {
             >
               Search
             </button>
+
+            {/* Autocomplete suggestions dropdown */}
+            {searchFocused && searchSuggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-card border border-border rounded-xl shadow-2xl z-50 overflow-hidden">
+                {searchSuggestions.map((shop: any) => {
+                  const catName = shop.shop_categories?.[0]?.categories?.name;
+                  const shopPath = shop.slug ? `/shop/${shop.slug}` : `/shop/${shop.id}`;
+                  return (
+                    <div
+                      key={shop.id}
+                      onMouseDown={() => navigate(shopPath)}
+                      className="flex items-center gap-3 px-3.5 py-2.5 cursor-pointer hover:bg-accent/50 transition-colors border-b border-border/50 last:border-b-0"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{shop.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {[shop.area, shop.sub_area].filter(Boolean).join(', ')}
+                        </p>
+                      </div>
+                      {catName && (
+                        <span className="shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                          {catName}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </form>
 
           {/* Filter bar — same pattern as Shops page */}
