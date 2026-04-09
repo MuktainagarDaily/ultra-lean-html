@@ -164,8 +164,9 @@ export default function Shops() {
   );
 
   // In-memory pagination — no extra network calls needed
-  const pagedShops = useMemo(() => filteredShops.slice(0, page * PAGE_SIZE), [filteredShops, page]);
-  const hasMore = pagedShops.length < filteredShops.length;
+  const totalPages = Math.max(1, Math.ceil(filteredShops.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedShops = useMemo(() => filteredShops.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE), [filteredShops, safePage]);
 
   // Preview count while sheet is open
   const sheetPreviewCount = useMemo(() =>
@@ -446,18 +447,52 @@ export default function Shops() {
                 <ShopCard key={shop.id} shop={shop as any} />
               ))}
             </div>
-            {hasMore && (
-              <button
-                onClick={() => setPage((p) => p + 1)}
-                className="w-full mt-4 py-3 rounded-xl border font-semibold text-sm transition-colors active:scale-[0.98]"
-                style={{ borderColor: 'hsl(var(--primary) / 0.3)', color: 'hsl(var(--primary))' }}
-              >
-                Load more ({filteredShops.length - pagedShops.length} remaining)
-              </button>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-1.5 mt-5 flex-wrap">
+                <button
+                  onClick={() => { setPage((p) => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  disabled={safePage <= 1}
+                  className="px-3 py-2 rounded-lg border border-border text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted"
+                >
+                  ‹ Back
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+                  // Show first, last, current, and neighbors; ellipsis for gaps
+                  const show = p === 1 || p === totalPages || Math.abs(p - safePage) <= 1;
+                  if (!show) {
+                    const prevShown = p === 2 && safePage > 3;
+                    const nextShown = p === totalPages - 1 && safePage < totalPages - 2;
+                    if (prevShown || nextShown) {
+                      return <span key={p} className="px-1.5 text-muted-foreground text-sm select-none">…</span>;
+                    }
+                    return null;
+                  }
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className={`min-w-[36px] h-9 rounded-lg text-sm font-semibold transition-colors ${
+                        p === safePage
+                          ? 'bg-primary text-primary-foreground'
+                          : 'border border-border hover:bg-muted text-foreground'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => { setPage((p) => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  disabled={safePage >= totalPages}
+                  className="px-3 py-2 rounded-lg border border-border text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted"
+                >
+                  Next ›
+                </button>
+              </div>
             )}
-            {!hasMore && filteredShops.length > PAGE_SIZE && (
-              <p className="text-center text-xs text-muted-foreground mt-4">
-                All {filteredShops.length} shops shown
+            {filteredShops.length > 0 && (
+              <p className="text-center text-xs text-muted-foreground mt-3">
+                Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredShops.length)} of {filteredShops.length} shops
               </p>
             )}
             <p className="text-center text-xs text-muted-foreground mt-6 flex items-center justify-center gap-1">
