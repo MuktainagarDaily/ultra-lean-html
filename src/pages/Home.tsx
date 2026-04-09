@@ -228,7 +228,7 @@ export default function Home() {
       const catNames = (shop.shop_categories || [])
         .map((sc: any) => sc.categories?.name || '')
         .filter(Boolean);
-      const haystack = [shop.name, shop.area, shop.sub_area, ...catNames]
+      const haystack = [shop.name, shop.area, shop.sub_area, shop.address, shop.description, shop.keywords, ...catNames]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
@@ -448,7 +448,7 @@ export default function Home() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
+              onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
               placeholder="दुकान, सेवा किंवा भाग शोधा…"
               className="w-full pl-10 pr-[88px] py-3.5 rounded-xl text-foreground bg-card text-sm shadow-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
               autoComplete="off"
