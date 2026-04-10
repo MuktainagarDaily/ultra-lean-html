@@ -233,6 +233,17 @@ export function CategoriesTab({ onEdit }: CategoriesTabProps) {
         </AlertDialogContent>
       </AlertDialog>
 
+      {showCatImport && (
+        <CategoryCsvImportModal
+          onClose={() => setShowCatImport(false)}
+          onDone={() => {
+            setShowCatImport(false);
+            qc.invalidateQueries({ queryKey: ['admin-categories'] });
+            qc.invalidateQueries({ queryKey: ['admin-stats'] });
+          }}
+        />
+      )}
+
       {mergeCatTarget && (
         <CategoryMergeModal
           source={mergeCatTarget}
