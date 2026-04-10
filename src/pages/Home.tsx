@@ -61,7 +61,7 @@ function CompactShopCard({ shop }: { shop: any }) {
   return (
     <button
       onClick={() => navigate(shopPath)}
-      className="flex flex-col bg-card rounded-xl border border-border hover:border-primary hover:shadow-md transition-all active:scale-95 w-[185px] shrink-0 text-left overflow-hidden"
+      className="flex flex-col bg-card rounded-xl border border-border hover:border-primary/60 shadow-sm hover:shadow-lg transition-all duration-200 active:scale-[0.97] w-[185px] shrink-0 text-left overflow-hidden group"
     >
       {/* Image thumbnail if available */}
       {shop.image_url && !imgError ? (
@@ -70,29 +70,31 @@ function CompactShopCard({ shop }: { shop: any }) {
             src={shop.image_url}
             alt={shop.name}
             loading="lazy"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={() => setImgError(true)}
           />
           <div
-            className="absolute inset-x-0 bottom-0 h-8 pointer-events-none"
-            style={{ background: 'linear-gradient(to top, hsl(var(--card) / 0.7), transparent)' }}
+            className="absolute inset-x-0 bottom-0 h-12 pointer-events-none"
+            style={{ background: 'linear-gradient(to top, hsl(var(--card)), hsl(var(--card) / 0.4), transparent)' }}
           />
           <span
-            className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full shrink-0 ${open ? 'animate-pulse-open' : 'opacity-60'}`}
+            className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-card ${open ? 'animate-pulse-open' : 'opacity-60'}`}
             style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--muted-foreground))' }}
           />
         </div>
-      ) : null}
-      <div className="flex flex-col gap-2 p-3">
-        <div className="flex items-center justify-between gap-1 w-full">
-          <span className="text-xl leading-none">{catIcon}</span>
-          {(!shop.image_url || imgError) && (
-            <span
-              className={`w-2 h-2 rounded-full shrink-0 ${open ? 'animate-pulse-open' : 'opacity-40'}`}
-              style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--muted-foreground))' }}
-            />
-          )}
+      ) : (
+        <div
+          className="w-full flex items-center justify-center py-4"
+          style={{ background: 'linear-gradient(135deg, hsl(var(--primary) / 0.06), hsl(var(--primary) / 0.02))' }}
+        >
+          <span className="text-3xl">{catIcon}</span>
+          <span
+            className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full shrink-0 ${open ? 'animate-pulse-open' : 'opacity-40'}`}
+            style={{ background: open ? 'hsl(var(--success))' : 'hsl(var(--muted-foreground))' }}
+          />
         </div>
+      )}
+      <div className="flex flex-col gap-1.5 p-3 pt-2">
         <p className="text-xs font-bold text-foreground leading-tight line-clamp-2 w-full">{shop.name}</p>
         {shop.area && (
           <p className="text-[10px] text-muted-foreground leading-tight flex items-center gap-1">
@@ -109,12 +111,12 @@ function CompactShopCard({ shop }: { shop: any }) {
             Verified
           </span>
         )}
-        <div className="flex gap-1.5 w-full mt-auto pt-1">
+        <div className="flex gap-1.5 w-full mt-auto pt-1.5">
           {shop.phone && (
             <a
               href={`tel:${shop.phone}`}
               onClick={(e) => { e.stopPropagation(); logEngagement('call'); }}
-              className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors"
+              className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors hover:opacity-80"
               style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
             >
               📞 Call
@@ -126,7 +128,7 @@ function CompactShopCard({ shop }: { shop: any }) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => { e.stopPropagation(); logEngagement('whatsapp'); }}
-              className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors"
+              className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-[10px] font-semibold transition-colors hover:opacity-80"
               style={{ background: 'hsl(142 70% 45% / 0.12)', color: 'hsl(142 70% 35%)' }}
             >
               💬 WA
@@ -612,30 +614,35 @@ export default function Home() {
 
 
       <main className="max-w-lg mx-auto px-3 sm:px-4 py-5 pb-16">
-        {/* Recently Added — now FIRST */}
+        {/* Recently Added */}
         {recentShops.length >= 3 && (
-          <section className="mb-5">
-            <div className="flex items-center gap-2 mb-2">
+          <section className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
               <span className="text-sm leading-none">🆕</span>
               <h2 className="text-base sm:text-lg font-bold text-foreground">Recently Added</h2>
+              <span className="text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">New</span>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none -mx-1 px-1 snap-x snap-mandatory">
               {recentShops.map((shop) => (
-                <CompactShopCard key={shop.id} shop={shop} />
+                <div key={shop.id} className="snap-start">
+                  <CompactShopCard shop={shop} />
+                </div>
               ))}
             </div>
           </section>
         )}
 
-        {/* Browse by Category — now SECOND */}
+        {/* Browse by Category */}
         <section ref={categorySectionRef}>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base sm:text-lg font-bold text-foreground">Browse by Category</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-foreground">Browse by Category</h2>
+            </div>
             <button
               onClick={() => navigate('/shops')}
-              className="text-xs font-semibold text-primary hover:underline shrink-0"
+              className="text-xs font-semibold text-primary hover:underline shrink-0 flex items-center gap-0.5"
             >
-              View all →
+              View all <ChevronRight className="w-3 h-3" />
             </button>
           </div>
 
@@ -652,19 +659,19 @@ export default function Home() {
                     <button
                       key={cat.id}
                       onClick={() => navigate(`/shops?category=${encodeURIComponent(cat.name)}`)}
-                      className="group relative flex flex-col items-center gap-1.5 bg-card rounded-xl p-2.5 sm:p-3 border border-border hover:border-primary hover:shadow-md transition-all active:scale-95"
+                      className="group relative flex flex-col items-center gap-1.5 bg-card rounded-xl p-2.5 sm:p-3 border border-border hover:border-primary/50 hover:shadow-md transition-all duration-200 active:scale-[0.96]"
                     >
                       {count > 0 && (
                         <span
-                          className="absolute top-1.5 right-1.5 text-[9px] sm:text-[10px] font-bold px-1 sm:px-1.5 py-0.5 rounded-full leading-none"
+                          className="absolute top-1 right-1 text-[9px] sm:text-[10px] font-bold min-w-[18px] text-center px-1 sm:px-1.5 py-0.5 rounded-full leading-none"
                           style={{ background: 'hsl(var(--secondary))', color: 'hsl(var(--secondary-foreground))' }}
                         >
                           {count}
                         </span>
                       )}
                       <div
-                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl shadow-sm group-hover:scale-110 transition-transform"
-                        style={{ background: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--primary) / 0.06))' }}
+                        className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl group-hover:scale-110 transition-transform duration-200"
+                        style={{ background: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--primary) / 0.04))' }}
                       >
                         {cat.icon}
                       </div>
@@ -678,10 +685,11 @@ export default function Home() {
               {hasMoreCats && (
                 <button
                   onClick={() => setCatPage((p) => p + 1)}
-                  className="w-full mt-3 py-2.5 rounded-xl border font-semibold text-sm transition-colors hover:bg-muted/50 active:scale-[0.98]"
+                  className="w-full mt-3 py-2.5 rounded-xl border font-semibold text-sm transition-all hover:bg-muted/50 active:scale-[0.98] flex items-center justify-center gap-1.5"
                   style={{ borderColor: 'hsl(var(--border))', color: 'hsl(var(--primary))' }}
                 >
-                  View more ({sortedCategories.length - visibleCategories.length} more categories)
+                  View more ({sortedCategories.length - visibleCategories.length} more)
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               )}
             </>
@@ -689,14 +697,15 @@ export default function Home() {
         </section>
 
         {/* All Shops CTA */}
-        <section className="mt-4">
+        <section className="mt-5">
           <button
             onClick={() => navigate('/shops')}
-            className="w-full py-4 rounded-xl font-bold text-sm sm:text-base transition-colors active:scale-95 flex items-center justify-center gap-2 shadow-sm"
+            className="w-full py-4 rounded-xl font-bold text-sm sm:text-base transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
             style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(214 85% 30%))', color: 'hsl(var(--primary-foreground))' }}
           >
             <Store className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
             <span>View All {shops.length > 0 ? `${shops.length} ` : ''}Shops</span>
+            <ChevronRight className="w-4 h-4 opacity-70" />
           </button>
         </section>
 
@@ -897,10 +906,10 @@ function StatPill({
   highlight?: boolean;
   onClick?: () => void;
 }) {
-  const base = `flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-semibold shrink-0 transition-all ${
+  const base = `flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold shrink-0 transition-all duration-200 ${
     highlight
       ? 'bg-success/20 text-success border border-success/30'
-      : 'bg-primary-foreground/15 text-primary-foreground'
+      : 'bg-primary-foreground/15 text-primary-foreground border border-primary-foreground/10'
   }`;
 
   if (onClick) {
@@ -911,7 +920,7 @@ function StatPill({
       >
         {icon}
         <span>{label}</span>
-        <ChevronRight className="w-2.5 h-2.5 opacity-60" />
+        <ChevronRight className="w-2.5 h-2.5 opacity-50" />
       </button>
     );
   }
