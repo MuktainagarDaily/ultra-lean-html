@@ -282,6 +282,16 @@ export function AnalyticsTab() {
           </div>
         )}
       </div>
+
+      {showAnalyticsImport && (
+        <AnalyticsCsvImportModal
+          onClose={() => setShowAnalyticsImport(false)}
+          onDone={() => {
+            setShowAnalyticsImport(false);
+            qc.invalidateQueries({ queryKey: ['admin-engagement'] });
+          }}
+        />
+      )}
     </div>
   );
 }
