@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, Check, EyeOff, Loader2, AlertTriangle, Download, GitMerge } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, EyeOff, Loader2, AlertTriangle, Download, GitMerge, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { CategoryMergeModal } from './CategoryMergeModal';
+import { CategoryCsvImportModal } from './CategoryCsvImportModal';
 
 interface CategoriesTabProps {
   onEdit: (cat: any) => void;
@@ -20,6 +21,7 @@ export function CategoriesTab({ onEdit }: CategoriesTabProps) {
   const [fetchingLinks, setFetchingLinks] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [mergeCatTarget, setMergeCatTarget] = useState<{ id: string; name: string; icon: string; shopCount: number } | null>(null);
+  const [showCatImport, setShowCatImport] = useState(false);
 
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ['admin-categories'],
@@ -93,6 +95,13 @@ export function CategoriesTab({ onEdit }: CategoriesTabProps) {
           >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export CSV</span>
+          </button>
+          <button
+            onClick={() => setShowCatImport(true)}
+            className="flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:inline">Import CSV</span>
           </button>
           <button
             onClick={() => onEdit({})}
@@ -223,6 +232,17 @@ export function CategoriesTab({ onEdit }: CategoriesTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {showCatImport && (
+        <CategoryCsvImportModal
+          onClose={() => setShowCatImport(false)}
+          onDone={() => {
+            setShowCatImport(false);
+            qc.invalidateQueries({ queryKey: ['admin-categories'] });
+            qc.invalidateQueries({ queryKey: ['admin-stats'] });
+          }}
+        />
+      )}
 
       {mergeCatTarget && (
         <CategoryMergeModal

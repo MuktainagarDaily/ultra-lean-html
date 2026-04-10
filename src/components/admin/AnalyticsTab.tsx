@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { TrendingUp, Phone, MessageCircle, Download } from 'lucide-react';
+import { TrendingUp, Phone, MessageCircle, Download, Upload } from 'lucide-react';
+import { AnalyticsCsvImportModal } from './AnalyticsCsvImportModal';
 
 type DateRange = '7d' | '30d' | 'all';
 const DATE_RANGE_OPTIONS: { label: string; value: DateRange }[] = [
@@ -15,6 +16,8 @@ type ShopSort = 'total' | 'call' | 'whatsapp';
 export function AnalyticsTab() {
   const [dateRange, setDateRange] = useState<DateRange>('30d');
   const [shopSort, setShopSort] = useState<ShopSort>('total');
+  const [showAnalyticsImport, setShowAnalyticsImport] = useState(false);
+  const qc = useQueryClient();
 
   const cutoff = useMemo(() => {
     if (dateRange === 'all') return null;
@@ -121,6 +124,13 @@ export function AnalyticsTab() {
             <span className="hidden sm:inline">Export CSV</span>
           </button>
         )}
+        <button
+          onClick={() => setShowAnalyticsImport(true)}
+          className="flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
+        >
+          <Upload className="w-4 h-4" />
+          <span className="hidden sm:inline">Import CSV</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -272,6 +282,16 @@ export function AnalyticsTab() {
           </div>
         )}
       </div>
+
+      {showAnalyticsImport && (
+        <AnalyticsCsvImportModal
+          onClose={() => setShowAnalyticsImport(false)}
+          onDone={() => {
+            setShowAnalyticsImport(false);
+            qc.invalidateQueries({ queryKey: ['admin-engagement'] });
+          }}
+        />
+      )}
     </div>
   );
 }
