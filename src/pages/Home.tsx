@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, TrendingUp, Store, Star, Phone, Plus, ShieldCheck, SlidersHorizontal, X, ChevronRight } from 'lucide-react';
+import { Search, MapPin, TrendingUp, Store, ShieldCheck, SlidersHorizontal, X, ChevronRight } from 'lucide-react';
 import { UserMenuDrawer } from '@/components/UserMenuDrawer';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -138,33 +138,6 @@ function CompactShopCard({ shop }: { shop: any }) {
   );
 }
 
-/** Sub-category placeholder row — UI foundation only, no data yet */
-function SubCategoryRow() {
-  const placeholders = ['All', 'Sub A', 'Sub B', 'Sub C'];
-  return (
-    <div className="mt-2 ml-2 pl-3 border-l-2 border-primary/20">
-      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Sub-categories</p>
-      <div className="flex flex-wrap gap-1.5">
-        {placeholders.map((label, i) => (
-          <span
-            key={label}
-            title="Coming soon"
-            className={`px-2.5 py-1 rounded-full text-xs border font-medium select-none cursor-not-allowed opacity-50 ${
-              i === 0
-                ? 'bg-primary/10 border-primary/30 text-primary'
-                : 'bg-muted border-border text-muted-foreground'
-            }`}
-          >
-            {label}
-          </span>
-        ))}
-        <span className="px-2 py-1 rounded-full text-[10px] font-semibold border border-dashed border-muted-foreground/30 text-muted-foreground/60 select-none">
-          + Coming soon
-        </span>
-      </div>
-    </div>
-  );
-}
 
 export default function Home() {
   const [search, setSearch] = useState('');
@@ -370,8 +343,6 @@ export default function Home() {
   };
 
   // Quick chip toggles
-  const toggleQuickOpen = () => setAvailability((a) => a === 'open' ? 'all' : 'open');
-  const toggleQuickVerified = () => setVerifiedOnly((v) => !v);
   const toggleQuickCategory = (catName: string) => {
     setSelectedCategories((prev) =>
       prev.includes(catName) ? prev.filter((c) => c !== catName) : [...prev, catName]
@@ -556,30 +527,6 @@ export default function Home() {
               )}
             </button>
 
-            {/* Quick chips — Open Now */}
-            <button
-              onClick={toggleQuickOpen}
-              className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                availability === 'open'
-                  ? 'bg-primary-foreground text-primary'
-                  : 'bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25'
-              }`}
-            >
-              🟢 Open Now
-            </button>
-
-            {/* Quick chips — Verified */}
-            <button
-              onClick={toggleQuickVerified}
-              className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                verifiedOnly
-                  ? 'bg-primary-foreground text-primary'
-                  : 'bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25'
-              }`}
-            >
-              <ShieldCheck className="w-3 h-3" /> Verified
-            </button>
-
             {/* Quick chips — Top 3 categories */}
             {topCategories.map((cat) => (
               <button
@@ -663,41 +610,8 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Trust Strip */}
-      <div
-        className="py-2.5 px-4 flex items-center justify-start sm:justify-center gap-3 sm:gap-4 border-b border-border text-xs font-medium text-muted-foreground overflow-x-auto scrollbar-none"
-        style={{ background: 'hsl(var(--primary) / 0.03)' }}
-      >
-        <button
-          onClick={() => navigate('/shops')}
-          className="flex items-center gap-1.5 shrink-0 hover:text-primary transition-colors group"
-        >
-          <Phone className="w-3 h-3 text-primary shrink-0" />
-          Direct calls
-          <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity -ml-0.5" />
-        </button>
-        <span className="w-px h-3 bg-border shrink-0" />
-        <button
-          onClick={() => navigate('/shops?filter=verified')}
-          className="flex items-center gap-1.5 shrink-0 hover:text-primary transition-colors group"
-        >
-          <ShieldCheck className="w-3 h-3 text-primary shrink-0" />
-          {verifiedCount > 0 ? `${verifiedCount} verified listings` : 'Verified listings'}
-          <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity -ml-0.5" />
-        </button>
-        <span className="w-px h-3 bg-border shrink-0" />
-        <span className="flex items-center gap-1.5 shrink-0">
-          <MapPin className="w-3 h-3 text-primary shrink-0" />
-          Local businesses
-        </span>
-        <span className="w-px h-3 bg-border shrink-0" />
-        <span className="flex items-center gap-1.5 shrink-0">
-          <Star className="w-3 h-3 text-primary shrink-0" />
-          Reviewed & maintained
-        </span>
-      </div>
 
-      <main className="max-w-lg mx-auto px-3 sm:px-4 py-5 pb-28">
+      <main className="max-w-lg mx-auto px-3 sm:px-4 py-5 pb-16">
         {/* Recently Added — now FIRST */}
         {recentShops.length >= 3 && (
           <section className="mb-5">
@@ -775,7 +689,7 @@ export default function Home() {
         </section>
 
         {/* All Shops CTA */}
-        <section className="mt-5">
+        <section className="mt-4">
           <button
             onClick={() => navigate('/shops')}
             className="w-full py-4 rounded-xl font-bold text-sm sm:text-base transition-colors active:scale-95 flex items-center justify-center gap-2 shadow-sm"
@@ -783,30 +697,10 @@ export default function Home() {
           >
             <Store className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
             <span>View All {shops.length > 0 ? `${shops.length} ` : ''}Shops</span>
-            {openNowCount > 0 && (
-              <span
-                className="ml-1 text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0"
-                style={{ background: 'hsl(var(--success))', color: 'hsl(var(--success-foreground))' }}
-              >
-                {openNowCount} open
-              </span>
-            )}
           </button>
         </section>
 
 
-        {/* Quick Info */}
-        <section
-          className="mt-3.5 rounded-xl p-3.5 border"
-          style={{ background: 'hsl(var(--secondary) / 0.08)', borderColor: 'hsl(var(--secondary) / 0.3)' }}
-        >
-          <p className="text-xs sm:text-sm text-foreground text-center font-medium">
-            📍 Muktainagar, Jalgaon District, Maharashtra
-          </p>
-          <p className="text-[11px] sm:text-xs text-muted-foreground text-center mt-1">
-            Find local shops • Call directly • No registration needed
-          </p>
-        </section>
       </main>
 
       <footer className="text-center text-[11px] text-muted-foreground py-5 border-t border-border px-4">
@@ -946,8 +840,6 @@ export default function Home() {
                             </span>
                           )}
                         </button>
-                        {/* Sub-category placeholder — shown when category is selected */}
-                        {active && <SubCategoryRow />}
                       </div>
                     );
                   })}

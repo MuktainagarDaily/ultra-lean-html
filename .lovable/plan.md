@@ -1,49 +1,64 @@
 
 
-## Plan: Enhance Filter UI/UX + Add Autocomplete to Shops Page
+## Home Page Audit — Duplicates & UX Improvements
 
-### What exists now
-- **Home page**: Has autocomplete search (top 5 suggestions), filter drawer with availability/area/category/verified, active filter pills, stat pills
-- **Shops page**: Has search input (no autocomplete), same filter drawer pattern, active filter pills, pagination
-- Both pages have nearly identical filter drawer code (duplicated)
+### Duplicates Found
 
-### Changes
+**1. "Open Now" appears 3 times**
+- Quick filter chip "🟢 Open Now" (line 560)
+- StatPill "15 Open Now" (line 643)
+- Inside "View All Shops" CTA badge "15 open" (line 786)
 
-#### 1. Add autocomplete to Shops page search box
-Port the same autocomplete dropdown pattern from Home.tsx into Shops.tsx:
-- Add `searchFocused` state and `onFocus`/`onBlur` handlers to the search input
-- Compute `searchSuggestions` from the loaded shops data (same haystack logic: name, area, sub_area, address, description, keywords, category names)
-- Render the dropdown below the search input with shop name, area, and category badge
-- Clicking a suggestion navigates to `/shop/:slug`
-- The dropdown uses `z-[999]` and `max-h-[320px] overflow-y-auto` to stay visible
+**2. "Verified" appears 3 times**
+- Quick filter chip "Verified" (line 571)
+- StatPill "20 Verified" (line 654)
+- Trust Strip "20 verified listings" (line 685)
 
-#### 2. Enhance filter UI/UX on both pages
-Small, safe UX improvements — no redesign:
+**3. "All Shops" / shop count appears 3 times**
+- StatPill "21 Shops" links to /shops (line 638)
+- "View All 21 Shops" CTA button links to /shops (line 779)
+- "View all →" link next to Browse by Category links to /shops (line 720)
 
-**Quick filter chips (both pages):**
-- Add inline quick-filter chips below the search bar for the most common actions: "Open Now", "Verified", and top 3 categories — one tap to toggle without opening the drawer
-- These sit in the existing horizontal scroll bar alongside active filter pills
+**4. Trust Strip is fully redundant**
+- "Direct calls" — not actionable, filler text
+- "Verified listings" — duplicate of stat pill + quick chip
+- "Local businesses" — obvious from context
+- "Reviewed & maintained" — filler
 
-**Filter drawer improvements (both pages):**
-- Add a search/filter input inside the Area section when there are 6+ areas (helps users find their area fast)
-- Show shop count next to each category chip in the filter drawer (e.g., "🛒 Grocery (12)")
-- Show shop count next to each area option (e.g., "Main Road (8)")
+**5. Quick Info section at bottom is redundant**
+- "📍 Muktainagar, Jalgaon District, Maharashtra" — already in the header
+- "Find local shops • Call directly • No registration needed" — repeats trust strip
 
-**Active filter summary (Shops page):**
-- When filters are active, show a subtle results summary bar above the shop list: "Showing 15 open shops in Main Road"
+**6. SubCategoryRow placeholder**
+- Shows "Coming soon" placeholders with no data — adds visual noise with zero value
+
+---
+
+### Proposed Changes
+
+| # | Change | Why |
+|---|--------|-----|
+| 1 | **Remove Trust Strip** (lines 667-698) | All info is duplicated in stat pills or obvious from context |
+| 2 | **Remove Quick Info section** (lines 799-809) | Repeats header location + trust strip messaging |
+| 3 | **Remove SubCategoryRow component** (lines 141-167) and its usage in filter drawer (line 950) | Placeholder UI with no data — visual noise |
+| 4 | **Remove "Open Now" quick chip** (lines 559-568) | Already in StatPills with count; filter drawer has it too |
+| 5 | **Remove "Verified" quick chip** (lines 571-581) | Already in StatPills with count; filter drawer has it too |
+| 6 | **Keep top 3 category quick chips** | These are useful for fast navigation and not duplicated elsewhere in the header |
+| 7 | **Remove the "15 open" badge from "View All Shops" CTA** (lines 786-793) | Count already shown in stat pills above — the CTA is cleaner without it |
+| 8 | **Tighten spacing** — reduce `pb-28` on main to `pb-16`, reduce `mt-5` on CTA to `mt-4` | Less dead space at bottom, tighter flow |
+
+### What stays unchanged
+- Search bar + autocomplete — working well
+- StatPills row — concise, clickable, useful
+- Filter button + filter drawer — user requested this stays
+- Recently Added section — good discovery feature
+- Browse by Category grid — core navigation
+- "View All Shops" CTA — primary action (just removing the redundant open badge)
+- Footer — minimal, appropriate
+- Category quick chips in filter row — useful shortcuts
 
 ### Files changed
+- `src/pages/Home.tsx` only — remove ~80 lines of duplicate/filler UI
 
-| File | Change |
-|---|---|
-| `src/pages/Shops.tsx` | Add autocomplete dropdown to search, add quick-filter chips, add area search in drawer, show counts in drawer, results summary bar |
-| `src/pages/Home.tsx` | Add quick-filter chips, add area search in drawer, show counts in drawer |
-
-### Technical notes
-- No database changes needed
-- No new dependencies
-- Reuses existing shop data already fetched via React Query
-- Autocomplete logic is client-side (same as Home page) — no extra API calls
-- All counts are computed from the already-loaded shops array
-- Mobile-first: quick chips are horizontally scrollable, area search input is compact
+No backend, no database, no Cloud changes.
 
