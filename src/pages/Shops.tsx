@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Search, X, Clock, RefreshCw, AlertCircle, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, Search, X, Clock, RefreshCw, AlertCircle, SlidersHorizontal, ShieldCheck } from 'lucide-react';
 import { UserMenuDrawer } from '@/components/UserMenuDrawer';
 import { ShopCard } from '@/components/ShopCard';
 import { isShopOpen } from '@/lib/shopUtils';
@@ -45,6 +45,7 @@ export default function Shops() {
   const categoryParam = searchParams.get('category') || '';
   const [localSearch, setLocalSearch] = useState(initialSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [availability, setAvailability] = useState<AvailabilityFilter>(filterParam === 'open' ? 'open' : 'all');
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
@@ -54,6 +55,7 @@ export default function Shops() {
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [filterOpen, setFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
+  const [areaSearch, setAreaSearch] = useState('');
 
   // Temporary state inside the sheet (applied on "Show Results")
   const [sheetAvailability, setSheetAvailability] = useState<AvailabilityFilter>('all');
@@ -87,6 +89,7 @@ export default function Shops() {
       setSheetAreas(selectedAreas);
       setSheetCategories(selectedCategories);
       setSheetVerifiedOnly(verifiedOnly);
+      setAreaSearch('');
     }
   }, [filterOpen]);
 
@@ -146,12 +149,59 @@ export default function Shops() {
     return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [shops]);
 
+  // Shop counts per category and per area
+  const catShopCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    (shops as any[]).forEach((s) => {
+      s.shop_categories?.forEach((sc: any) => {
+        const name = sc.categories?.name;
+        if (name) counts[name] = (counts[name] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [shops]);
+
+  const areaShopCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    (shops as any[]).forEach((s) => {
+      const a = s.area?.trim();
+      if (a) counts[a] = (counts[a] || 0) + 1;
+    });
+    return counts;
+  }, [shops]);
+
   // Pre-compute open status once per render cycle to avoid repeated date arithmetic
   const shopOpenMap = useMemo(() => {
     const map = new Map<string, boolean>();
     (shops as any[]).forEach((s) => map.set(s.id, isShopOpen(s)));
     return map;
   }, [shops]);
+
+  // Autocomplete suggestions — top 5 matching shops
+  const searchSuggestions = useMemo(() => {
+    if (!searchFocused || localSearch.trim().length < 2) return [];
+    const q = localSearch.trim().toLowerCase();
+    const results: any[] = [];
+    for (const shop of shops as any[]) {
+      if (results.length >= 5) break;
+      const catNames = (shop.shop_categories || [])
+        .map((sc: any) => sc.categories?.name || '')
+        .filter(Boolean);
+      const haystack = [shop.name, shop.area, shop.sub_area, shop.address, shop.description, shop.keywords, ...catNames]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      if (haystack.includes(q)) results.push(shop);
+    }
+    return results;
+  }, [shops, localSearch, searchFocused]);
+
+  // Top 3 categories for quick chips
+  const topCategories = useMemo(() => {
+    return [...categoryOptions]
+      .sort((a, b) => (catShopCounts[b.name] || 0) - (catShopCounts[a.name] || 0))
+      .slice(0, 3);
+  }, [categoryOptions, catShopCounts]);
 
   const applyFilters = useCallback((s: any, avail: AvailabilityFilter, areas: string[], cats: string[], verified: boolean) => {
     if (avail === 'open' && !shopOpenMap.get(s.id)) return false;
@@ -188,6 +238,22 @@ export default function Shops() {
 
   const title = debouncedSearch ? `"${debouncedSearch}"` : 'All Shops';
 
+  // Build active filter summary text
+  const filterSummaryText = useMemo(() => {
+    if (activeFilterCount === 0) return '';
+    const parts: string[] = [];
+    parts.push(`${filteredShops.length}`);
+    if (availability === 'open') parts.push('open');
+    if (availability === 'closed') parts.push('closed');
+    if (verifiedOnly) parts.push('verified');
+    parts.push(filteredShops.length === 1 ? 'shop' : 'shops');
+    if (selectedAreas.length === 1) parts.push(`in ${selectedAreas[0]}`);
+    else if (selectedAreas.length > 1) parts.push(`in ${selectedAreas.length} areas`);
+    if (selectedCategories.length === 1) parts.push(`• ${selectedCategories[0]}`);
+    else if (selectedCategories.length > 1) parts.push(`• ${selectedCategories.length} categories`);
+    return `Showing ${parts.join(' ')}`;
+  }, [activeFilterCount, filteredShops.length, availability, verifiedOnly, selectedAreas, selectedCategories]);
+
   const handleApply = () => {
     setAvailability(sheetAvailability);
     setSelectedAreas(sheetAreas);
@@ -216,11 +282,27 @@ export default function Shops() {
     if (type === 'verified') setVerifiedOnly(false);
   };
 
+  // Quick chip toggle helpers
+  const toggleQuickOpen = () => setAvailability((a) => a === 'open' ? 'all' : 'open');
+  const toggleQuickVerified = () => setVerifiedOnly((v) => !v);
+  const toggleQuickCategory = (catName: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(catName) ? prev.filter((c) => c !== catName) : [...prev, catName]
+    );
+  };
+
   const availabilityLabel: Record<AvailabilityFilter, string> = {
     all: 'All Shops',
     open: 'Open Now',
     closed: 'Closed Now',
   };
+
+  // Filtered areas for drawer search
+  const filteredAreaOptions = useMemo(() => {
+    if (!areaSearch.trim()) return areaOptions;
+    const q = areaSearch.trim().toLowerCase();
+    return areaOptions.filter((a) => a.toLowerCase().includes(q));
+  }, [areaOptions, areaSearch]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -247,15 +329,18 @@ export default function Shops() {
             <UserMenuDrawer />
           </div>
 
-          {/* Search */}
+          {/* Search with autocomplete */}
           <div className="relative mb-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input
               type="text"
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
               placeholder="Search by name, area, address..."
               className="w-full pl-9 pr-10 py-2.5 rounded-xl text-foreground bg-card text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
+              autoComplete="off"
             />
             {localSearch && (
               <button
@@ -266,9 +351,38 @@ export default function Shops() {
                 <X className="w-4 h-4" />
               </button>
             )}
+
+            {/* Autocomplete dropdown */}
+            {searchFocused && searchSuggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-card border border-border rounded-xl shadow-2xl z-[999] overflow-hidden max-h-[320px] overflow-y-auto">
+                {searchSuggestions.map((shop: any) => {
+                  const catName = shop.shop_categories?.[0]?.categories?.name;
+                  const shopPath = shop.slug ? `/shop/${shop.slug}` : `/shop/${shop.id}`;
+                  return (
+                    <div
+                      key={shop.id}
+                      onMouseDown={() => navigate(shopPath)}
+                      className="flex items-center gap-3 px-3.5 py-2.5 cursor-pointer hover:bg-accent/50 transition-colors border-b border-border/50 last:border-b-0"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{shop.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {[shop.area, shop.sub_area].filter(Boolean).join(', ')}
+                        </p>
+                      </div>
+                      {catName && (
+                        <span className="shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                          {catName}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Filter bar */}
+          {/* Quick filter chips + filter button */}
           <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none scroll-fade-right">
             {/* Filter button */}
             <button
@@ -288,19 +402,50 @@ export default function Shops() {
               )}
             </button>
 
-            {/* Active filter pills */}
-            {availability !== 'all' && (
+            {/* Quick chips — Open Now */}
+            <button
+              onClick={toggleQuickOpen}
+              className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                availability === 'open'
+                  ? 'bg-primary-foreground text-primary'
+                  : 'bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25'
+              }`}
+            >
+              🟢 Open Now
+            </button>
+
+            {/* Quick chips — Verified */}
+            <button
+              onClick={toggleQuickVerified}
+              className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                verifiedOnly
+                  ? 'bg-primary-foreground text-primary'
+                  : 'bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25'
+              }`}
+            >
+              <ShieldCheck className="w-3 h-3" /> Verified
+            </button>
+
+            {/* Quick chips — Top 3 categories */}
+            {topCategories.map((cat) => (
+              <button
+                key={cat.name}
+                onClick={() => toggleQuickCategory(cat.name)}
+                className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${
+                  selectedCategories.includes(cat.name)
+                    ? 'bg-primary-foreground text-primary'
+                    : 'bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25'
+                }`}
+              >
+                {cat.icon} {cat.name}
+              </button>
+            ))}
+
+            {/* Active filter pills (only for non-quick filters: areas, remaining categories, closed) */}
+            {availability === 'closed' && (
               <span className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary">
-                {availability === 'open' ? '🟢' : '🔴'} {availabilityLabel[availability]}
+                🔴 Closed Now
                 <button onClick={() => removeFilter('availability')} className="ml-0.5 hover:opacity-70">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {verifiedOnly && (
-              <span className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary">
-                ✅ Verified Only
-                <button onClick={() => removeFilter('verified')} className="ml-0.5 hover:opacity-70">
                   <X className="w-3 h-3" />
                 </button>
               </span>
@@ -313,14 +458,16 @@ export default function Shops() {
                 </button>
               </span>
             ))}
-            {selectedCategories.map((cat) => (
-              <span key={cat} className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary whitespace-nowrap">
-                {categoryOptions.find((c) => c.name === cat)?.icon} {cat}
-                <button onClick={() => removeFilter('category', cat)} className="ml-0.5 hover:opacity-70">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
+            {selectedCategories
+              .filter((c) => !topCategories.some((tc) => tc.name === c))
+              .map((cat) => (
+                <span key={cat} className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary whitespace-nowrap">
+                  {categoryOptions.find((c) => c.name === cat)?.icon} {cat}
+                  <button onClick={() => removeFilter('category', cat)} className="ml-0.5 hover:opacity-70">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
             {activeFilterCount > 1 && (
               <button
                 onClick={() => { setAvailability('all'); setSelectedAreas([]); setSelectedCategories([]); setVerifiedOnly(false); }}
@@ -334,6 +481,13 @@ export default function Shops() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4 pb-28">
+        {/* Active filter summary */}
+        {activeFilterCount > 0 && filteredShops.length > 0 && (
+          <div className="mb-3 px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground" style={{ background: 'hsl(var(--primary) / 0.05)' }}>
+            {filterSummaryText}
+          </div>
+        )}
+
         {isError ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <AlertCircle className="w-10 h-10 text-destructive/60" />
@@ -562,9 +716,23 @@ export default function Shops() {
                     </button>
                   )}
                 </div>
+                {/* Area search — shown when 6+ areas */}
+                {areaOptions.length >= 6 && (
+                  <div className="relative mb-2">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="text"
+                      value={areaSearch}
+                      onChange={(e) => setAreaSearch(e.target.value)}
+                      placeholder="Search areas..."
+                      className="w-full pl-8 pr-3 py-2 rounded-lg text-sm border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                    />
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
-                  {areaOptions.map((area) => {
+                  {filteredAreaOptions.map((area) => {
                     const active = sheetAreas.includes(area);
+                    const count = areaShopCounts[area] || 0;
                     return (
                       <button
                         key={area}
@@ -580,7 +748,10 @@ export default function Shops() {
                         }`}>
                           {active && <span className="text-primary-foreground text-[10px] font-bold leading-none">✓</span>}
                         </span>
-                        <span className="truncate">{area}</span>
+                        <span className="truncate flex-1">{area}</span>
+                        {count > 0 && (
+                          <span className="text-[10px] text-muted-foreground shrink-0">({count})</span>
+                        )}
                       </button>
                     );
                   })}
@@ -609,6 +780,7 @@ export default function Shops() {
                 <div className="flex flex-wrap gap-2">
                   {categoryOptions.map((cat) => {
                     const active = sheetCategories.includes(cat.name);
+                    const count = catShopCounts[cat.name] || 0;
                     return (
                       <button
                         key={cat.name}
@@ -620,6 +792,11 @@ export default function Shops() {
                         }`}
                       >
                         {cat.icon} {cat.name}
+                        {count > 0 && (
+                          <span className={`text-[10px] ${active ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                            ({count})
+                          </span>
+                        )}
                       </button>
                     );
                   })}

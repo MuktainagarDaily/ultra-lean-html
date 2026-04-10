@@ -173,6 +173,7 @@ export default function Home() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [catPage, setCatPage] = useState(1);
   const CATS_PER_PAGE = 6;
+  const [areaSearch, setAreaSearch] = useState('');
 
   // Applied filter state
   const [availability, setAvailability] = useState<AvailabilityFilter>('all');
@@ -247,6 +248,27 @@ export default function Home() {
     return counts;
   }, [shops]);
 
+  // Category counts by name (for filter drawer)
+  const catNameCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    (shops as any[]).forEach((s) => {
+      s.shop_categories?.forEach((sc: any) => {
+        const name = sc.categories?.name;
+        if (name) counts[name] = (counts[name] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [shops]);
+
+  const areaShopCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    (shops as any[]).forEach((s) => {
+      const a = s.area?.trim();
+      if (a) counts[a] = (counts[a] || 0) + 1;
+    });
+    return counts;
+  }, [shops]);
+
   const sortedCategories = useMemo(
     () => [...categories].sort((a, b) => {
       const diff = (catShopCounts[b.id] || 0) - (catShopCounts[a.id] || 0);
@@ -290,6 +312,13 @@ export default function Home() {
     return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [shops]);
 
+  // Top 3 categories for quick chips
+  const topCategories = useMemo(() => {
+    return [...categoryOptions]
+      .sort((a, b) => (catNameCounts[b.name] || 0) - (catNameCounts[a.name] || 0))
+      .slice(0, 3);
+  }, [categoryOptions, catNameCounts]);
+
   const applyFilters = (s: any, avail: AvailabilityFilter, areas: string[], cats: string[], verified: boolean) => {
     if (avail === 'open' && !isShopOpen(s)) return false;
     if (avail === 'closed' && isShopOpen(s)) return false;
@@ -316,6 +345,7 @@ export default function Home() {
     setSheetAreas(selectedAreas);
     setSheetCategories(selectedCategories);
     setSheetVerifiedOnly(verifiedOnly);
+    setAreaSearch('');
     setFilterOpen(true);
   };
 
@@ -337,6 +367,15 @@ export default function Home() {
     if (type === 'area' && value) setSelectedAreas((prev) => prev.filter((a) => a !== value));
     if (type === 'category' && value) setSelectedCategories((prev) => prev.filter((c) => c !== value));
     if (type === 'verified') setVerifiedOnly(false);
+  };
+
+  // Quick chip toggles
+  const toggleQuickOpen = () => setAvailability((a) => a === 'open' ? 'all' : 'open');
+  const toggleQuickVerified = () => setVerifiedOnly((v) => !v);
+  const toggleQuickCategory = (catName: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(catName) ? prev.filter((c) => c !== catName) : [...prev, catName]
+    );
   };
 
   const handleApplyAndNavigate = () => {
@@ -375,6 +414,13 @@ export default function Home() {
   const availabilityLabel: Record<AvailabilityFilter, string> = {
     all: 'All Shops', open: 'Open Now', closed: 'Closed Now',
   };
+
+  // Filtered areas for drawer search
+  const filteredAreaOptions = useMemo(() => {
+    if (!areaSearch.trim()) return areaOptions;
+    const q = areaSearch.trim().toLowerCase();
+    return areaOptions.filter((a) => a.toLowerCase().includes(q));
+  }, [areaOptions, areaSearch]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -491,7 +537,7 @@ export default function Home() {
             )}
           </form>
 
-          {/* Filter bar — same pattern as Shops page */}
+          {/* Quick filter chips + filter bar */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 mb-3 scrollbar-none">
             <button
               onClick={handleOpenFilter}
@@ -510,18 +556,50 @@ export default function Home() {
               )}
             </button>
 
-            {availability !== 'all' && (
+            {/* Quick chips — Open Now */}
+            <button
+              onClick={toggleQuickOpen}
+              className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                availability === 'open'
+                  ? 'bg-primary-foreground text-primary'
+                  : 'bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25'
+              }`}
+            >
+              🟢 Open Now
+            </button>
+
+            {/* Quick chips — Verified */}
+            <button
+              onClick={toggleQuickVerified}
+              className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                verifiedOnly
+                  ? 'bg-primary-foreground text-primary'
+                  : 'bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25'
+              }`}
+            >
+              <ShieldCheck className="w-3 h-3" /> Verified
+            </button>
+
+            {/* Quick chips — Top 3 categories */}
+            {topCategories.map((cat) => (
+              <button
+                key={cat.name}
+                onClick={() => toggleQuickCategory(cat.name)}
+                className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${
+                  selectedCategories.includes(cat.name)
+                    ? 'bg-primary-foreground text-primary'
+                    : 'bg-primary-foreground/15 text-primary-foreground hover:bg-primary-foreground/25'
+                }`}
+              >
+                {cat.icon} {cat.name}
+              </button>
+            ))}
+
+            {/* Active filter pills for non-quick filters */}
+            {availability === 'closed' && (
               <span className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary">
-                {availability === 'open' ? '🟢' : '🔴'} {availabilityLabel[availability]}
+                🔴 Closed Now
                 <button onClick={() => removeFilter('availability')} className="ml-0.5 hover:opacity-70">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {verifiedOnly && (
-              <span className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary">
-                ✅ Verified Only
-                <button onClick={() => removeFilter('verified')} className="ml-0.5 hover:opacity-70">
                   <X className="w-3 h-3" />
                 </button>
               </span>
@@ -534,14 +612,16 @@ export default function Home() {
                 </button>
               </span>
             ))}
-            {selectedCategories.map((cat) => (
-              <span key={cat} className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary whitespace-nowrap">
-                {categoryOptions.find((c) => c.name === cat)?.icon} {cat}
-                <button onClick={() => removeFilter('category', cat)} className="ml-0.5 hover:opacity-70">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
+            {selectedCategories
+              .filter((c) => !topCategories.some((tc) => tc.name === c))
+              .map((cat) => (
+                <span key={cat} className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-primary-foreground text-primary whitespace-nowrap">
+                  {categoryOptions.find((c) => c.name === cat)?.icon} {cat}
+                  <button onClick={() => removeFilter('category', cat)} className="ml-0.5 hover:opacity-70">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
             {activeFilterCount > 1 && (
               <button
                 onClick={() => { setAvailability('all'); setSelectedAreas([]); setSelectedCategories([]); setVerifiedOnly(false); }}
@@ -786,9 +866,23 @@ export default function Home() {
                     <button onClick={() => setSheetAreas([])} className="text-xs text-primary font-semibold hover:opacity-70">Clear</button>
                   )}
                 </div>
+                {/* Area search — shown when 6+ areas */}
+                {areaOptions.length >= 6 && (
+                  <div className="relative mb-2">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="text"
+                      value={areaSearch}
+                      onChange={(e) => setAreaSearch(e.target.value)}
+                      placeholder="Search areas..."
+                      className="w-full pl-8 pr-3 py-2 rounded-lg text-sm border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                    />
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
-                  {areaOptions.map((area) => {
+                  {filteredAreaOptions.map((area) => {
                     const active = sheetAreas.includes(area);
+                    const count = areaShopCounts[area] || 0;
                     return (
                       <button
                         key={area}
@@ -804,7 +898,10 @@ export default function Home() {
                         }`}>
                           {active && <span className="text-primary-foreground text-[10px] font-bold leading-none">✓</span>}
                         </span>
-                        <span className="truncate">{area}</span>
+                        <span className="truncate flex-1">{area}</span>
+                        {count > 0 && (
+                          <span className="text-[10px] text-muted-foreground shrink-0">({count})</span>
+                        )}
                       </button>
                     );
                   })}
@@ -831,6 +928,7 @@ export default function Home() {
                 <div className="flex flex-wrap gap-2">
                   {categoryOptions.map((cat) => {
                     const active = sheetCategories.includes(cat.name);
+                    const count = catNameCounts[cat.name] || 0;
                     return (
                       <div key={cat.name} className="w-full">
                         <button
@@ -842,6 +940,11 @@ export default function Home() {
                           }`}
                         >
                           {cat.icon} {cat.name}
+                          {count > 0 && (
+                            <span className={`text-[10px] ${active ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                              ({count})
+                            </span>
+                          )}
                         </button>
                         {/* Sub-category placeholder — shown when category is selected */}
                         {active && <SubCategoryRow />}
