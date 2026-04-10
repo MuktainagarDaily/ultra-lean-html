@@ -1,64 +1,67 @@
 
 
-## Home Page Audit — Duplicates & UX Improvements
+## What to build
 
-### Duplicates Found
-
-**1. "Open Now" appears 3 times**
-- Quick filter chip "🟢 Open Now" (line 560)
-- StatPill "15 Open Now" (line 643)
-- Inside "View All Shops" CTA badge "15 open" (line 786)
-
-**2. "Verified" appears 3 times**
-- Quick filter chip "Verified" (line 571)
-- StatPill "20 Verified" (line 654)
-- Trust Strip "20 verified listings" (line 685)
-
-**3. "All Shops" / shop count appears 3 times**
-- StatPill "21 Shops" links to /shops (line 638)
-- "View All 21 Shops" CTA button links to /shops (line 779)
-- "View all →" link next to Browse by Category links to /shops (line 720)
-
-**4. Trust Strip is fully redundant**
-- "Direct calls" — not actionable, filler text
-- "Verified listings" — duplicate of stat pill + quick chip
-- "Local businesses" — obvious from context
-- "Reviewed & maintained" — filler
-
-**5. Quick Info section at bottom is redundant**
-- "📍 Muktainagar, Jalgaon District, Maharashtra" — already in the header
-- "Find local shops • Call directly • No registration needed" — repeats trust strip
-
-**6. SubCategoryRow placeholder**
-- Shows "Coming soon" placeholders with no data — adds visual noise with zero value
+Two new CSV import features: one for bulk category import in the Categories tab, and one for analytics engagement import in the Analytics tab. Both follow the existing `CsvImportModal` pattern (upload → preview → import).
 
 ---
 
-### Proposed Changes
+### 1. Category CSV Import Modal — `src/components/admin/CategoryCsvImportModal.tsx`
 
-| # | Change | Why |
-|---|--------|-----|
-| 1 | **Remove Trust Strip** (lines 667-698) | All info is duplicated in stat pills or obvious from context |
-| 2 | **Remove Quick Info section** (lines 799-809) | Repeats header location + trust strip messaging |
-| 3 | **Remove SubCategoryRow component** (lines 141-167) and its usage in filter drawer (line 950) | Placeholder UI with no data — visual noise |
-| 4 | **Remove "Open Now" quick chip** (lines 559-568) | Already in StatPills with count; filter drawer has it too |
-| 5 | **Remove "Verified" quick chip** (lines 571-581) | Already in StatPills with count; filter drawer has it too |
-| 6 | **Keep top 3 category quick chips** | These are useful for fast navigation and not duplicated elsewhere in the header |
-| 7 | **Remove the "15 open" badge from "View All Shops" CTA** (lines 786-793) | Count already shown in stat pills above — the CTA is cleaner without it |
-| 8 | **Tighten spacing** — reduce `pb-28` on main to `pb-16`, reduce `mt-5` on CTA to `mt-4` | Less dead space at bottom, tighter flow |
+New modal component following the same pattern as `CsvImportModal.tsx`:
 
-### What stays unchanged
-- Search bar + autocomplete — working well
-- StatPills row — concise, clickable, useful
-- Filter button + filter drawer — user requested this stays
-- Recently Added section — good discovery feature
-- Browse by Category grid — core navigation
-- "View All Shops" CTA — primary action (just removing the redundant open badge)
-- Footer — minimal, appropriate
-- Category quick chips in filter row — useful shortcuts
+- **Template**: 3 columns — `Name, Icon, Active` (matches the uploaded CSV format)
+- **Download template** button generates a sample CSV with one example row
+- **Upload & parse**: reuse the same `parseCsvLine`/`parseCsv` helpers (extract to shared util or inline)
+- **Preview table**: show parsed rows with validation status:
+  - `error` if `name` is empty
+  - `warning` if `icon` is empty (default to `🏪`)
+  - `duplicate` if name already exists in DB categories
+- **Import**: for each valid row, upsert into `categories` table (`name`, `icon`, `is_active`)
+  - Skip duplicates (by name match) or update them — show choice
+- **Result summary**: imported / skipped / errors
 
-### Files changed
-- `src/pages/Home.tsx` only — remove ~80 lines of duplicate/filler UI
+### 2. Wire it into `CategoriesTab.tsx`
 
-No backend, no database, no Cloud changes.
+- Add an "Import CSV" button next to existing "Export CSV" and "Add Category" buttons
+- Add state `showCatImport` and render `CategoryCsvImportModal` when true
+- On done, invalidate `admin-categories` and `admin-stats` queries
+
+---
+
+### 3. Analytics CSV Import Modal — `src/components/admin/AnalyticsCsvImportModal.tsx`
+
+New modal for importing engagement data:
+
+- **Template**: 5 columns — `Shop Name, Area, Calls, WhatsApp, Total` (matches uploaded CSV)
+- **Download template** generates sample CSV
+- **Upload & parse**: parse CSV, match `Shop Name` against existing shops in DB
+- **Preview table**: show rows with status:
+  - `error` if shop name not found in DB
+  - `ready` if matched
+  - Show resolved shop name for confirmation
+- **Import**: for each matched row, insert `N` engagement events into `shop_engagement`:
+  - `calls` count → N rows with `event_type = 'call'`
+  - `whatsapp` count → N rows with `event_type = 'whatsapp'`
+  - Use current timestamp for `created_at`
+- **Result summary**: events inserted / shops matched / skipped
+
+### 4. Wire it into `AnalyticsTab.tsx`
+
+- Add "Import CSV" button next to existing "Export CSV" button
+- Add state and render `AnalyticsCsvImportModal`
+- On done, invalidate `admin-engagement` query
+
+---
+
+### Files to create/change
+
+| File | Change |
+|---|---|
+| `src/components/admin/CategoryCsvImportModal.tsx` | New — category bulk import modal |
+| `src/components/admin/AnalyticsCsvImportModal.tsx` | New — analytics engagement import modal |
+| `src/components/admin/CategoriesTab.tsx` | Add Import CSV button + modal state |
+| `src/components/admin/AnalyticsTab.tsx` | Add Import CSV button + modal state |
+
+No database changes needed — using existing `categories` and `shop_engagement` tables with existing RLS policies.
 
