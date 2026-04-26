@@ -21,6 +21,7 @@ import { compressImage } from '@/lib/imageUtils';
 import { normalizePhone } from '@/lib/shopUtils';
 import { parseGoogleMapsLink } from '@/lib/mapsUtils';
 import { inputCls } from './adminHelpers';
+import { uploadShopImage } from '@/lib/storageNaming';
 import { TimePickerField } from '@/components/shared/TimePickerField';
 import { ImageCropPicker } from '@/components/shared/ImageCropPicker';
 import { DEV_AUTOFILL, DUMMY_SHOP_DATA } from '@/lib/devHelpers';
@@ -175,12 +176,16 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
     let saved = 0;
     for (const d of drafts) {
       try {
-        // Upload photo
+        // Upload photo with slug-based filename (uses shop name when available)
         const compressed = await compressImage(d.photo_blob! as unknown as File);
-        const photoPath = `speed-${Date.now()}-${Math.random().toString(36).slice(2)}.webp`;
-        const { error: uploadErr } = await supabase.storage.from('shop-images').upload(photoPath, compressed, { upsert: true, contentType: 'image/webp' });
-        if (uploadErr) { toast.error(`Photo upload failed for draft ${saved + 1}`); continue; }
-        const { data: urlData } = supabase.storage.from('shop-images').getPublicUrl(photoPath);
+        let imageUrl: string;
+        try {
+          const result = await uploadShopImage(compressed, d.name?.trim() || 'shop');
+          imageUrl = result.publicUrl;
+        } catch {
+          toast.error(`Photo upload failed for draft ${saved + 1}`);
+          continue;
+        }
 
         const normalizeArea = (s: string) => s.trim().replace(/(^|[\s,])([a-z])/g, (_m, pre, ch) => pre + ch.toUpperCase());
 
@@ -195,7 +200,7 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
           keywords:     d.keywords.trim() || null,
           opening_time: d.opening_time || null,
           closing_time: d.closing_time || null,
-          image_url:    urlData.publicUrl,
+          image_url:    imageUrl,
           latitude:     parseFloat(d.latitude),
           longitude:    parseFloat(d.longitude),
           is_active:    false,   // always draft

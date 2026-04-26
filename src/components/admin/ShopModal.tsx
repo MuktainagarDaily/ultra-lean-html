@@ -7,6 +7,7 @@ import { normalizePhone } from '@/lib/shopUtils';
 import { compressImage } from '@/lib/imageUtils';
 import { parseGoogleMapsLink } from '@/lib/mapsUtils';
 import { extractStoragePath, normalizeWhatsApp, isValidPhone, inputCls } from './adminHelpers';
+import { uploadShopImage, renameShopImage } from '@/lib/storageNaming';
 import { TimePickerField } from '@/components/shared/TimePickerField';
 import { ImageCropPicker } from '@/components/shared/ImageCropPicker';
 import { DEV_AUTOFILL, DUMMY_SHOP_DATA } from '@/lib/devHelpers';
@@ -180,19 +181,21 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
     // Upload immediately so it's ready for save — name file after shop slug
     setUploading(true);
     const compressed = await compressImage(blob as unknown as File);
-    const nameSlug = form.name.trim()
-      ? form.name.trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/[\s-]+/g, '-').replace(/^-+|-+$/g, '') || 'shop'
-      : 'shop';
-    const path = `${nameSlug}-${Date.now()}.webp`;
-    const { error } = await supabase.storage.from('shop-images').upload(path, compressed, { upsert: true, contentType: 'image/webp' });
-    if (error) { toast.error('Image upload failed'); setUploading(false); return; }
-    const { data } = supabase.storage.from('shop-images').getPublicUrl(path);
+    let publicUrl = '';
+    try {
+      const result = await uploadShopImage(compressed, form.name);
+      publicUrl = result.publicUrl;
+    } catch {
+      toast.error('Image upload failed');
+      setUploading(false);
+      return;
+    }
     // Delete the old image if replacing
-    if (oldImageUrl.current && oldImageUrl.current !== data.publicUrl) {
+    if (oldImageUrl.current && oldImageUrl.current !== publicUrl) {
       const oldPath = extractStoragePath(oldImageUrl.current);
       if (oldPath) await supabase.storage.from('shop-images').remove([oldPath]);
     }
-    setForm((f) => ({ ...f, image_url: data.publicUrl }));
+    setForm((f) => ({ ...f, image_url: publicUrl }));
     setCropPreview(''); // clear local preview — use the real URL
     toast.success('Image uploaded ✓');
     setUploading(false);
@@ -243,6 +246,20 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
       await supabase.from('shop_categories').delete().eq('shop_id', shopId);
       if (selectedCategoryIds.length > 0) {
         await supabase.from('shop_categories').insert(selectedCategoryIds.map((catId) => ({ shop_id: shopId, category_id: catId })));
+      }
+    }
+
+    // If the shop was renamed and still uses an image we own, rename the file
+    // so its filename keeps matching the shop name.
+    if (isEdit && form.image_url && form.name.trim() && shop.name && shop.name.trim() !== form.name.trim()) {
+      try {
+        const renamed = await renameShopImage(form.image_url, form.name);
+        if (renamed && renamed.publicUrl !== form.image_url) {
+          await supabase.from('shops').update({ image_url: renamed.publicUrl }).eq('id', shopId);
+          setForm((f) => ({ ...f, image_url: renamed.publicUrl }));
+        }
+      } catch {
+        // Non-fatal: shop save already succeeded
       }
     }
 

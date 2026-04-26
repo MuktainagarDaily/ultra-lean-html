@@ -7,6 +7,7 @@ import {
 import { toast } from 'sonner';
 import { formatTime, normalizePhone } from '@/lib/shopUtils';
 import { extractStoragePath } from './adminHelpers';
+import { renameShopImage } from '@/lib/storageNaming';
 
 type RequestStatus = 'pending' | 'approved' | 'rejected';
 
@@ -112,6 +113,18 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
 
     if (resolvedCategoryId) {
       await supabase.from('shop_categories').insert({ shop_id: inserted.id, category_id: resolvedCategoryId });
+    }
+
+    // Rename the request's image (request-<slug>.webp) → final shop slug filename
+    if (req.image_url) {
+      try {
+        const renamed = await renameShopImage(req.image_url, req.name);
+        if (renamed && renamed.publicUrl !== req.image_url) {
+          await supabase.from('shops').update({ image_url: renamed.publicUrl }).eq('id', inserted.id);
+        }
+      } catch {
+        // Non-fatal: shop was created with the request's image URL, admin can re-upload
+      }
     }
 
     await supabase.from('shop_requests').update({ status: 'approved' }).eq('id', req.id);

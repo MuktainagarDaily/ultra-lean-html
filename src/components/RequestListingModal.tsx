@@ -9,6 +9,7 @@ import { parseGoogleMapsLink } from '@/lib/mapsUtils';
 import { TimePickerField } from '@/components/shared/TimePickerField';
 import { ImageCropPicker } from '@/components/shared/ImageCropPicker';
 import { DEV_AUTOFILL, DUMMY_SHOP_DATA } from '@/lib/devHelpers';
+import { uploadShopImage } from '@/lib/storageNaming';
 
 /* ── helpers ────────────────────────────────────────────────────── */
 
@@ -155,12 +156,15 @@ export function RequestListingModal({ onClose }: Props) {
     if (!croppedBlob) return imageUrl;
     setUploading(true);
     const compressed = await compressImage(croppedBlob as unknown as File);
-    const path = `request-${Date.now()}.webp`;
-    const { error } = await supabase.storage.from('shop-images').upload(path, compressed, { upsert: true, contentType: 'image/webp' });
-    setUploading(false);
-    if (error) { toast.error('Image upload failed'); return ''; }
-    const { data } = supabase.storage.from('shop-images').getPublicUrl(path);
-    return data.publicUrl;
+    try {
+      const { publicUrl } = await uploadShopImage(compressed, form.name || 'shop', { prefix: 'request' });
+      setUploading(false);
+      return publicUrl;
+    } catch {
+      setUploading(false);
+      toast.error('Image upload failed');
+      return '';
+    }
   };
 
   /* ── Location ───────────────────────────────────────────────── */

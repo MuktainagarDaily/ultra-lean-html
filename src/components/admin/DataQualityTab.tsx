@@ -3,13 +3,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
   MapPin, Pencil, Loader2, TriangleAlert, Users, RefreshCw,
-  HardDrive, PackageX, Trash2, ArrowRight, Phone,
+  HardDrive, PackageX, Trash2, ArrowRight, Phone, FileImage, Wand2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { slugifyShopName } from '@/lib/storageNaming';
+import { extractStoragePath } from './adminHelpers';
 
 /* ─── Pure area-comparison helpers ─────────────────────────────── */
 function dqAreaCompareKey(area: string): string {
@@ -31,6 +33,273 @@ function dqIsSuspiciousArea(area: string): boolean {
   if (/^\d+$/.test(t)) return true;
   if (!dqHasDevanagari(t) && t === t.toUpperCase() && /[A-Z]{3,}/.test(t)) return true;
   return false;
+}
+
+/* ─── Image Rename (slug-ify existing files) ────────────────────── */
+type RenamePlanRow = {
+  shopId: string;
+  shopName: string;
+  currentPath: string;
+  currentFilename: string;
+  proposedFilename: string;
+  status: 'ok' | 'unchanged' | 'skip';
+  reason?: string;
+};
+
+function ImageRenameSection() {
+  const qc = useQueryClient();
+  const [building, setBuilding] = useState(false);
+  const [plan, setPlan] = useState<RenamePlanRow[] | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [progress, setProgress] = useState({ done: 0, ok: 0, failed: 0 });
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const buildPlan = async () => {
+    setBuilding(true);
+    setPlan(null);
+    setProgress({ done: 0, ok: 0, failed: 0 });
+    try {
+      const { data: shops, error } = await supabase
+        .from('shops')
+        .select('id, name, image_url')
+        .not('image_url', 'is', null);
+      if (error) throw error;
+
+      // Snapshot existing storage filenames for collision-safe naming
+      type StorageFile = { name: string; id: string };
+      let pagedFiles: StorageFile[] = [];
+      let offset = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data: page, error: listErr } = await supabase.storage.from('shop-images').list('', { limit: PAGE, offset });
+        if (listErr) throw listErr;
+        const valid = (page || []).filter((f) => f.name && f.id) as StorageFile[];
+        pagedFiles = pagedFiles.concat(valid);
+        if (!page || page.length < PAGE) break;
+        offset += PAGE;
+      }
+      const taken = new Set(pagedFiles.map((f) => f.name));
+
+      const rows: RenamePlanRow[] = [];
+      for (const s of (shops || []) as any[]) {
+        const currentPath = extractStoragePath(s.image_url);
+        if (!currentPath) {
+          rows.push({
+            shopId: s.id,
+            shopName: s.name,
+            currentPath: s.image_url,
+            currentFilename: '(external URL)',
+            proposedFilename: '—',
+            status: 'skip',
+            reason: 'Image is not in the shop-images bucket',
+          });
+          continue;
+        }
+        const currentFilename = currentPath.split('/').pop() || currentPath;
+        const slug = slugifyShopName(s.name);
+        const desired = `${slug}.webp`;
+        // Already named correctly (slug.webp or slug-N.webp)?
+        const slugRe = new RegExp(`^${slug}(?:-\\d+)?\\.webp$`);
+        if (slugRe.test(currentFilename)) {
+          rows.push({
+            shopId: s.id,
+            shopName: s.name,
+            currentPath,
+            currentFilename,
+            proposedFilename: currentFilename,
+            status: 'unchanged',
+          });
+          continue;
+        }
+        // Pick a free name (don't collide with existing files OR with names
+        // we've already reserved earlier in this same plan).
+        let proposed = desired;
+        if (taken.has(proposed)) {
+          for (let i = 1; i < 1000; i++) {
+            const candidate = `${slug}-${i}.webp`;
+            if (!taken.has(candidate)) { proposed = candidate; break; }
+          }
+        }
+        taken.add(proposed); // reserve so subsequent rows pick the next free
+        rows.push({
+          shopId: s.id,
+          shopName: s.name,
+          currentPath,
+          currentFilename,
+          proposedFilename: proposed,
+          status: 'ok',
+        });
+      }
+      setPlan(rows);
+    } catch (err: any) {
+      toast.error('Plan failed: ' + (err?.message || 'Unknown error'));
+    }
+    setBuilding(false);
+  };
+
+  const applyPlan = async () => {
+    if (!plan) return;
+    const renamable = plan.filter((r) => r.status === 'ok');
+    if (renamable.length === 0) {
+      toast.info('Nothing to rename');
+      setConfirmOpen(false);
+      return;
+    }
+    setApplying(true);
+    setConfirmOpen(false);
+    let ok = 0, failed = 0, done = 0;
+    const updated: RenamePlanRow[] = [...plan];
+
+    for (let i = 0; i < updated.length; i++) {
+      const row = updated[i];
+      if (row.status !== 'ok') continue;
+      try {
+        // storage.move from current → proposed
+        const newPath = row.proposedFilename; // bucket root
+        const { error: moveErr } = await supabase.storage.from('shop-images').move(row.currentPath, newPath);
+        if (moveErr) throw moveErr;
+        const { data: pub } = supabase.storage.from('shop-images').getPublicUrl(newPath);
+        const { error: dbErr } = await supabase.from('shops').update({ image_url: pub.publicUrl }).eq('id', row.shopId);
+        if (dbErr) {
+          // Roll the file back so DB and storage stay in sync
+          await supabase.storage.from('shop-images').move(newPath, row.currentPath);
+          throw dbErr;
+        }
+        ok++;
+        updated[i] = { ...row, status: 'unchanged', currentFilename: newPath, currentPath: newPath, reason: 'Renamed ✓' };
+      } catch (err: any) {
+        failed++;
+        updated[i] = { ...row, status: 'skip', reason: 'Failed: ' + (err?.message || 'unknown') };
+      }
+      done++;
+      setProgress({ done, ok, failed });
+      setPlan([...updated]);
+    }
+
+    qc.invalidateQueries({ queryKey: ['shops'] });
+    qc.invalidateQueries({ queryKey: ['admin-shops'] });
+    qc.invalidateQueries({ queryKey: ['admin-shops-quality'] });
+    toast.success(`Renamed ${ok} file${ok !== 1 ? 's' : ''}${failed ? ` · ${failed} failed` : ''}`);
+    setApplying(false);
+  };
+
+  const renamableCount = plan?.filter((r) => r.status === 'ok').length ?? 0;
+  const unchangedCount = plan?.filter((r) => r.status === 'unchanged').length ?? 0;
+  const skipCount = plan?.filter((r) => r.status === 'skip').length ?? 0;
+
+  return (
+    <section>
+      <div className="flex items-center gap-2 mb-3">
+        <FileImage className="w-4 h-4 text-primary" />
+        <h3 className="font-bold text-foreground">Rename Shop Images</h3>
+        {plan && (
+          <span className="ml-1 inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">
+            {renamableCount}
+          </span>
+        )}
+        <button
+          onClick={buildPlan}
+          disabled={building || applying}
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
+        >
+          {building ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+          {plan ? 'Re-plan' : 'Plan rename'}
+        </button>
+      </div>
+
+      {!plan && !building && (
+        <div className="bg-card rounded-xl border border-border p-6 text-center">
+          <FileImage className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+          <p className="font-semibold text-sm text-foreground">Make filenames match shop names</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+            Click <strong>Plan rename</strong> to preview new filenames like <code className="text-[11px] bg-muted px-1 py-0.5 rounded">sai-kirana-stores.webp</code>.
+            Nothing is changed until you click Apply.
+          </p>
+        </div>
+      )}
+      {building && (
+        <div className="bg-card rounded-xl border border-border p-6 flex items-center justify-center gap-3">
+          <Loader2 className="w-5 h-5 animate-spin text-primary" />
+          <span className="text-sm text-muted-foreground">Building rename plan…</span>
+        </div>
+      )}
+
+      {plan && !building && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-semibold text-primary">{renamableCount}</span> to rename ·{' '}
+              <span className="font-semibold">{unchangedCount}</span> already correct ·{' '}
+              <span className="font-semibold text-muted-foreground">{skipCount}</span> skipped
+              {applying && <> · <span className="text-foreground">{progress.done}/{renamableCount} processed</span></>}
+            </p>
+            {renamableCount > 0 && (
+              <button
+                onClick={() => setConfirmOpen(true)}
+                disabled={applying}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
+              >
+                {applying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                Apply {renamableCount} rename{renamableCount !== 1 ? 's' : ''}
+              </button>
+            )}
+          </div>
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 border-b border-border">
+                  <th className="text-left px-3 py-2.5 font-semibold text-foreground">Shop</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-foreground hidden md:table-cell">Current filename</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-foreground">Proposed</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-foreground w-28">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plan.map((row) => (
+                  <tr key={row.shopId} className="border-b border-border last:border-0">
+                    <td className="px-3 py-2.5 truncate max-w-[180px]">{row.shopName}</td>
+                    <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground hidden md:table-cell truncate max-w-[220px]">{row.currentFilename}</td>
+                    <td className="px-3 py-2.5 font-mono text-xs text-foreground truncate max-w-[220px]">{row.proposedFilename}</td>
+                    <td className="px-3 py-2.5">
+                      {row.status === 'ok' && <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">rename</span>}
+                      {row.status === 'unchanged' && <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-success/10 text-success border border-success/30">{row.reason || 'ok'}</span>}
+                      {row.status === 'skip' && <span title={row.reason} className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">skip</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground mt-2">
+        Renames files in the <code className="text-[11px] bg-muted px-1 py-0.5 rounded">shop-images</code> bucket so each filename matches the shop's name.
+        Collisions are resolved with <code className="text-[11px] bg-muted px-1 py-0.5 rounded">-1</code>, <code className="text-[11px] bg-muted px-1 py-0.5 rounded">-2</code> suffixes. Each rename is reverted if the database update fails.
+      </p>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Wand2 className="w-5 h-5 text-primary" />
+              Rename {renamableCount} image{renamableCount !== 1 ? 's' : ''}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will move {renamableCount} file{renamableCount !== 1 ? 's' : ''} in storage and update the matching shop image URLs in the database.
+              <br /><br />
+              Each file is renamed individually. If a database update fails, that file is moved back to its original name automatically.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={applying}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={applyPlan} disabled={applying} className="bg-primary text-primary-foreground hover:bg-primary/90">
+              {applying ? <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Renaming…</> : `Apply ${renamableCount} rename${renamableCount !== 1 ? 's' : ''}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
+  );
 }
 
 /* ─── Storage Audit ─────────────────────────────────────────────── */
@@ -547,6 +816,9 @@ export function DataQualityTab({ onEditShop }: DataQualityTabProps) {
           Duplicates are flagged by matching normalized phone number, or very similar name + same area. No shops are automatically changed — use Edit to resolve manually.
         </p>
       </section>
+
+      {/* Image Rename */}
+      <ImageRenameSection />
 
       {/* Storage Audit */}
       <StorageAuditSection />
