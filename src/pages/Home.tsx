@@ -833,23 +833,23 @@ export default function Home() {
                     const active = sheetCategories.includes(cat.name);
                     const count = catNameCounts[cat.name] || 0;
                     return (
-                      <div key={cat.name} className="w-full">
-                        <button
-                          onClick={() => toggleSheetCategory(cat.name)}
-                          className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm border transition-all font-medium ${
-                            active
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-card text-foreground border-border hover:border-primary/40'
-                          }`}
-                        >
-                          {cat.icon} {cat.name}
-                          {count > 0 && (
-                            <span className={`text-[10px] ${active ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                              ({count})
-                            </span>
-                          )}
-                        </button>
-                      </div>
+                      <button
+                        key={cat.name}
+                        onClick={() => toggleSheetCategory(cat.name)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm border transition-all font-medium ${
+                          active
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-card text-foreground border-border hover:border-primary/40'
+                        }`}
+                      >
+                        <span>{cat.icon}</span>
+                        <span>{cat.name}</span>
+                        {count > 0 && (
+                          <span className={`text-[10px] ${active ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                            ({count})
+                          </span>
+                        )}
+                      </button>
                     );
                   })}
                 </div>
