@@ -37,20 +37,23 @@ function ShopSkeleton() {
 }
 
 export default function Shops() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const initialSearch = searchParams.get('search') || '';
   const filterParam = searchParams.get('filter');
-  const categoryParam = searchParams.get('category') || '';
+  // Support both legacy single ?category=Foo and new multi ?category=Foo&category=Bar
+  const initialCategories = (() => {
+    const multi = searchParams.getAll('category');
+    return multi.length > 0 ? multi : [];
+  })();
+  const initialAreas = searchParams.getAll('area');
   const [localSearch, setLocalSearch] = useState(initialSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
   const [searchFocused, setSearchFocused] = useState(false);
   const [availability, setAvailability] = useState<AvailabilityFilter>(filterParam === 'open' ? 'open' : 'all');
-  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    categoryParam ? [categoryParam] : []
-  );
+  const [selectedAreas, setSelectedAreas] = useState<string[]>(initialAreas);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategories);
   const [verifiedOnly, setVerifiedOnly] = useState(filterParam === 'verified');
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [filterOpen, setFilterOpen] = useState(false);
@@ -72,6 +75,20 @@ export default function Shops() {
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, availability, selectedAreas, selectedCategories, verifiedOnly]);
+
+  // Persist filter state into the URL so back-navigation from ShopDetail restores it.
+  // Uses replace:true so each filter tweak doesn't add a history entry — back button
+  // still moves one logical page at a time.
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (debouncedSearch) params.set('search', debouncedSearch);
+    if (availability === 'open') params.set('filter', 'open');
+    else if (verifiedOnly) params.set('filter', 'verified');
+    selectedAreas.forEach((a) => params.append('area', a));
+    selectedCategories.forEach((c) => params.append('category', c));
+    setSearchParams(params, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, availability, verifiedOnly, selectedAreas, selectedCategories]);
 
   useEffect(() => {
     if (debouncedSearch) {
