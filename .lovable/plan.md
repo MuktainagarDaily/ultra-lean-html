@@ -1,58 +1,52 @@
-## Root cause
+## Problem
 
-The previous fix raised the autocomplete dropdown's `z-index` to `z-[999]`, but the dropdown is **still being hidden** — not behind other sections, but **clipped by its parent**.
+On `/shops`, when the user applies filters (areas, categories, availability, verified, search), opens a shop detail page, and presses **Back**, the filters disappear.
 
-In `src/pages/Home.tsx` line 402, the `<header>` element has:
-
-```tsx
-className="text-primary-foreground px-4 pt-7 pb-6 relative overflow-hidden"
-```
-
-The `overflow-hidden` is required to contain three decorative absolute layers inside the header (lines 407–421): a top-right white radial blob, a bottom-left secondary blob, and a faint grid overlay. These all use `absolute inset-0` with translate offsets and would visually leak outside the header without clipping.
-
-The autocomplete dropdown (`absolute top-full mt-1`, line 485) is rendered **inside this header**. When it extends below the header's bottom edge into the area where "Recently Added" sits, it gets visually **cut off by `overflow-hidden`** — `z-index` cannot escape an `overflow-hidden` ancestor. That's why only the first ~2 suggestions are visible: they fit within the header's residual padding; the rest are clipped.
+**Root cause** (`src/pages/Shops.tsx`):
+- Filter state is initialized from URL params **once** on mount (lines 43–54).
+- Applied filters (especially areas, verified, availability changes from the drawer, and typed search) are **never written back to the URL**.
+- `ShopDetail`'s back button uses `navigate(-1)`, which returns to the previous URL — which still reflects the original entry state, not the user's applied filters.
+- So Shops re-mounts with stale/empty params and resets to defaults.
 
 ## Fix
 
-Move the decorative layers into a dedicated **clipping wrapper** so the header itself no longer needs `overflow-hidden`. The dropdown can then extend freely below the header and float over "Recently Added" thanks to its existing `z-[999]`.
+Make the URL the source of truth for filter state by syncing changes back into `searchParams` with `{ replace: true }` (so we don't bloat browser history with one entry per filter toggle). On back-navigation, the URL already carries the filters, and existing init logic restores them.
 
-### `src/pages/Home.tsx` — lines 401–422
+### Changes in `src/pages/Shops.tsx`
 
-**Change 1**: Remove `overflow-hidden` from the `<header>` element.
+1. **Add a sync effect** that writes current filter state to URL whenever it changes:
+   ```ts
+   useEffect(() => {
+     const params = new URLSearchParams();
+     if (debouncedSearch) params.set('search', debouncedSearch);
+     if (availability === 'open') params.set('filter', 'open');
+     else if (verifiedOnly) params.set('filter', 'verified');
+     selectedAreas.forEach(a => params.append('area', a));
+     selectedCategories.forEach(c => params.append('category', c));
+     setSearchParams(params, { replace: true });
+   }, [debouncedSearch, availability, verifiedOnly, selectedAreas, selectedCategories]);
+   ```
+   - Uses `replace: true` so back button still goes to the previous *page*, not through every filter tweak.
+   - Switch the destructure to `const [searchParams, setSearchParams] = useSearchParams();`.
 
-```diff
-- <header
--   className="text-primary-foreground px-4 pt-7 pb-6 relative overflow-hidden"
-+ <header
-+   className="text-primary-foreground px-4 pt-7 pb-6 relative"
-    style={{
-      background: 'linear-gradient(145deg, hsl(var(--primary)) 0%, hsl(214 85% 28%) 60%, hsl(215 90% 22%) 100%)',
-    }}
-  >
-```
+2. **Expand initial state hydration** (lines 43–54) to read multi-value params:
+   - `searchParams.getAll('area')` → `selectedAreas` initial value
+   - `searchParams.getAll('category')` → merge with single `category` param for backward compat with existing links from Home/category redirects
+   - Keep existing `filter=open|verified` and `search` handling.
 
-**Change 2**: Wrap the three decorative divs (lines 407–421) in a single `absolute inset-0 overflow-hidden pointer-events-none` container. The wrapper clips the blobs/grid; the header itself no longer clips its children.
+3. **No changes needed** to ShopDetail or ShopCard — `navigate(-1)` will now return to a URL that already encodes the filters, and Shops will rehydrate them on mount.
 
-```tsx
-<div className="absolute inset-0 overflow-hidden pointer-events-none">
-  {/* existing top-right blob */}
-  {/* existing bottom-left blob */}
-  {/* existing grid overlay */}
-</div>
-```
+### Why this is safe
 
-That's it — no other changes. The dropdown's existing `z-[999]` and `top-full` positioning will then correctly float above the "Recently Added" section, the trust strip, and the categories section beneath the header.
+- `replace: true` prevents history pollution — back-button UX stays one-step-per-page.
+- Existing entry points (`/shops?category=Foo`, `/shops?filter=open`, `/shops?search=...`) keep working since the hydration step is a superset.
+- Shareable filtered URLs become a free bonus (e.g. user can copy URL with active filters).
+- Pure client-side; no DB / schema / env changes.
 
-### Why not other approaches
-
-- **Move dropdown to a portal** — overkill, adds positioning complexity for what is purely a CSS clipping issue.
-- **Position dropdown `fixed`** — would break alignment on resize/scroll and complicate width calculation.
-- **Open dropdown upward (`bottom-full`)** — was discussed earlier; awkward UX since the search bar is already near the top of the page and the dropdown would cover the brand title.
-
-## Files to change
+### Files to change
 
 | File | Change |
 |---|---|
-| `src/pages/Home.tsx` | Remove `overflow-hidden` from `<header>`; wrap the 3 decorative blobs/grid in a single `absolute inset-0 overflow-hidden pointer-events-none` clipping div |
+| `src/pages/Shops.tsx` | Use `setSearchParams`; add sync-to-URL effect; hydrate multi-value `area`/`category` params on mount |
 
-No database, env, or other file changes.
+No other files, no DB migrations, no `.env` changes.
