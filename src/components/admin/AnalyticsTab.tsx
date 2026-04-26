@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { TrendingUp, Phone, MessageCircle, Download, Upload } from 'lucide-react';
 import { AnalyticsCsvImportModal } from './AnalyticsCsvImportModal';
+import { downloadCsv } from '@/lib/csvUtils';
 
 type DateRange = '7d' | '30d' | 'all';
 const DATE_RANGE_OPTIONS: { label: string; value: DateRange }[] = [
@@ -26,35 +27,57 @@ export function AnalyticsTab() {
     return d.toISOString();
   }, [dateRange]);
 
-  const { data: rows = [], isLoading } = useQuery({
+  // P3 fix: fetch engagement rows light (no joins) so payload doesn't multiply
+  // by category-array length per row. Shops + categories are fetched ONCE in a
+  // separate query and joined client-side via Map lookup.
+  const { data: rows = [], isLoading: rowsLoading } = useQuery({
     queryKey: ['admin-engagement', dateRange],
     queryFn: async () => {
       let query = supabase
         .from('shop_engagement')
-        .select('shop_id, event_type, created_at, shops(name, area, shop_categories(categories(id, name, icon)))')
+        .select('shop_id, event_type, created_at')
         .order('created_at', { ascending: false })
         .limit(5000);
       if (cutoff) query = query.gte('created_at', cutoff);
       const { data, error } = await query;
       if (error) throw error;
-      return data as {
-        shop_id: string;
-        event_type: string;
-        created_at: string;
-        shops: {
-          name: string;
-          area: string | null;
-          shop_categories: { categories: { id: string; name: string; icon: string } | null }[];
-        } | null;
-      }[];
+      return data as { shop_id: string; event_type: string; created_at: string }[];
     },
+    staleTime: 30_000,
   });
+
+  // Single shop-name + category lookup for the whole period, cached longer.
+  const { data: shopLookup = new Map(), isLoading: shopsLoading } = useQuery({
+    queryKey: ['admin-engagement-shops'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('shops')
+        .select('id, name, area, shop_categories(categories(id, name, icon))');
+      if (error) throw error;
+      const map = new Map<string, {
+        name: string;
+        area: string | null;
+        categories: { id: string; name: string; icon: string }[];
+      }>();
+      (data || []).forEach((s: any) => {
+        const cats = (s.shop_categories || [])
+          .map((sc: any) => sc.categories)
+          .filter(Boolean) as { id: string; name: string; icon: string }[];
+        map.set(s.id, { name: s.name, area: s.area, categories: cats });
+      });
+      return map;
+    },
+    staleTime: 60_000,
+  });
+
+  const isLoading = rowsLoading || shopsLoading;
 
   const aggregated = useMemo(() => {
     const map = new Map<string, { name: string; area: string | null; call: number; whatsapp: number; total: number }>();
     rows.forEach((r) => {
+      const shop = shopLookup.get(r.shop_id);
       if (!map.has(r.shop_id)) {
-        map.set(r.shop_id, { name: r.shops?.name ?? r.shop_id, area: r.shops?.area ?? null, call: 0, whatsapp: 0, total: 0 });
+        map.set(r.shop_id, { name: shop?.name ?? r.shop_id, area: shop?.area ?? null, call: 0, whatsapp: 0, total: 0 });
       }
       const e = map.get(r.shop_id)!;
       if (r.event_type === 'call') e.call += 1;
@@ -62,7 +85,7 @@ export function AnalyticsTab() {
       e.total += 1;
     });
     return Array.from(map.values());
-  }, [rows]);
+  }, [rows, shopLookup]);
 
   const sortedShops = useMemo(() =>
     [...aggregated].sort((a, b) => b[shopSort] - a[shopSort]),
@@ -72,8 +95,8 @@ export function AnalyticsTab() {
   const aggregatedCategories = useMemo(() => {
     const map = new Map<string, { id: string; name: string; icon: string; total: number; call: number; whatsapp: number }>();
     rows.forEach((r) => {
-      const cats = r.shops?.shop_categories?.map((sc) => sc.categories).filter(Boolean) ?? [];
-      cats.forEach((cat: any) => {
+      const cats = shopLookup.get(r.shop_id)?.categories ?? [];
+      cats.forEach((cat) => {
         if (!map.has(cat.id)) map.set(cat.id, { id: cat.id, name: cat.name, icon: cat.icon, total: 0, call: 0, whatsapp: 0 });
         const e = map.get(cat.id)!;
         e.total += 1;
@@ -82,7 +105,7 @@ export function AnalyticsTab() {
       });
     });
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
-  }, [rows]);
+  }, [rows, shopLookup]);
 
   const totalCalls = rows.filter((r) => r.event_type === 'call').length;
   const totalWhatsApp = rows.filter((r) => r.event_type === 'whatsapp').length;
@@ -108,15 +131,8 @@ export function AnalyticsTab() {
           <button
             onClick={() => {
               const headers = ['Shop Name', 'Area', 'Calls', 'WhatsApp', 'Total'];
-              const csvRows = sortedShops.map((r: any) => [r.name, r.area ?? '', r.call, r.whatsapp, r.total]);
-              const csv = [headers, ...csvRows].map((row) => row.map((v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
-              const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `muktainagar-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
-              a.click();
-              URL.revokeObjectURL(url);
+              const csvRows = sortedShops.map((r) => [r.name, r.area ?? '', r.call, r.whatsapp, r.total]);
+              downloadCsv('muktainagar-analytics', headers, csvRows);
             }}
             className="flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
           >

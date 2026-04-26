@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { CategoryMergeModal } from './CategoryMergeModal';
 import { CategoryCsvImportModal } from './CategoryCsvImportModal';
+import { downloadCsv } from '@/lib/csvUtils';
 
 interface CategoriesTabProps {
   onEdit: (cat: any) => void;
@@ -87,14 +88,7 @@ export function CategoriesTab({ onEdit }: CategoriesTabProps) {
             onClick={() => {
               const headers = ['Name', 'Icon', 'Active'];
               const rows = (categories as any[]).map((c) => [c.name, c.icon, c.is_active ? 'Yes' : 'No']);
-              const csv = [headers, ...rows].map((r) => r.map((v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
-              const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `muktainagar-categories-${new Date().toISOString().slice(0, 10)}.csv`;
-              a.click();
-              URL.revokeObjectURL(url);
+              downloadCsv('muktainagar-categories', headers, rows);
             }}
             className="flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
           >

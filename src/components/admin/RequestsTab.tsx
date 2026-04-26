@@ -13,6 +13,7 @@ import {
 import { formatTime, normalizePhone } from '@/lib/shopUtils';
 import { extractStoragePath } from './adminHelpers';
 import { renameShopImage } from '@/lib/storageNaming';
+import { downloadCsv } from '@/lib/csvUtils';
 
 type RequestStatus = 'pending' | 'approved' | 'rejected';
 
@@ -230,14 +231,7 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
                 req.image_url ? 'Yes' : 'No',
                 new Date(req.created_at).toLocaleDateString('en-IN'),
               ]);
-              const csv = [headers, ...rows].map((r) => r.map((v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
-              const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `muktainagar-requests-${new Date().toISOString().slice(0, 10)}.csv`;
-              a.click();
-              URL.revokeObjectURL(url);
+              downloadCsv('muktainagar-requests', headers, rows);
             }}
             className="flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
           >

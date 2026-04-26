@@ -45,6 +45,7 @@ export default function AdminDashboard() {
         ]);
       return { total: total ?? 0, active: active ?? 0, cats: cats ?? 0, verified: verified ?? 0, pending: pending ?? 0 };
     },
+    staleTime: 30_000, // P1: stop refetching on every tab switch
   });
 
   return (

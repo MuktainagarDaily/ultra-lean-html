@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, X, Upload, Download, CheckCircle2, AlertCircle, SkipForward } from 'lucide-react';
 import { toast } from 'sonner';
+import { parseCsv } from '@/lib/csvUtils';
 
 type RowStatus = 'ready' | 'error';
 interface EngRow {
@@ -9,33 +10,6 @@ interface EngRow {
   status: RowStatus; messages: string[]; shopId: string | null;
 }
 type Step = 'upload' | 'preview' | 'result';
-
-function parseCsvLine(line: string): string[] {
-  const result: string[] = []; let current = ''; let inQuote = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuote) {
-      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
-      else if (ch === '"') { inQuote = false; }
-      else { current += ch; }
-    } else {
-      if (ch === '"') { inQuote = true; }
-      else if (ch === ',') { result.push(current.trim()); current = ''; }
-      else { current += ch; }
-    }
-  }
-  result.push(current.trim()); return result;
-}
-
-function parseCsv(text: string): Record<string, string>[] {
-  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter((l) => l.trim() !== '');
-  if (lines.length < 2) return [];
-  const headers = parseCsvLine(lines[0]).map((h) => h.toLowerCase().trim());
-  return lines.slice(1).map((line) => {
-    const vals = parseCsvLine(line); const obj: Record<string, string> = {};
-    headers.forEach((h, i) => { obj[h] = (vals[i] ?? '').trim(); }); return obj;
-  });
-}
 
 function downloadTemplate() {
   const rows = ['Shop Name,Area,Calls,WhatsApp,Total', '"Example Shop","Main Road","5","3","8"'].join('\n');

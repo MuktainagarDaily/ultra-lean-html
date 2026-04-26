@@ -5,6 +5,7 @@ import { Loader2, X, Upload, Download, CheckCircle2, AlertTriangle, AlertCircle,
 import { toast } from 'sonner';
 import { normalizePhone } from '@/lib/shopUtils';
 import { normalizeWhatsApp, isValidPhone } from './adminHelpers';
+import { parseCsv } from '@/lib/csvUtils';
 
 type ImportRowStatus = 'ready' | 'warning' | 'error' | 'duplicate';
 interface ImportRow {
@@ -16,32 +17,6 @@ interface ImportRow {
 }
 interface ImportResult { imported: number; importedWithWarnings: number; skippedDupes: number; skippedErrors: number; failedInserts: number; }
 type ImportStep = 'upload' | 'preview' | 'result';
-
-function parseCsvLine(line: string): string[] {
-  const result: string[] = []; let current = ''; let inQuote = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuote) {
-      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
-      else if (ch === '"') { inQuote = false; }
-      else { current += ch; }
-    } else {
-      if (ch === '"') { inQuote = true; }
-      else if (ch === ',') { result.push(current.trim()); current = ''; }
-      else { current += ch; }
-    }
-  }
-  result.push(current.trim()); return result;
-}
-function parseCsv(text: string): Record<string, string>[] {
-  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter((l) => l.trim() !== '');
-  if (lines.length < 2) return [];
-  const headers = parseCsvLine(lines[0]).map((h) => h.toLowerCase().trim());
-  return lines.slice(1).map((line) => {
-    const vals = parseCsvLine(line); const obj: Record<string, string> = {};
-    headers.forEach((h, i) => { obj[h] = (vals[i] ?? '').trim(); }); return obj;
-  });
-}
 const CSV_TEMPLATE_HEADERS = ['name','phone','whatsapp','address','area','sub_area','description','keywords','category','opening_time','closing_time','latitude','longitude','is_active','is_verified'];
 const CSV_TEMPLATE_EXAMPLE = ['Sharma General Store','9876543210','9876543210','Near Bus Stand Station Road','Main Road','Main Bazaar','General merchandise and daily needs','grocery store daily needs','Grocery','09:00','21:00','21.0325','75.6920','true','false'];
 function downloadTemplate() {
@@ -123,14 +98,68 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
   const normalizeArea = (s: string) => s.trim().replace(/(^|[\s,])([a-z])/g, (_m, pre, ch) => pre + ch.toUpperCase());
 
   const handleImport = async () => {
-    setImporting(true); let imported = 0; let importedWithWarnings = 0; let failedInserts = 0;
-    for (const row of importableRows) {
-      const payload: any = { name: row.name, phone: row.phone || null, whatsapp: row.whatsapp ? normalizeWhatsApp(row.whatsapp) : null, address: row.address || null, area: row.area ? normalizeArea(row.area) : null, sub_area: row.sub_area || null, description: row.description || null, keywords: row.keywords || null, opening_time: row.opening_time || null, closing_time: row.closing_time || null, latitude: row.latitude ? parseFloat(row.latitude) : null, longitude: row.longitude ? parseFloat(row.longitude) : null, is_active: row.is_active !== '' ? row.is_active.toLowerCase() === 'true' : true, is_verified: row.is_verified !== '' ? row.is_verified.toLowerCase() === 'true' : false, is_open: true };
-      const { data: inserted, error: insertErr } = await supabase.from('shops').insert(payload).select('id').single();
-      if (insertErr || !inserted) { failedInserts++; continue; }
-      if (row.resolvedCategoryId) await supabase.from('shop_categories').insert({ shop_id: inserted.id, category_id: row.resolvedCategoryId });
-      if (row.status === 'warning') importedWithWarnings++; else imported++;
+    // P4 fix: batch shop inserts in chunks of 100 instead of one round-trip per row.
+    // For 200-row CSVs this drops from ~200 sequential calls to 2.
+    setImporting(true);
+    let imported = 0; let importedWithWarnings = 0; let failedInserts = 0;
+    const CHUNK = 100;
+
+    type Pending = { row: ImportRow; payload: any };
+    const pending: Pending[] = importableRows.map((row) => ({
+      row,
+      payload: {
+        name: row.name,
+        phone: row.phone || null,
+        whatsapp: row.whatsapp ? normalizeWhatsApp(row.whatsapp) : null,
+        address: row.address || null,
+        area: row.area ? normalizeArea(row.area) : null,
+        sub_area: row.sub_area || null,
+        description: row.description || null,
+        keywords: row.keywords || null,
+        opening_time: row.opening_time || null,
+        closing_time: row.closing_time || null,
+        latitude: row.latitude ? parseFloat(row.latitude) : null,
+        longitude: row.longitude ? parseFloat(row.longitude) : null,
+        is_active: row.is_active !== '' ? row.is_active.toLowerCase() === 'true' : true,
+        is_verified: row.is_verified !== '' ? row.is_verified.toLowerCase() === 'true' : false,
+        is_open: true,
+      },
+    }));
+
+    for (let i = 0; i < pending.length; i += CHUNK) {
+      const slice = pending.slice(i, i + CHUNK);
+      const { data: insertedRows, error: chunkErr } = await supabase
+        .from('shops')
+        .insert(slice.map((p) => p.payload))
+        .select('id, name');
+
+      if (chunkErr || !insertedRows) {
+        // Whole-batch failure → fall back to per-row inserts so partial success still works.
+        for (const { row, payload } of slice) {
+          const { data: ins, error: e } = await supabase.from('shops').insert(payload).select('id').single();
+          if (e || !ins) { failedInserts++; continue; }
+          if (row.resolvedCategoryId) {
+            await supabase.from('shop_categories').insert({ shop_id: ins.id, category_id: row.resolvedCategoryId });
+          }
+          if (row.status === 'warning') importedWithWarnings++; else imported++;
+        }
+        continue;
+      }
+
+      // Map inserted IDs back to source rows (positional — Postgres preserves insert order).
+      const catLinks: { shop_id: string; category_id: string }[] = [];
+      slice.forEach(({ row }, idx) => {
+        const ins = insertedRows[idx];
+        if (!ins) { failedInserts++; return; }
+        if (row.resolvedCategoryId) catLinks.push({ shop_id: ins.id, category_id: row.resolvedCategoryId });
+        if (row.status === 'warning') importedWithWarnings++; else imported++;
+      });
+
+      if (catLinks.length > 0) {
+        await supabase.from('shop_categories').insert(catLinks);
+      }
     }
+
     setResult({ imported, importedWithWarnings, skippedDupes: dupeRows.length, skippedErrors: errorRows.length, failedInserts });
     setImporting(false); setStep('result');
   };

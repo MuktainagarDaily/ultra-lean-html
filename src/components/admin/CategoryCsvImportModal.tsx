@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, X, Upload, Download, CheckCircle2, AlertTriangle, AlertCircle, SkipForward } from 'lucide-react';
 import { toast } from 'sonner';
+import { parseCsv } from '@/lib/csvUtils';
 
 type RowStatus = 'ready' | 'warning' | 'error' | 'duplicate';
 interface CatRow {
@@ -10,33 +11,6 @@ interface CatRow {
   status: RowStatus; messages: string[];
 }
 type Step = 'upload' | 'preview' | 'result';
-
-function parseCsvLine(line: string): string[] {
-  const result: string[] = []; let current = ''; let inQuote = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuote) {
-      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
-      else if (ch === '"') { inQuote = false; }
-      else { current += ch; }
-    } else {
-      if (ch === '"') { inQuote = true; }
-      else if (ch === ',') { result.push(current.trim()); current = ''; }
-      else { current += ch; }
-    }
-  }
-  result.push(current.trim()); return result;
-}
-
-function parseCsv(text: string): Record<string, string>[] {
-  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter((l) => l.trim() !== '');
-  if (lines.length < 2) return [];
-  const headers = parseCsvLine(lines[0]).map((h) => h.toLowerCase().trim());
-  return lines.slice(1).map((line) => {
-    const vals = parseCsvLine(line); const obj: Record<string, string> = {};
-    headers.forEach((h, i) => { obj[h] = (vals[i] ?? '').trim(); }); return obj;
-  });
-}
 
 function downloadTemplate() {
   const rows = ['Name,Icon,Active', 'Grocery,🛒,Yes'].join('\n');
@@ -104,10 +78,20 @@ export function CategoryCsvImportModal({ onClose, onDone }: Props) {
   const errorRows = rows.filter((r) => r.status === 'error');
 
   const handleImport = async () => {
-    setImporting(true); let imported = 0; let failed = 0;
-    for (const row of importableRows) {
-      const { error } = await supabase.from('categories').insert({ name: row.name, icon: row.icon, is_active: row.is_active });
-      if (error) { failed++; } else { imported++; }
+    // P4: batch insert (categories are tiny but consistency + speed)
+    setImporting(true);
+    let imported = 0; let failed = 0;
+    const payloads = importableRows.map((row) => ({ name: row.name, icon: row.icon, is_active: row.is_active }));
+    const { data, error } = await supabase.from('categories').insert(payloads).select('id');
+    if (error || !data) {
+      // Fall back to per-row so partial success still works
+      for (const row of importableRows) {
+        const { error: e } = await supabase.from('categories').insert({ name: row.name, icon: row.icon, is_active: row.is_active });
+        if (e) failed++; else imported++;
+      }
+    } else {
+      imported = data.length;
+      failed = importableRows.length - data.length;
     }
     setResult({ imported, skippedDupes: dupeRows.length, skippedErrors: errorRows.length, failed });
     setImporting(false); setStep('result');

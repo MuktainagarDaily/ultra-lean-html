@@ -9,6 +9,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { downloadCsv } from '@/lib/csvUtils';
 
 interface ShopsTabProps {
   onEdit: (shop: any) => void;
@@ -122,16 +123,9 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
         s.is_active ? 'true' : 'false',
         s.is_verified ? 'true' : 'false',
         s.is_open ? 'true' : 'false',
-      ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',');
+      ];
     });
-    const csv = [headers.join(','), ...rows].join('\r\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `muktainagar-shops-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCsv('muktainagar-shops', headers, rows);
   }, [filtered]);
 
   return (
