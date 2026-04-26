@@ -48,13 +48,15 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
     let result = shops as any[];
     if (searchText.trim()) {
       const q = searchText.toLowerCase();
+      const qDigits = q.replace(/\D/g, '');
+      const hasDigits = qDigits.length > 0;
       result = result.filter(
         (s) =>
           s.name?.toLowerCase().includes(q) ||
           s.area?.toLowerCase().includes(q) ||
           s.address?.toLowerCase().includes(q) ||
-          s.phone?.replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
-          s.whatsapp?.replace(/\D/g, '').includes(q.replace(/\D/g, ''))
+          (hasDigits && s.phone?.replace(/\D/g, '').includes(qDigits)) ||
+          (hasDigits && s.whatsapp?.replace(/\D/g, '').includes(qDigits))
       );
     }
     if (categoryFilter) {

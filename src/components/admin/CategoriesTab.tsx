@@ -18,7 +18,7 @@ export function CategoriesTab({ onEdit }: CategoriesTabProps) {
   const qc = useQueryClient();
   const [deleteCatTarget, setDeleteCatTarget] = useState<{ id: string; name: string; icon: string } | null>(null);
   const [deleteCatLinkedShops, setDeleteCatLinkedShops] = useState<string[]>([]);
-  const [fetchingLinks, setFetchingLinks] = useState(false);
+  const [fetchingLinksFor, setFetchingLinksFor] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [mergeCatTarget, setMergeCatTarget] = useState<{ id: string; name: string; icon: string; shopCount: number } | null>(null);
   const [showCatImport, setShowCatImport] = useState(false);
@@ -49,12 +49,17 @@ export function CategoriesTab({ onEdit }: CategoriesTabProps) {
   });
 
   const handleDeleteClick = async (cat: { id: string; name: string; icon: string }) => {
-    setFetchingLinks(true);
-    const { data } = await supabase.from('shop_categories').select('shops(name)').eq('category_id', cat.id);
+    setFetchingLinksFor(cat.id);
+    const { data, error } = await supabase.from('shop_categories').select('shops(name)').eq('category_id', cat.id);
+    if (error) {
+      toast.error('Could not check linked shops. Please try again.');
+      setFetchingLinksFor(null);
+      return;
+    }
     const shopNames = (data || []).map((row: any) => row.shops?.name).filter(Boolean) as string[];
     setDeleteCatLinkedShops(shopNames);
     setDeleteCatTarget(cat);
-    setFetchingLinks(false);
+    setFetchingLinksFor(null);
   };
 
   const handleConfirmDelete = async () => {
@@ -168,10 +173,10 @@ export function CategoriesTab({ onEdit }: CategoriesTabProps) {
                       </button>
                       <button
                         onClick={() => handleDeleteClick(cat)}
-                        disabled={fetchingLinks}
+                        disabled={fetchingLinksFor === cat.id}
                         className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors disabled:opacity-50"
                       >
-                        {fetchingLinks ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        {fetchingLinksFor === cat.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                       </button>
                     </div>
                   </td>

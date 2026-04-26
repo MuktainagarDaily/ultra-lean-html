@@ -3,8 +3,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Eye, Trash2, ThumbsUp, ThumbsDown, Loader2, Inbox, X, MapPin, Download,
+  AlertTriangle, CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { formatTime, normalizePhone } from '@/lib/shopUtils';
 import { extractStoragePath } from './adminHelpers';
 import { renameShopImage } from '@/lib/storageNaming';
@@ -40,6 +45,7 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
   const [statusFilter, setStatusFilter] = useState<RequestStatus | 'all'>('pending');
   const [viewRequest, setViewRequest] = useState<ShopRequest | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'approve' | 'reject' | 'delete'; req: ShopRequest } | null>(null);
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ['admin-requests', statusFilter],
@@ -52,7 +58,7 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
     },
   });
 
-  // MINOR FIX: independent pending count so badge is correct regardless of statusFilter
+  // Independent pending count so the badge stays accurate regardless of statusFilter
   const { data: pendingCount = 0 } = useQuery({
     queryKey: ['admin-requests-pending-count'],
     queryFn: async () => {
@@ -68,8 +74,13 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
     setActionLoading(req.id);
 
     const normPhone = normalizePhone(req.phone);
-    const { data: allShops } = await supabase.from('shops').select('id, name, phone');
-    const dupeShop = (allShops || []).find((s) => s.phone && normalizePhone(s.phone) === normPhone);
+    // B5: check duplicates against both phone AND whatsapp columns
+    const { data: allShops } = await supabase.from('shops').select('id, name, phone, whatsapp');
+    const dupeShop = (allShops || []).find((s) => {
+      const p = s.phone ? normalizePhone(s.phone) : '';
+      const w = s.whatsapp ? normalizePhone(s.whatsapp) : '';
+      return p === normPhone || w === normPhone;
+    });
     if (dupeShop) {
       toast.error(`Phone ${req.phone} is already registered to "${dupeShop.name}". Resolve before approving.`);
       setActionLoading(null);
@@ -85,6 +96,8 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
     const normalizeArea = (s: string) =>
       s.trim().replace(/(^|[\s,])([a-z])/g, (_m, pre, ch) => pre + ch.toUpperCase());
 
+    const hasAnyHours = !!(req.opening_time || req.closing_time);
+
     const { data: inserted, error: insertError } = await supabase
       .from('shops')
       .insert([{
@@ -99,7 +112,9 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
         latitude: req.latitude || null,
         longitude: req.longitude || null,
         is_active: true,
-        is_open: true,
+        // B4: only force is_open=true when no hours captured; otherwise let DB default apply
+        // and isShopOpen() compute live status from times
+        ...(hasAnyHours ? {} : { is_open: true }),
         is_verified: false,
       } as any])
       .select('id')
@@ -276,7 +291,7 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
                         {req.status === 'pending' && (
                           <>
                             <button
-                              onClick={() => handleApprove(req)}
+                              onClick={() => setConfirmAction({ type: 'approve', req })}
                               disabled={actionLoading === req.id}
                               className="p-1.5 hover:bg-success/10 rounded-lg transition-colors disabled:opacity-50"
                               title="Approve"
@@ -285,7 +300,7 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
                               {actionLoading === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsUp className="w-4 h-4" />}
                             </button>
                             <button
-                              onClick={() => handleReject(req)}
+                              onClick={() => setConfirmAction({ type: 'reject', req })}
                               disabled={actionLoading === req.id}
                               className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg transition-colors disabled:opacity-50"
                               title="Reject"
@@ -295,7 +310,7 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
                           </>
                         )}
                         <button
-                          onClick={() => handleDelete(req)}
+                          onClick={() => setConfirmAction({ type: 'delete', req })}
                           disabled={actionLoading === req.id}
                           className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors disabled:opacity-50"
                           title="Delete request"
@@ -385,14 +400,14 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
             {viewRequest.status === 'pending' && (
               <div className="px-6 pb-6 flex gap-3 border-t border-border pt-4">
                 <button
-                  onClick={() => handleReject(viewRequest)}
+                  onClick={() => setConfirmAction({ type: 'reject', req: viewRequest })}
                   disabled={!!actionLoading}
                   className="flex-1 py-2.5 border border-border rounded-xl font-semibold text-destructive hover:bg-destructive/5 transition-colors text-sm disabled:opacity-50"
                 >
                   {actionLoading === viewRequest.id ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Reject'}
                 </button>
                 <button
-                  onClick={() => handleApprove(viewRequest)}
+                  onClick={() => setConfirmAction({ type: 'approve', req: viewRequest })}
                   disabled={!!actionLoading}
                   className="flex-1 py-2.5 rounded-xl font-bold text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                   style={{ background: 'hsl(var(--success))', color: 'hsl(var(--success-foreground))' }}
@@ -404,6 +419,70 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
           </div>
         </div>
       )}
+
+      {/* B3: Confirmation dialog for Approve / Reject / Delete */}
+      <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {confirmAction?.type === 'delete' && <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />}
+              {confirmAction?.type === 'reject' && <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />}
+              {confirmAction?.type === 'approve' && <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: 'hsl(var(--success))' }} />}
+              {confirmAction?.type === 'approve' && `Approve "${confirmAction.req.name}"?`}
+              {confirmAction?.type === 'reject' && `Reject "${confirmAction?.req.name}"?`}
+              {confirmAction?.type === 'delete' && `Delete "${confirmAction?.req.name}"?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                {confirmAction?.type === 'approve' && (
+                  <>
+                    <p>This will publish the listing to the public directory.</p>
+                    <ul className="text-xs space-y-1 pl-4 list-disc">
+                      <li>Phone <strong className="text-foreground">{confirmAction.req.phone}</strong> will be checked against existing shops.</li>
+                      {confirmAction.req.category_text && (
+                        <li>Category <strong className="text-foreground">"{confirmAction.req.category_text}"</strong> will be auto-mapped if it exists.</li>
+                      )}
+                      {confirmAction.req.image_url && <li>The submitted image will be renamed to the shop's slug.</li>}
+                    </ul>
+                  </>
+                )}
+                {confirmAction?.type === 'reject' && (
+                  <p>The request will be marked rejected. It will remain visible in the audit history but won't appear publicly.</p>
+                )}
+                {confirmAction?.type === 'delete' && (
+                  <p>
+                    The request and its uploaded image will be <strong className="text-foreground">permanently removed</strong>. This cannot be undone.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!actionLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!!actionLoading}
+              onClick={async () => {
+                if (!confirmAction) return;
+                const { type, req } = confirmAction;
+                setConfirmAction(null);
+                if (type === 'approve') await handleApprove(req);
+                else if (type === 'reject') await handleReject(req);
+                else await handleDelete(req);
+              }}
+              className={
+                confirmAction?.type === 'approve'
+                  ? ''
+                  : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              }
+            >
+              {actionLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Working…</> : (
+                confirmAction?.type === 'approve' ? 'Approve & Publish' :
+                confirmAction?.type === 'reject' ? 'Reject Request' : 'Delete Request'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

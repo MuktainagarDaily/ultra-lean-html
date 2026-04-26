@@ -1,52 +1,73 @@
-## Problem
+## Audit verification — what's real vs. not
 
-On `/shops`, when the user applies filters (areas, categories, availability, verified, search), opens a shop detail page, and presses **Back**, the filters disappear.
+I scanned `CategoriesTab.tsx`, `RequestsTab.tsx`, `ShopsTab.tsx`, `ShopModal.tsx`, and `AnalyticsTab.tsx` line-by-line and cross-checked every finding. Summary below — most are real, a few were over-stated, one is wrong.
 
-**Root cause** (`src/pages/Shops.tsx`):
-- Filter state is initialized from URL params **once** on mount (lines 43–54).
-- Applied filters (especially areas, verified, availability changes from the drawer, and typed search) are **never written back to the URL**.
-- `ShopDetail`'s back button uses `navigate(-1)`, which returns to the previous URL — which still reflects the original entry state, not the user's applied filters.
-- So Shops re-mounts with stale/empty params and resets to defaults.
+### ✅ Confirmed real (will fix in Phase 1)
+- **B1** — `fetchingLinks` is a single boolean; spins/disables all rows simultaneously.
+- **B3** — **HIGH SAFETY**. `handleDelete`, `handleApprove`, `handleReject` in `RequestsTab` all run instantly on icon click. No dialog. Deleting also wipes the storage image. Violates project rule.
+- **B6** — `s.phone?.replace(/\D/g, '').includes(q.replace(/\D/g, ''))` — when query is `"sharma"`, both sides become `""` and `''.includes('')` is `true`, so phone clause matches every shop with a phone. Name/area clauses still narrow via OR, but the OR makes the phone branch a no-op noise contributor.
+- **B7** — Confirmed: `ShopModal.tsx:279` fetches every shop with full category join just to find one duplicate. Easy win: server-side `.eq('phone', normalizedPhone)`.
+- **B10** — Confirmed: leftover `/* REwired Speed form to admin */` comment with awkward indent in `AdminDashboard.tsx`.
+- **D4** — Confirmed leftover comment in `RequestsTab.tsx:55`.
 
-## Fix
+### ⚠️ Real but smaller than stated
+- **B2** — `handleDeleteClick` doesn't destructure `error` from the supabase call. If it fails, dialog opens with empty `linkedShops` and says "safe to delete". Real, but low likelihood. Worth a 2-line fix.
+- **B4** — `is_open: true` is hardcoded on approval. Minor; `is_open` is a manual override flag, not derived. Will respect captured times: only force `true` when no times provided, otherwise leave default.
+- **B5** — Approval duplicate check only matches `phone`, not `whatsapp`. Real edge case; safe to widen.
 
-Make the URL the source of truth for filter state by syncing changes back into `searchParams` with `{ replace: true }` (so we don't bloat browser history with one entry per filter toggle). On back-navigation, the URL already carries the filters, and existing init logic restores them.
+### ❌ Not accurate / skip
+- **B8** — `.ilike('name', text)` *without* wildcards is functionally `iequal` (case-insensitive exact). The audit claims it would match "grocery shop" → "Grocery" — it won't, but it also won't *false-positive*. Behaviour is fine; no change. (Could improve by trimming + exact match for clarity, but not a bug.)
+- **B9** — Cosmetic only; tracked for Phase 3.
+- **D1/D2** — These are inside `ShopModal.tsx` which I haven't fully re-verified; I'll confirm before touching as part of Phase 1 cleanup. If real, remove.
 
-### Changes in `src/pages/Shops.tsx`
+---
 
-1. **Add a sync effect** that writes current filter state to URL whenever it changes:
-   ```ts
-   useEffect(() => {
-     const params = new URLSearchParams();
-     if (debouncedSearch) params.set('search', debouncedSearch);
-     if (availability === 'open') params.set('filter', 'open');
-     else if (verifiedOnly) params.set('filter', 'verified');
-     selectedAreas.forEach(a => params.append('area', a));
-     selectedCategories.forEach(c => params.append('category', c));
-     setSearchParams(params, { replace: true });
-   }, [debouncedSearch, availability, verifiedOnly, selectedAreas, selectedCategories]);
-   ```
-   - Uses `replace: true` so back button still goes to the previous *page*, not through every filter tweak.
-   - Switch the destructure to `const [searchParams, setSearchParams] = useSearchParams();`.
+## Phase 1 scope (this PR — bugs & safety only)
 
-2. **Expand initial state hydration** (lines 43–54) to read multi-value params:
-   - `searchParams.getAll('area')` → `selectedAreas` initial value
-   - `searchParams.getAll('category')` → merge with single `category` param for backward compat with existing links from Home/category redirects
-   - Keep existing `filter=open|verified` and `search` handling.
+Files touched: 4 (`RequestsTab.tsx`, `CategoriesTab.tsx`, `ShopsTab.tsx`, `ShopModal.tsx`, `AdminDashboard.tsx`)
+Net change: ~150–200 LOC. No new files. No DB changes. No new dependencies.
 
-3. **No changes needed** to ShopDetail or ShopCard — `navigate(-1)` will now return to a URL that already encodes the filters, and Shops will rehydrate them on mount.
+### 1. RequestsTab — add confirmation dialogs (B3, highest priority)
+- Add `AlertDialog`-based confirmations for **Delete**, **Approve**, **Reject** triggered from the row action buttons.
+- The Approve dialog summarizes: shop name, phone, whether category will be auto-mapped, whether image will be renamed.
+- The Reject dialog notes: "Request will be marked rejected and remain in audit history."
+- The Delete dialog warns: "Request and its uploaded image will be permanently removed."
+- Detail-modal actions (inside `viewRequest`) reuse the same confirm flow.
+- Remove the stale comment at line 55 (D4).
 
-### Why this is safe
+### 2. RequestsTab — widen duplicate check + smarter is_open (B4, B5)
+- Approval duplicate check now compares normalized phone against both `shops.phone` AND `shops.whatsapp`.
+- `is_open`: only set `true` when `opening_time` and `closing_time` are both null; otherwise omit the field and let the DB default apply (existing default is `true`, but at least we stop force-overriding any future logic).
 
-- `replace: true` prevents history pollution — back-button UX stays one-step-per-page.
-- Existing entry points (`/shops?category=Foo`, `/shops?filter=open`, `/shops?search=...`) keep working since the hydration step is a superset.
-- Shareable filtered URLs become a free bonus (e.g. user can copy URL with active filters).
-- Pure client-side; no DB / schema / env changes.
+### 3. CategoriesTab — per-row delete state + error handling (B1, B2)
+- Replace single `fetchingLinks` boolean with `fetchingLinksFor: string | null` so only the clicked row shows the spinner.
+- Destructure `error` from the `shop_categories` lookup; if it errors, toast and abort instead of opening a misleading "safe to delete" dialog.
 
-### Files to change
+### 4. ShopsTab — fix search no-op for non-numeric queries (B6)
+- Guard the phone/whatsapp clauses: only run digit-include checks when the query actually contains a digit (`/\d/.test(q)`). Removes false-broadening on text searches.
 
-| File | Change |
-|---|---|
-| `src/pages/Shops.tsx` | Use `setSearchParams`; add sync-to-URL effect; hydrate multi-value `area`/`category` params on mount |
+### 5. ShopModal — targeted duplicate-phone query (B7)
+- Replace the global `select('id, name, phone, area, shop_categories(categories(name, icon))')` with `.eq('phone', normalizedPhone).neq('id', currentShopId).limit(1)`.
+- Keep the existing duplicate-warning UI; just feed it from a much smaller query.
+- While in the file, remove the dead `croppedBlob` state and unused `mapsLink` setter (D1, D2) — only if confirmed dead on a final read.
 
-No other files, no DB migrations, no `.env` changes.
+### 6. AdminDashboard — cosmetic cleanup (B10)
+- Remove the `/* REwired Speed form to admin */` comment and re-indent the `SpeedShopModal` JSX block cleanly.
+
+---
+
+## Out of scope (deferred to later phases — your call)
+
+**Phase 2 (perf + shared utils):** P1 (stats `staleTime`), P3 (slim AnalyticsTab query), P4 (batch CSV inserts), D7 (`csvDownload` util), D8 (`csvParse` util). Touches AnalyticsTab and creates `src/lib/csvUtils.ts`.
+
+**Phase 3 (UX polish):** U1 (badge clipping), U3 (toolbar wrap), U4 (sortable tables), U6 (Speed Add autosave), U7 (Dialog for request detail), U9 (`isFetching` indicator), U10 (keyboard shortcuts), U12 (`--whatsapp` token).
+
+**Skipping entirely:** B8 (not a bug), B9 (Phase 3 only if you want it), S2 (extra confirmation on hide-shop — adds friction for a routine action; the action is already reversible), S3/S4 (low value, edge cases), D5/D6 (premature), U2/U5/U8/U11/U13 (subjective polish).
+
+---
+
+## Why this scope
+- Phase 1 is **150–200 LOC across 5 files**, all surgical, all verifiable in the preview.
+- It fixes the only **HIGH-severity** finding (B3 — destructive actions with no confirmation), the only correctness bug that affects user-visible search results (B6), and the only meaningful perf bug (B7).
+- Zero new files, zero new deps, zero DB changes — safe to revert if anything regresses.
+- Phases 2 & 3 should be separate approvals so you can review impact in isolation.

@@ -157,17 +157,17 @@ export default function AdminDashboard() {
           }}
         />
       )}
-      {showSpeedForm && (   /* REwired Speed form to admin */         
-   <SpeedShopModal
-     onClose={() => setShowSpeedForm(false)}
-     onDone={() => {
-       setShowSpeedForm(false);
-       qc.invalidateQueries({ queryKey: ['admin-shops'] });
-       qc.invalidateQueries({ queryKey: ['admin-stats'] });
-       qc.invalidateQueries({ queryKey: ['shops'] });
-     }}
-   />
- )}
+      {showSpeedForm && (
+        <SpeedShopModal
+          onClose={() => setShowSpeedForm(false)}
+          onDone={() => {
+            setShowSpeedForm(false);
+            qc.invalidateQueries({ queryKey: ['admin-shops'] });
+            qc.invalidateQueries({ queryKey: ['admin-stats'] });
+            qc.invalidateQueries({ queryKey: ['shops'] });
+          }}
+        />
+      )}
     </div>
   );
 }

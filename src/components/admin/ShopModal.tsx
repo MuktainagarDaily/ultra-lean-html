@@ -65,10 +65,8 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
   const [mapsLinkError, setMapsLinkError] = useState('');
   const [parsedPreview, setParsedPreview] = useState<{ lat: number; lng: number; rawUrl: string } | null>(null);
   const [locating, setLocating]           = useState(false);
-  const [mapsLink, setMapsLink]           = useState('');
 
-  // Crop state
-  const [croppedBlob, setCroppedBlob]   = useState<Blob | null>(null);
+  // Crop preview (cropped blob is uploaded immediately inside handleCropComplete; no state needed)
   const [cropPreview, setCropPreview]   = useState('');
 
   const { data: categories = [] } = useQuery({
@@ -124,7 +122,7 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setForm((f) => ({ ...f, latitude: pos.coords.latitude.toFixed(6), longitude: pos.coords.longitude.toFixed(6) }));
-        setMapsLink(''); setParsedPreview(null); setMapsLinkInput(''); setLocating(false);
+        setParsedPreview(null); setMapsLinkInput(''); setLocating(false);
         toast.success('Location captured!');
       },
       (err) => {
@@ -151,13 +149,13 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
   const confirmLocation = () => {
     if (!parsedPreview) return;
     setForm((f) => ({ ...f, latitude: parsedPreview.lat.toFixed(6), longitude: parsedPreview.lng.toFixed(6) }));
-    setMapsLink(parsedPreview.rawUrl);
+    
     setParsedPreview(null); setMapsLinkInput(''); setMapsLinkError('');
   };
 
   const clearLocation = () => {
     setForm((f) => ({ ...f, latitude: '', longitude: '' }));
-    setMapsLink(''); setParsedPreview(null); setMapsLinkInput(''); setMapsLinkError('');
+    setParsedPreview(null); setMapsLinkInput(''); setMapsLinkError('');
   };
 
   /* ── Validation ─────────────────────────────────────────────── */
@@ -176,7 +174,6 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
 
   /* ── Image crop ─────────────────────────────────────────────── */
   const handleCropComplete = async (blob: Blob, previewDataUrl: string) => {
-    setCroppedBlob(blob);
     setCropPreview(previewDataUrl);
     // Upload immediately so it's ready for save — name file after shop slug
     setUploading(true);
@@ -202,7 +199,7 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
   };
 
   const handleCropClear = () => {
-    setCroppedBlob(null); setCropPreview('');
+    setCropPreview('');
     // Restore original image URL on clear (don't wipe it unless user explicitly cleared)
     setForm((f) => ({ ...f, image_url: oldImageUrl.current || '' }));
   };
@@ -276,8 +273,14 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
     setSaving(true);
     const normalizedPhone = normalizePhone(form.phone);
     if (normalizedPhone) {
-      const { data: allPhones } = await supabase.from('shops').select('id, name, phone, area, shop_categories(categories(name, icon))');
-      const dupeRaw = allPhones?.find((s: any) => s.id !== shop.id && s.phone && normalizePhone(s.phone) === normalizedPhone);
+      // B7 fix: targeted server-side query instead of fetching every shop + categories
+      const { data: candidates } = await supabase
+        .from('shops')
+        .select('id, name, phone, area, shop_categories(categories(name, icon))')
+        .eq('phone', normalizedPhone)
+        .neq('id', shop.id || '00000000-0000-0000-0000-000000000000')
+        .limit(1);
+      const dupeRaw = candidates?.[0];
       if (dupeRaw) {
         const cats = ((dupeRaw as any).shop_categories || []).map((sc: any) => sc.categories).filter(Boolean) as { name: string; icon: string }[];
         setDupePhoneShop({ id: dupeRaw.id, name: dupeRaw.name, phone: dupeRaw.phone, area: dupeRaw.area, categories: cats });
