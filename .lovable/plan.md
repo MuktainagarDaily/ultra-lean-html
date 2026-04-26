@@ -1,73 +1,58 @@
-## Goal
-Make every shop image filename in the `shop-images` storage bucket **derived from the shop name** (slug), with a numeric suffix only when needed for uniqueness. Apply this to **new uploads** and **rename existing files** so the bucket becomes browseable and matchable to shops.
+## Root cause
 
----
+The previous fix raised the autocomplete dropdown's `z-index` to `z-[999]`, but the dropdown is **still being hidden** — not behind other sections, but **clipped by its parent**.
 
-## Naming convention
+In `src/pages/Home.tsx` line 402, the `<header>` element has:
 
-Format: `{shop-name-slug}.webp` or `{shop-name-slug}-{n}.webp` when the slug is already taken.
+```tsx
+className="text-primary-foreground px-4 pt-7 pb-6 relative overflow-hidden"
+```
 
-Rules:
-- Slug = lowercase, ASCII, hyphen-separated, stripped of punctuation (e.g. "Sai Kirana Stores!" → `sai-kirana-stores`)
-- Max slug length 60 chars
-- Empty/unknown name → fallback `shop`
-- Collision handling: probe `slug.webp`, then `slug-1.webp`, `slug-2.webp`, … until a free name is found (probe via `storage.list` with a prefix filter — no upsert, no overwrite of unrelated files)
-- Requests (pre-approval, no real shop yet) use `request-{slug}` prefix so they're easy to spot and clean up; on approval, the file gets renamed to the final shop slug
+The `overflow-hidden` is required to contain three decorative absolute layers inside the header (lines 407–421): a top-right white radial blob, a bottom-left secondary blob, and a faint grid overlay. These all use `absolute inset-0` with translate offsets and would visually leak outside the header without clipping.
 
----
+The autocomplete dropdown (`absolute top-full mt-1`, line 485) is rendered **inside this header**. When it extends below the header's bottom edge into the area where "Recently Added" sits, it gets visually **cut off by `overflow-hidden`** — `z-index` cannot escape an `overflow-hidden` ancestor. That's why only the first ~2 suggestions are visible: they fit within the header's residual padding; the rest are clipped.
 
-## Part A — New uploads (code changes)
+## Fix
 
-**1. Shared helper** `src/lib/storageNaming.ts` (new):
-- `slugifyShopName(name: string): string`
-- `findAvailableImagePath(baseSlug: string, prefix?: string): Promise<string>` — lists bucket with the slug prefix, picks the first free `slug.webp` / `slug-N.webp`
-- `uploadShopImage(blob: Blob, shopName: string, opts?: { prefix?: string }): Promise<{ path: string; publicUrl: string }>`
-- `renameShopImage(oldPath: string, newShopName: string): Promise<{ path: string; publicUrl: string }>` — uses `storage.move`
+Move the decorative layers into a dedicated **clipping wrapper** so the header itself no longer needs `overflow-hidden`. The dropdown can then extend freely below the header and float over "Recently Added" thanks to its existing `z-[999]`.
 
-**2. Wire it into the three upload sites:**
-- `src/components/admin/ShopModal.tsx` — replace inline slug+timestamp logic; on shop **rename**, also call `renameShopImage` so the file follows the new name
-- `src/components/admin/SpeedShopModal.tsx` — replace random `speed-…` name with the helper
-- `src/components/RequestListingModal.tsx` — use `request-{slug}` prefix; rename to final slug inside `RequestsTab.tsx` when admin approves a request
+### `src/pages/Home.tsx` — lines 401–422
 
-**3. Old-image cleanup** stays intact (existing `extractStoragePath` + `.remove()` on replace).
+**Change 1**: Remove `overflow-hidden` from the `<header>` element.
 
----
+```diff
+- <header
+-   className="text-primary-foreground px-4 pt-7 pb-6 relative overflow-hidden"
++ <header
++   className="text-primary-foreground px-4 pt-7 pb-6 relative"
+    style={{
+      background: 'linear-gradient(145deg, hsl(var(--primary)) 0%, hsl(214 85% 28%) 60%, hsl(215 90% 22%) 100%)',
+    }}
+  >
+```
 
-## Part B — Rename existing files (one-time migration)
+**Change 2**: Wrap the three decorative divs (lines 407–421) in a single `absolute inset-0 overflow-hidden pointer-events-none` container. The wrapper clips the blobs/grid; the header itself no longer clips its children.
 
-A new admin-only tool inside the existing **Data Quality** tab (`src/components/admin/DataQualityTab.tsx`) called **"Rename Shop Images"**:
+```tsx
+<div className="absolute inset-0 overflow-hidden pointer-events-none">
+  {/* existing top-right blob */}
+  {/* existing bottom-left blob */}
+  {/* existing grid overlay */}
+</div>
+```
 
-Flow:
-1. Loads all shops with `image_url`
-2. For each, computes target slug from `shops.name`
-3. Shows a preview table: `current filename → proposed filename` with status (OK / collision-resolved / skip)
-4. **Dry-run by default** — admin reviews, then clicks "Apply rename"
-5. On apply, per shop:
-   - Resolve collision via `findAvailableImagePath`
-   - `storage.move(oldPath, newPath)`
-   - Update `shops.image_url` to the new public URL
-   - Show progress + per-row result, stop-on-error toggle
-6. Orphan scan (optional second button): list files in bucket whose path is not referenced by any `shops.image_url` — surface for manual review (do NOT auto-delete; matches project's "safe storage cleanup" rule)
+That's it — no other changes. The dropdown's existing `z-[999]` and `top-full` positioning will then correctly float above the "Recently Added" section, the trust strip, and the categories section beneath the header.
 
-No SQL migration needed — this is a data move, not a schema change. No DB structure changes.
+### Why not other approaches
 
----
+- **Move dropdown to a portal** — overkill, adds positioning complexity for what is purely a CSS clipping issue.
+- **Position dropdown `fixed`** — would break alignment on resize/scroll and complicate width calculation.
+- **Open dropdown upward (`bottom-full`)** — was discussed earlier; awkward UX since the search bar is already near the top of the page and the dropdown would cover the brand title.
 
-## Safety rules honored
-- No `upsert: true` on the new uploads (prevents accidental overwrite of an unrelated shop's image that happens to share a slug)
-- Old image is removed only after the new upload succeeds (existing pattern preserved)
-- Rename tool is admin-only, dry-run first, reversible per row (we keep the old URL in memory until the DB row is updated)
-- Public read continues to work — bucket stays public, only paths change
-- No changes to `.env`, no schema changes, no Cloud changes
+## Files to change
 
----
+| File | Change |
+|---|---|
+| `src/pages/Home.tsx` | Remove `overflow-hidden` from `<header>`; wrap the 3 decorative blobs/grid in a single `absolute inset-0 overflow-hidden pointer-events-none` clipping div |
 
-## Files changed
-- **new** `src/lib/storageNaming.ts`
-- `src/components/admin/ShopModal.tsx`
-- `src/components/admin/SpeedShopModal.tsx`
-- `src/components/RequestListingModal.tsx`
-- `src/components/admin/RequestsTab.tsx` (rename request image → shop slug on approval)
-- `src/components/admin/DataQualityTab.tsx` (new "Rename Shop Images" panel)
-
-No edits to: `.env`, DB schema, RLS, public pages, search, or any unrelated admin flow.
+No database, env, or other file changes.

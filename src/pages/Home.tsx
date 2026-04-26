@@ -399,26 +399,30 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       {/* Hero Header */}
       <header
-        className="text-primary-foreground px-4 pt-7 pb-6 relative overflow-hidden"
+        className="text-primary-foreground px-4 pt-7 pb-6 relative"
         style={{
           background: 'linear-gradient(145deg, hsl(var(--primary)) 0%, hsl(214 85% 28%) 60%, hsl(215 90% 22%) 100%)',
         }}
       >
-        <div
-          className="absolute top-0 right-0 w-56 h-56 rounded-full opacity-[0.08] pointer-events-none"
-          style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(35%, -35%)' }}
-        />
-        <div
-          className="absolute bottom-0 left-0 w-36 h-36 rounded-full opacity-[0.07] pointer-events-none"
-          style={{ background: 'radial-gradient(circle, hsl(var(--secondary)), transparent)', transform: 'translate(-35%, 35%)' }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.04] pointer-events-none"
-          style={{
-            backgroundImage: 'linear-gradient(hsl(var(--primary-foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary-foreground)) 1px, transparent 1px)',
-            backgroundSize: '32px 32px',
-          }}
-        />
+        {/* Decorative blobs/grid — clipped by their own wrapper so the header itself
+            does not clip the autocomplete dropdown that extends below it. */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div
+            className="absolute top-0 right-0 w-56 h-56 rounded-full opacity-[0.08]"
+            style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(35%, -35%)' }}
+          />
+          <div
+            className="absolute bottom-0 left-0 w-36 h-36 rounded-full opacity-[0.07]"
+            style={{ background: 'radial-gradient(circle, hsl(var(--secondary)), transparent)', transform: 'translate(-35%, 35%)' }}
+          />
+          <div
+            className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage: 'linear-gradient(hsl(var(--primary-foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary-foreground)) 1px, transparent 1px)',
+              backgroundSize: '32px 32px',
+            }}
+          />
+        </div>
 
         <div className="max-w-lg mx-auto relative z-10">
           {/* Brand Row — logo+title centered, menu button pinned to right */}
